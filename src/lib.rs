@@ -1,4 +1,5 @@
 pub mod error;
+pub mod parser;
 
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
