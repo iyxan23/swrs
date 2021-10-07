@@ -11,11 +11,8 @@ pub enum SWRSError {
     IOError(io::Error),
 }
 
+#[derive(Debug)]
 pub struct ParseError {
-    title: String,
-    description: String,
-    line: u16,
-    column: u16,
-    length: u16,
-    snippet: u16,
+    pub title: String,
+    pub description: String,
 }
