@@ -23,7 +23,7 @@ impl File {
 
         let mut cur_section = FileSection::None;
 
-        for line in file.split("\n") {
+        for (ln, line) in file.split("\n").enumerate() {
             if line == "@activity" {
                 cur_section = FileSection::Activity;
                 continue;
@@ -38,8 +38,8 @@ impl File {
                 return SWRSResult::Err(
                     SWRSError::ParseError(
                         ParseError {
-                            title: "Failed to parse json on a line in file".to_string(),
-                            description: format!("Line: \n\t{}\nErr: {}", line, parse_result.unwrap_err())
+                            title: format!("Failed to parse json at line {} in file", ln),
+                            description: format!("Line {}: \n\t{}\nErr: {}", ln, line, parse_result.unwrap_err())
                         }
                     )
                 );
