@@ -1,12 +1,12 @@
 use crate::error::{SWRSResult, SWRSError, ParseError};
 use chrono::NaiveDate;
-use std::fmt::{Display, Formatter, Debug};
+use std::fmt::{Formatter, Display, Debug};
 
 /// A struct that stores project metadata (came from the data/project file)
 ///
 /// To parse a project JSON, simply do:
 /// ```
-/// use swrs::parser::Project;
+/// use swrs::parser::project::Project;
 ///
 /// // ...
 /// let parsed_project = Project::parse(decrypted_project);
@@ -156,14 +156,4 @@ impl Debug for Color {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
     }
-}
-
-#[derive(Debug)]
-pub struct RawDecryptedSketchwareProject {
-    pub project: String,
-    pub file: String,
-    pub logic: String,
-    pub view: String,
-    pub library: String,
-    pub resource: String,
 }

@@ -1,5 +1,7 @@
 extern crate swrs;
 
+use swrs::parser::project::Project;
+
 fn main() {
     let project = r#"
 {
@@ -19,5 +21,5 @@ fn main() {
     "color_primary_dark": -1.674323E7
 }"#;
 
-    println!("{:?}", swrs::parser::Project::parse(project));
+    println!("{:?}", Project::parse(project));
 }
