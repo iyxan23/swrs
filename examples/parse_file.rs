@@ -7,5 +7,5 @@ fn main() {
 {"fileName":"main","fileType":0,"keyboardSetting":0,"options":1,"orientation":0,"theme":-1}
 @customview"#;
 
-    println!("{:?}", File::parse(file));
+    println!("{:?}", File::parse(file).unwrap());
 }

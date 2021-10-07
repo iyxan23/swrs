@@ -21,5 +21,5 @@ fn main() {
     "color_primary_dark": -1.674323E7
 }"#;
 
-    println!("{:?}", Project::parse(project));
+    println!("{:?}", Project::parse(project).unwrap());
 }
