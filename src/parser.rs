@@ -35,9 +35,9 @@ impl Color {
 
     pub fn rgb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
 
-    pub fn red(&self) -> u8 { (self.value >> 0 & 0b111111111) as u8 }
+    pub fn red(&self) -> u8 { (self.value >> 16 & 0b111111111) as u8 }
     pub fn green(&self) -> u8 { (self.value >> 8 & 0b111111111) as u8 }
-    pub fn blue(&self) -> u8 { (self.value >> 16 & 0b111111111) as u8 }
+    pub fn blue(&self) -> u8 { (self.value >> 0 & 0b111111111) as u8 }
 }
 
 impl From<u32> for Color {
