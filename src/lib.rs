@@ -1,7 +1,8 @@
 pub mod error;
 pub mod parser;
 
-// TODO: Convert .unwrap()s to returning an Err instead on the parsers
+// TODO: PARSERs: Convert .unwrap()s to returning an Err instead
+// TODO: PARSERs: Tolerate newline at the end of a project file
 
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
