@@ -1,5 +1,6 @@
 pub mod project;
 pub mod file;
+pub mod library;
 
 #[derive(Debug)]
 pub struct RawDecryptedSketchwareProject {

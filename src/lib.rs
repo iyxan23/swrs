@@ -1,6 +1,8 @@
 pub mod error;
 pub mod parser;
 
+// TODO: Convert .unwrap()s to returning an Err instead on the parsers
+
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
 use block_modes::{Cbc, BlockMode};
