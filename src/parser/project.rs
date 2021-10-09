@@ -157,3 +157,9 @@ impl Debug for Color {
         f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
     }
 }
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::from_rgb(0, 0, 0)
+    }
+}

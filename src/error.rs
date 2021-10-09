@@ -16,3 +16,12 @@ pub struct ParseError {
     pub title: String,
     pub description: String,
 }
+
+impl ParseError {
+    pub fn new(title: &str, desc: &str) -> Self {
+        ParseError {
+            title: title.to_string(),
+            description: desc.to_string()
+        }
+    }
+}
