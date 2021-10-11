@@ -1,22 +1,25 @@
 use std::collections::HashMap;
-use json::JsonValue;
 use crate::error::{SWRSResult, SWRSError, ParseError};
 use crate::parser::project::Color;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct ProjectView {
-    pub activities: Vec<Screen>,
-    pub custom_views: Vec<Screen>,
+    pub screens: Vec<Screen>,
 }
 
+// TODO: instead of reading line by line, what about splitting the entire view by "\n@" so that it
+//       would only split each screens with its name on the first line
+
 impl ProjectView {
-    pub fn parse<S: AsRef<str>>(file: S) -> SWRSResult<ProjectView> {
-        let file = file.as_ref();
+    pub fn parse<S: AsRef<str>>(view: S) -> SWRSResult<ProjectView> {
+        let file = view.as_ref();
         //                 screen name   screen
         let mut screens: HashMap<String, Screen> = HashMap::new();
+        let mut current_screen: Option<String> = None;
 
         let mut iterator = file.split("\n");
 
+        // TODO: Move these screen parse code over to Screen
         loop {
             let line = iterator.next();
             if line.is_none() { break }
@@ -26,7 +29,8 @@ impl ProjectView {
                 // this is a screen
                 let screen_name = &line[1..line.len() - 4];
                 if !screens.contains_key(screen_name) {
-                    screens.insert(screen_name.to_string(), Screen::new_empty(screen_name.to_string()))
+                    screens.insert(screen_name.to_string(), Screen::new_empty(screen_name.to_string()));
+                    current_screen = Option::Some(screen_name.to_string())
                 } else {
                     // TODO: warning: there are multiple screens with the same name
                     unreachable!();
@@ -48,7 +52,7 @@ impl ProjectView {
                 let fab_line = fab_line.unwrap();
                 let fab_view = View::parse(fab_line.to_string())?;
 
-                if screens.contains_key(&screen_name) {
+                if screens.contains_key(screen_name) {
                     screens
                         .get_mut(screen_name)
                         .unwrap()
@@ -58,12 +62,27 @@ impl ProjectView {
                         .insert(
                             screen_name.to_string(),
                             Screen::new_empty_with_fab(screen_name.to_string(), fab_view)
-                        )
+                        );
                 }
+            } else {
+                // this is a view of a screen, probably
+                let view = View::parse(line.to_string());
+
+                // if we failed to parse the view, then just skip it, this might just be a blank space between another screen / fab
+                if view.is_err() { continue }
+
+                let view = view.unwrap();
+
+                // push the view on the topmost screen
+                screens
+                    .get_mut(current_screen.clone().unwrap().as_str())
+                    .unwrap()
+                    .views
+                    .push(view);
             }
         }
 
-        Ok(ProjectView { activities, custom_views })
+        Ok(ProjectView { screens: screens.drain().map(|s| s.1).collect() })
     }
 }
 
@@ -82,7 +101,7 @@ impl ProjectView {
 /// @main.xml_fab
 /// {"adSize":"","adUnitId":"", ... "type":16} <- This is that one weird FAB view where the type is always 16
 /// ```
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Screen {
     pub name: String,
     pub views: Vec<View>,
@@ -180,6 +199,7 @@ impl Screen {
 ///     "type":0
 /// }
 /// ```
+#[derive(Debug)]
 pub struct View {
     // What this View is. TODO: Enum
     pub r#type: u8,
@@ -195,7 +215,7 @@ pub struct View {
     pub translation_x: f32,
     pub translation_y: f32,
     pub parent: Option<String>, // This is an Option<> because FAB views doesn't have parent for an unknown reason
-    pub parent_type: u8, // TODO: Enum,
+    pub parent_type: i8, // TODO: Enum,
 
     // Views that have text
     pub text: TextConfig,
@@ -208,7 +228,7 @@ pub struct View {
     pub checked: bool,
 
     // Spinner-specific
-    pub choice_mode: bool,
+    pub choice_mode: u8, // TODO: Enum
 
     // ListView and Spinner specific
     pub custom_view: String,
@@ -217,7 +237,7 @@ pub struct View {
     pub spinner_mode: u8,
 
     // ListView-specific
-    pub divider_height: u8,
+    pub divider_height: u16,
 
     // ImageView-specific
     pub image: ImageConfig,
@@ -233,25 +253,25 @@ pub struct View {
     pub index: u16,
     pub pre_id: Option<String>, // This is an Option<> because FAB views doesn't have pre_id for an unknown reason
     pub pre_index: u16,
-    pub pre_parent: String,
+    pub pre_parent: Option<String>, // This is an Option<> because FAB views doesn't have this for an unknown reason
     pub pre_parent_type: u8,
 }
 
 #[derive(Debug)]
 pub struct ImageConfig {
-    pub res_name: String,
+    pub res_name: Option<String>,
     pub rotate: u16,
     pub scale_type: String // TODO: Enum
 }
 
 #[derive(Debug)]
 pub struct LayoutConfig {
-    pub height: u16,
-    pub width: u16,
+    pub height: Size,
+    pub width: Size,
     pub background_color: Color,
     pub gravity: u8, // TODO: Enum
     pub layout_gravity: u8, // TODO: Enum
-    pub orientation: u8, // TODO: Enum
+    pub orientation: i8, // TODO: Enum
     pub margin_bottom: u16,
     pub margin_left: u16,
     pub margin_right: u16,
@@ -265,17 +285,39 @@ pub struct LayoutConfig {
 }
 
 #[derive(Debug)]
+pub enum Size {
+    MatchParent,
+    WrapContent,
+    Fixed(u16)
+}
+
+impl From<i16> for Size {
+    fn from(num: i16) -> Self {
+        if num == -1 {
+            Size::WrapContent
+        } else if num == -2 {
+            Size::MatchParent
+        } else if num > 0 {
+            Size::Fixed(num as u16)
+        } else {
+            // weird, the num is negative but its not -1 or -2
+            Size::Fixed(0)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TextConfig {
     pub hint: String,
     pub hint_color: Color,
     pub ime_option: u8, // TODO: Enum
     pub input_type: u8, // TODO: Enum
-    pub line: u8, // line count
+    pub line: u16, // line count
     pub single_line: bool,
     pub text: String,
     pub text_color: Color,
     pub text_font: String,
-    pub text_size: String,
+    pub text_size: u16,
     pub text_type: u8, // TODO: Enum
 }
 
@@ -295,73 +337,84 @@ impl View {
 
         let parsed = parsed.unwrap();
 
-        // TODO: DO THIS
         Ok(
             View {
-                r#type: 0,
-                id: "".to_string(),
-                alpha: 0.0,
-                layout: LayoutConfig {
-                    height: 0,
-                    width: 0,
-                    background_color: Default::default(),
-                    gravity: 0,
-                    layout_gravity: 0,
-                    orientation: 0,
-                    margin_bottom: 0,
-                    margin_left: 0,
-                    margin_right: 0,
-                    margin_top: 0,
-                    padding_bottom: 0,
-                    padding_left: 0,
-                    padding_right: 0,
-                    padding_top: 0,
-                    weight: 0,
-                    weight_sum: 0
+                r#type: parsed["type"].as_u8().unwrap(),
+                id: parsed["id"].as_str().unwrap().to_string(),
+                alpha: parsed["alpha"].as_f32().unwrap(),
+                layout: {
+                    let layout = &parsed["layout"];
+
+                    LayoutConfig {
+                        height: Size::from(layout["height"].as_i16().unwrap()),
+                        width: Size::from(layout["width"].as_i16().unwrap()),
+                        background_color: Color::from(layout["backgroundColor"].as_f32().unwrap() as i32 as u32),
+                        gravity: layout["gravity"].as_u8().unwrap(),
+                        layout_gravity: layout["layoutGravity"].as_u8().unwrap(),
+                        orientation: layout["orientation"].as_i8().unwrap(),
+                        margin_bottom: layout["marginBottom"].as_u16().unwrap(),
+                        margin_left: layout["marginLeft"].as_u16().unwrap(),
+                        margin_right: layout["marginRight"].as_u16().unwrap(),
+                        margin_top: layout["marginTop"].as_u16().unwrap(),
+                        padding_bottom: layout["paddingBottom"].as_u16().unwrap(),
+                        padding_left: layout["paddingLeft"].as_u16().unwrap(),
+                        padding_right: layout["paddingRight"].as_u16().unwrap(),
+                        padding_top: layout["paddingTop"].as_u16().unwrap(),
+                        weight: layout["weight"].as_u16().unwrap(),
+                        weight_sum: layout["weightSum"].as_u16().unwrap(),
+                    }
                 },
-                enabled: false,
-                clickable: false,
-                scale_x: 0.0,
-                scale_y: 0.0,
-                translation_x: 0.0,
-                translation_y: 0.0,
-                parent: "".to_string(),
-                parent_type: 0,
-                text: TextConfig {
-                    hint: "".to_string(),
-                    hint_color: Default::default(),
-                    ime_option: 0,
-                    input_type: 0,
-                    line: 0,
-                    single_line: false,
-                    text: "".to_string(),
-                    text_color: Default::default(),
-                    text_font: "".to_string(),
-                    text_size: "".to_string(),
-                    text_type: 0
+                enabled: parsed["enabled"].as_u8().unwrap() == 1,
+                clickable: parsed["clickable"].as_u8().unwrap() == 1,
+                scale_x: parsed["scaleX"].as_f32().unwrap(),
+                scale_y: parsed["scaleY"].as_f32().unwrap(),
+                translation_x: parsed["translationX"].as_f32().unwrap(),
+                translation_y: parsed["translationY"].as_f32().unwrap(),
+                parent: parsed["parent"].as_str().map(|s| s.to_string()),
+                parent_type: parsed["parentType"].as_i8().unwrap(),
+                text: {
+                    let text = &parsed["text"];
+
+                    TextConfig {
+                        hint: text["hint"].as_str().unwrap().to_string(),
+                        hint_color: Color::from(text["hintColor"].as_f32().unwrap() as i32 as u32),
+                        ime_option: text["imeOption"].as_u8().unwrap(),
+                        input_type: text["inputType"].as_u8().unwrap(),
+                        line: text["line"].as_u16().unwrap(),
+                        single_line: text["singleLine"].as_u8().unwrap() == 1,
+                        text: text["text"].as_str().unwrap().to_string(),
+                        text_color: Color::from(text["textColor"].as_f32().unwrap() as i32 as u32),
+                        text_font: text["textFont"].as_str().unwrap().to_string(),
+                        text_size: text["textSize"].as_u16().unwrap(),
+                        text_type: text["textType"].as_u8().unwrap(),
+                    }
                 },
-                ad_size: "".to_string(),
-                ad_unit_id: "".to_string(),
-                checked: false,
-                choice_mode: false,
-                custom_view: "".to_string(),
-                spinner_mode: 0,
-                divider_height: 0,
-                image: ImageConfig {
-                    res_name: "".to_string(),
-                    rotate: 0,
-                    scale_type: "".to_string()
+                ad_size: parsed["adSize"].as_str().unwrap().to_string(),
+                ad_unit_id: parsed["adUnitId"].as_str().unwrap().to_string(),
+                checked: parsed["checked"].as_u8().unwrap() == 1,
+                choice_mode: parsed["choiceMode"].as_u8().unwrap(),
+                custom_view: parsed["customView"].as_str().unwrap().to_string(),
+                spinner_mode: parsed["spinnerMode"].as_u8().unwrap(),
+                divider_height: parsed["dividerHeight"].as_u16().unwrap(),
+                image: {
+                    let image = &parsed["image"];
+
+                    ImageConfig {
+                        res_name: image["resName"].as_str().map(|s| s.to_string()),
+                        rotate: image["rotate"].as_u16().unwrap(),
+                        scale_type: image["scaleType"].as_str().unwrap().to_string(),
+                    }
                 },
-                indeterminate: false,
-                max: 0,
-                progress: 0,
-                progress_style: "".to_string(),
-                first_day_of_week: 0,
-                index: 0,
-                pre_id: "".to_string(),
-                pre_index: 0,
-                pre_parent: "".to_string(),
-                pre_parent_type: 0
+                indeterminate: parsed["indeterminate"].as_str().unwrap() == "true",
+                max: parsed["max"].as_u8().unwrap(),
+                progress: parsed["progress"].as_u8().unwrap(),
+                progress_style: parsed["progressStyle"].as_str().unwrap().to_string(),
+                first_day_of_week: parsed["firstDayOfWeek"].as_u8().unwrap(),
+                index: parsed["index"].as_u16().unwrap(),
+                pre_id: parsed["preId"].as_str().map(|s| s.to_string()),
+                pre_index: parsed["preIndex"].as_u16().unwrap(),
+                pre_parent: parsed["preParent"].as_str().map(|s| s.to_string()),
+                pre_parent_type: parsed["preParentType"].as_u8().unwrap()
             }
         )
     }

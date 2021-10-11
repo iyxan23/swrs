@@ -122,6 +122,7 @@ pub struct Colors {
     pub control_highlight: Color,
 }
 
+#[derive(Eq, PartialEq)]
 pub struct Color {
     /// The RGB color is represented as: 0xffRRGGBB
     value: u32
