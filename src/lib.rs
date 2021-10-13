@@ -1,5 +1,7 @@
 pub mod error;
 pub mod parser;
+pub mod color;
+pub(crate) mod utils;
 
 // TODO: PARSERs: Convert .unwrap()s to returning an Err instead
 // TODO: PARSERs: Tolerate newline at the end of a project file

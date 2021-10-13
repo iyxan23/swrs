@@ -1,6 +1,9 @@
 use crate::error::{SWRSResult, SWRSError, ParseError};
 use chrono::NaiveDate;
 use std::fmt::{Formatter, Display, Debug};
+use crate::color::Color;
+use crate::parser::SWRSParser;
+use crate::utils::get_and_check;
 
 /// A struct that stores project metadata (came from the data/project file)
 ///
@@ -9,7 +12,7 @@ use std::fmt::{Formatter, Display, Debug};
 /// use swrs::parser::project::Project;
 ///
 /// // ...
-/// let parsed_project = Project::parse(decrypted_project);
+/// let parsed_project = Project::parse(decrypted_project).unwrap();
 /// // ...
 /// ```
 ///
@@ -64,8 +67,8 @@ pub struct Project {
     pub sketchware_version: u8,
 }
 
-impl Project {
-    pub fn parse<S: AsRef<str>>(project: S) -> SWRSResult<Project> {
+impl SWRSParser<Project> for Project {
+    fn parse(project: String) -> SWRSResult<Project> {
         let parsed = json::parse(project.as_ref());
 
         if parsed.is_err() {
@@ -81,19 +84,19 @@ impl Project {
         let project_json = parsed.unwrap();
 
         Ok(Project {
-            custom_icon: project_json["custom_icon"].as_bool().unwrap(),
-            project_id: project_json["sc_id"].as_str().unwrap().parse::<u16>().unwrap(),
-            app_name: project_json["my_app_name"].as_str().unwrap().to_string(),
-            package_name: project_json["my_sc_pkg_name"].as_str().unwrap().to_string(),
-            workspace_name: project_json["my_ws_name"].as_str().unwrap().to_string(),
-            version_code: project_json["sc_ver_code"].as_str().unwrap().parse::<u8>().unwrap(),
-            version_name: project_json["sc_ver_name"].as_str().unwrap().to_string(),
+            custom_icon: get_and_check(&project_json, "custom_icon")?.as_bool().unwrap(),
+            project_id: get_and_check(&project_json, "sc_id")?.as_str().unwrap().parse::<u16>().unwrap(),
+            app_name: get_and_check(&project_json, "my_app_name")?.as_str().unwrap().to_string(),
+            package_name: get_and_check(&project_json, "my_sc_pkg_name")?.as_str().unwrap().to_string(),
+            workspace_name: get_and_check(&project_json, "my_ws_name")?.as_str().unwrap().to_string(),
+            version_code: get_and_check(&project_json, "sc_ver_code")?.as_str().unwrap().parse::<u8>().unwrap(),
+            version_name: get_and_check(&project_json, "sc_ver_name")?.as_str().unwrap().to_string(),
             colors: Colors {
-                primary: Color::from(project_json["color_primary"].as_f32().unwrap() as i32 as u32),
-                primary_dark: Color::from(project_json["color_primary_dark"].as_f32().unwrap() as i32 as u32),
-                accent: Color::from(project_json["color_accent"].as_f32().unwrap() as i32 as u32),
-                control_normal: Color::from(project_json["color_control_normal"].as_f32().unwrap() as i32 as u32),
-                control_highlight: Color::from(project_json["color_control_highlight"].as_f32().unwrap() as i32 as u32)
+                primary: Color::from(get_and_check(&project_json, "color_primary")?.as_f32().unwrap() as i32 as u32),
+                primary_dark: Color::from(get_and_check(&project_json, "color_primary_dark")?.as_f32().unwrap() as i32 as u32),
+                accent: Color::from(get_and_check(&project_json, "color_accent")?.as_f32().unwrap() as i32 as u32),
+                control_normal: Color::from(get_and_check(&project_json, "color_control_normal")?.as_f32().unwrap() as i32 as u32),
+                control_highlight: Color::from(get_and_check(&project_json, "color_control_highlight")?.as_f32().unwrap() as i32 as u32)
             },
             time_created: {
                 let date = project_json["my_sc_reg_dt"].as_str().unwrap();
@@ -120,47 +123,4 @@ pub struct Colors {
     pub accent: Color,
     pub control_normal: Color,
     pub control_highlight: Color,
-}
-
-#[derive(Eq, PartialEq)]
-pub struct Color {
-    /// The RGB color is represented as: 0xffRRGGBB
-    value: u32
-}
-
-impl Color {
-    pub fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
-        Color { value: (0xFFu32 << 24 | (red as u32) << 16 | (green as u32) << 8 | (blue as u32) << 0) as u32 }
-    }
-
-    pub fn rgb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
-
-    pub fn red(&self) -> u8 { (self.value >> 16 & 0b111111111) as u8 }
-    pub fn green(&self) -> u8 { (self.value >> 8 & 0b111111111) as u8 }
-    pub fn blue(&self) -> u8 { (self.value >> 0 & 0b111111111) as u8 }
-}
-
-impl From<u32> for Color {
-    fn from(val: u32) -> Self {
-        // only get the first 24 bits (8 red, 8 green, 8 blue)
-        Color { value: (0xFFu32 << 24) | val & 0xffffff }
-    }
-}
-
-impl Display for Color {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
-    }
-}
-
-impl Debug for Color {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
-    }
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        Color::from_rgb(0, 0, 0)
-    }
 }

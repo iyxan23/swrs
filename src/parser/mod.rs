@@ -1,3 +1,5 @@
+use crate::error::SWRSResult;
+
 pub mod project;
 pub mod file;
 pub mod library;
@@ -12,4 +14,8 @@ pub struct RawDecryptedSketchwareProject {
     pub view: String,
     pub library: String,
     pub resource: String,
+}
+
+pub trait SWRSParser<T> {
+    fn parse(s: String) -> SWRSResult<T>;
 }
