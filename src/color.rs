@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display, Formatter};
+
 #[derive(Eq, PartialEq)]
 pub struct Color {
     /// The RGB color is represented as: 0xffRRGGBB

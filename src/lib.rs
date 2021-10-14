@@ -1,15 +1,5 @@
 pub mod error;
-pub mod parser;
 pub mod color;
-pub(crate) mod utils;
-
-// TODO: PARSERs: Convert .unwrap()s to returning an Err instead
-// TODO: PARSERs: Tolerate newline at the end of a project file
-// TODO: PARSERs: Warning system, instead of just returning Err on some locations (like, not being
-//       able to parse a JSON before a header starts), push them to a warning vector, where the
-//       program can choose whether to display them or not
-// TODO: PARSERs: On View's parser, set all irrelevant fields to be Option(s), and neglect default
-//                values into Option::None
 
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
