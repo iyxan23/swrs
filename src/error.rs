@@ -8,4 +8,5 @@ pub type SWRSResult<T> = Result<T, SWRSError>;
 pub enum SWRSError {
     DecryptionError(BlockModeError),
     IOError(io::Error),
+    ParseError(String)
 }

@@ -1,4 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::{Error, Visitor};
 
 #[derive(Eq, PartialEq)]
 pub struct Color {
@@ -40,5 +42,38 @@ impl Debug for Color {
 impl Default for Color {
     fn default() -> Self {
         Color::from_rgb(0, 0, 0)
+    }
+}
+
+impl Serialize for Color {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_f32(self.value as i32 as f32)
+    }
+}
+
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        struct ColorDeserializer;
+
+        impl<'de> Visitor<'de> for ColorDeserializer {
+            type Value = Color;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("a floating point integer that holds 3 bytes (R, G, B)")
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> where E: Error {
+                self.visit_f64(v as f64)
+            }
+
+            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> where E: serde::de::Error {
+                // this weird conversion is here to preserve the binary formation of the value.
+                // the conversion from f64 to u32 right would break the negative value and thus
+                // breaks the color
+                Ok(Color::from(v as i32 as u32))
+            }
+        }
+
+        deserializer.deserialize_any(ColorDeserializer)
     }
 }
