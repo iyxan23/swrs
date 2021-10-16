@@ -8,6 +8,48 @@ pub struct File {
     pub custom_views: Vec<FileItem>,
 }
 
+impl File {
+    pub fn parse(file: &str) -> SWRSResult<File> {
+        let mut iterator = file.split("\n");
+
+        #[derive(Eq, PartialEq)]
+        enum FileSection {
+            Activity,
+            CustomView,
+            None,
+        }
+
+        let mut cur_section = FileSection::None;
+        let mut result = File { activities: vec![], custom_views: vec![] };
+
+        loop {
+            let line = iterator.next();
+            if line.is_none() { break; }
+            let line = line.unwrap();
+
+            if line == "@activity" {
+                cur_section = FileSection::Activity;
+            } else if line == "@customview" {
+                cur_section = FileSection::CustomView;
+
+            } else if cur_section != FileSection::None {
+                // parse the file item
+                let file_item = FileItem::parse(line)?;
+
+                // push the file item to the appropriate section
+                if cur_section == FileSection::Activity {
+                    &mut result.activities
+                } else if cur_section == FileSection::CustomView {
+                    &mut result.custom_views
+                } else { break }
+                    .push(file_item)
+            }
+        }
+
+        Ok(result)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct FileItem {
     #[serde(rename = "fileName")]
@@ -21,8 +63,8 @@ pub struct FileItem {
 
     #[serde(with = "activity_options_parser")]
     pub options: ActivityOptions,
-    pub orientation: u8,
-    pub theme: i8,
+    pub orientation: Orientation,
+    pub theme: Theme,
 }
 
 impl FileItem {
@@ -47,6 +89,23 @@ pub enum KeyboardSetting {
     Hidden = 2,
 }
 
+#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Orientation {
+    Portrait = 0,
+    Landscape = 1,
+    Both = 2,
+}
+
+#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[repr(i8)]
+pub enum Theme {
+    None = -1,
+    Default = 0,
+    Actionbar = 1,
+    Fullscreen = 2,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct ActivityOptions {
     pub toolbar_enabled: bool,
@@ -58,27 +117,26 @@ pub struct ActivityOptions {
 impl ActivityOptions {
     pub fn from_num(num: u8) -> ActivityOptions {
         ActivityOptions {
-            toolbar_enabled: num & ActivityOptionMask::Toolbar == ActivityOptionMask::Toolbar,
-            fullscreen_enabled: num & ActivityOptionMask::Fullscreen == ActivityOptionMask::Fullscreen,
-            drawer_enabled: num & ActivityOptionMask::Drawer == ActivityOptionMask::Drawer,
-            fab_enabled: num & ActivityOptionMask::Fab == ActivityOptionMask::Fab,
+            toolbar_enabled: num & ActivityOptionMask::Toolbar as u8 == ActivityOptionMask::Toolbar as u8,
+            fullscreen_enabled: num & ActivityOptionMask::Fullscreen as u8 == ActivityOptionMask::Fullscreen as u8,
+            drawer_enabled: num & ActivityOptionMask::Drawer as u8 == ActivityOptionMask::Drawer as u8,
+            fab_enabled: num & ActivityOptionMask::Fab as u8 == ActivityOptionMask::Fab as u8,
         }
     }
 
-    pub fn into_num(self) -> u8 {
+    pub fn as_num(&self) -> u8 {
         let mut result = 0u8;
 
-        if self.toolbar_enabled { result |= ActivityOptionMask::Toolbar; }
-        if self.fullscreen_enabled { result |= ActivityOptionMask::Fullscreen; }
-        if self.drawer_enabled { result |= ActivityOptionMask::Drawer; }
-        if self.fab_enabled { result |= ActivityOptionMask::Fab; }
+        if self.toolbar_enabled { result |= ActivityOptionMask::Toolbar as u8; }
+        if self.fullscreen_enabled { result |= ActivityOptionMask::Fullscreen as u8; }
+        if self.drawer_enabled { result |= ActivityOptionMask::Drawer as u8; }
+        if self.fab_enabled { result |= ActivityOptionMask::Fab as u8; }
 
         result
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
-#[repr(u8)]
 pub enum ActivityOptionMask {
     Toolbar     = 1 << 0,
     Fullscreen  = 1 << 1,
@@ -88,11 +146,10 @@ pub enum ActivityOptionMask {
 
 mod activity_options_parser {
     use serde::{Deserialize, Deserializer, Serializer};
-    use serde::de::Error;
     use super::ActivityOptions;
 
-    pub fn serialize<S>(options: ActivityOptions, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_u8(options.into_num())
+    pub fn serialize<S>(options: &ActivityOptions, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_u8(options.as_num())
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<ActivityOptions, D::Error> where D: Deserializer<'de> {
