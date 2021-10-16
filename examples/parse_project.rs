@@ -1,6 +1,7 @@
 extern crate swrs;
 
-use swrs::parser::project::Project;
+use swrs::color::Color;
+use swrs::parser::project::{Project, ProjectColorPalette};
 
 fn main() {
     let project = r#"
@@ -21,5 +22,27 @@ fn main() {
     "color_primary_dark": -1.674323E7
 }"#;
 
-    println!("{:?}", Project::parse(project).unwrap());
+    let expected = Project {
+        id: 649,
+        app_name: "App Name".to_string(),
+        workspace_name: "Workspace Name".to_string(),
+        package_name: "com.iyxan23.something".to_string(),
+        version_code: 1,
+        version_name: "1.0".to_string(),
+        date_created: 1608450545,
+        custom_icon: false,
+        color_palette: ProjectColorPalette {
+            color_primary: Color::from(0x008dcd),
+            color_primary_dark: Color::from(0x0084c2),
+            color_accent: Color::from(0x008dcd),
+            color_control_normal: Color::from(0x57beee),
+            color_control_highlight: Color::from(0x008dcd)
+        },
+        sketchware_version: 150
+    };
+
+    let parsed_project = Project::parse(project).unwrap();
+
+    assert_eq!(expected, parsed_project);
+    println!("{:?}", parsed_project);
 }
