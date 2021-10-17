@@ -1,19 +1,71 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde_repr::{Serialize_repr, Deserialize_repr};
 use crate::color::Color;
+use crate::error::{SWRSError, SWRSResult};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct View {
     pub screens: Vec<Screen>
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Screen {
+    pub name: String,
     pub views: Vec<AndroidView>,
     pub fab_view: AndroidView,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+impl Screen {
+    /// Note: the parameter screen_content & fab_view must include the header "@{name}.xml(_fab)"
+    /// at the beginning
+    pub fn parse(screen_content: &str, fab_view: &str) -> SWRSResult<Screen> {
+        let mut content_iterator = screen_content.split("\n");
+
+        // get the name from the header
+        let name = {
+            let header =
+                (&mut content_iterator)
+                    .next()
+                    .ok_or_else(||
+                        SWRSError::ParseError("EOF whilst trying to read header".to_string())
+                    )?;
+
+            if !header.ends_with(".xml") || !header.starts_with("@") {
+                Err(SWRSError::ParseError("View header does not have either .xml at the end or @ at the begining".to_string()))
+            } else {
+                Ok(&header[1..header.len() - 4])
+            }
+        }?.to_string();
+
+        // parse the views inside screen_content
+        let mut views: Vec<AndroidView> = vec![];
+        loop {
+            let line = content_iterator.next();
+            if line.is_none() { break; }
+            let line = line.unwrap();
+
+            views.push(
+                AndroidView::parse(line)?
+            );
+        }
+
+        // get & parse the fab view
+        let fab_view =
+            AndroidView::parse(
+                fab_view
+                .split("\n")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .ok_or_else(||
+                    SWRSError::ParseError("Couldn't get fab_view's header".to_string())
+                )?
+            )?;
+
+        Ok(Screen { name, views, fab_view })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct AndroidView {
     pub adSize: String, // ""
     pub adUnitId: String, // ""
@@ -50,6 +102,13 @@ pub struct AndroidView {
     pub translationX: f32, // 0.0
     pub translationY: f32, // 0.0
     pub r#type: u8, // 0
+}
+
+impl AndroidView {
+    pub fn parse(decrypted_content: &str) -> SWRSResult<AndroidView> {
+        serde_json::from_str(decrypted_content)
+            .map_err(|e|SWRSError::ParseError(e.to_string()))
+    }
 }
 
 #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
@@ -106,14 +165,35 @@ pub struct LayoutConfig {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-// TODO: impl serialize n deserialize for Size
 pub enum Size {
     MatchParent, // -2
     WrapContent, // -1
-    Fixed(u16)
+    Fixed(i32)
 }
 
-#[derive(Debug, Eq, PartialEq)]
+impl Serialize for Size {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_i32(match self {
+            Size::MatchParent => { -2 }
+            Size::WrapContent => { -1 }
+            Size::Fixed(num) => { *num }
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for Size {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        let num = i32::deserialize(deserializer)?;
+
+        Ok(match num {
+            -2 => { Size::MatchParent }
+            -1 => { Size::WrapContent }
+            _ =>  { Size::Fixed(num)  }
+        })
+    }
+}
+
+#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(i8)]
 pub enum Orientation {
     Vertical = 1,
