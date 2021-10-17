@@ -9,7 +9,7 @@ pub(crate) mod serde_util;
 /// decrypted content & be reconstructed back into its original string form
 pub trait ProjectData {
     /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`SWRSResult`]
-    fn parse(decrypted_content: &str) -> SWRSResult<Self>;
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized;
 
     /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
     fn reconstruct(&self) -> SWRSResult<&str>;
