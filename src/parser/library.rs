@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use crate::error::{SWRSError, SWRSResult};
+use super::ProjectData;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Library {
@@ -12,8 +13,8 @@ pub struct Library {
     pub appcompat_enabled: bool,
 }
 
-impl Library {
-    pub fn parse(library: &str) -> SWRSResult<Library> {
+impl ProjectData for Library {
+    fn parse(library: &str) -> SWRSResult<Library> {
         let mut iterator = library.split("\n");
         let mut result = Library {
             firebase_db: None,
@@ -74,6 +75,10 @@ impl Library {
         }
 
         Ok(result)
+    }
+
+    fn reconstruct(&self) -> SWRSResult<&str> {
+        todo!()
     }
 }
 

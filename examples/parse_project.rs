@@ -2,6 +2,7 @@ extern crate swrs;
 
 use swrs::color::Color;
 use swrs::parser::project::{Project, ProjectColorPalette};
+use swrs::parser::ProjectData;
 
 fn main() {
     let project = r#"
