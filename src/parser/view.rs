@@ -29,7 +29,7 @@ impl Screen {
                     )?;
 
             if !header.ends_with(".xml") || !header.starts_with("@") {
-                Err(SWRSError::ParseError("View header does not have either .xml at the end or @ at the begining".to_string()))
+                Err(SWRSError::ParseError("View header does not have either .xml at the end or @ at the beginning".to_string()))
             } else {
                 Ok(&header[1..header.len() - 4])
             }
@@ -70,22 +70,23 @@ pub mod models {
     use crate::error::{SWRSError, SWRSResult};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(rename_all = "camelCase")]
     pub struct AndroidView {
-        pub adSize: String, // ""
-        pub adUnitId: String, // ""
+        pub ad_size: String, // ""
+        pub ad_unit_id: String, // ""
         pub alpha: f32, // 1.0
         pub checked: bool, // (int) 0
-        pub choiceMode: ChoiceMode, // None
+        pub choice_mode: ChoiceMode, // None
         pub clickable: bool, // (int) 1
-        pub customView: String, // ""
+        pub custom_view: String, // ""
 
         /// Divider height of a listview (in dp)
-        pub dividerHeight: u16, // 0
+        pub divider_height: u16, // 0
         pub enabled: bool, // (int) 0
 
         /// Sets the first day of a week for a calendar
         /// (https://developer.android.com/reference/android/widget/CalendarView#setFirstDayOfWeek(int))
-        pub firstDayOfWeek: u8, // 1
+        pub first_day_of_week: u8, // 1
         pub id: String, // "something1"
         pub image: ImageConfig,
         pub indeterminate: bool, // (str) "false"
@@ -93,18 +94,18 @@ pub mod models {
         pub layout: LayoutConfig,
         pub max: u32, // 100
         pub parent: String, // "something1"
-        pub parentType: u8, // 0
-        pub preId: String, // ""
-        pub preIndex: u32, // 0
-        pub preParentType: u8, // 0
+        pub parent_type: u8, // 0
+        pub pre_id: String, // ""
+        pub pre_index: u32, // 0
+        pub pre_parent_type: u8, // 0
         pub progress: u32, // 0
-        pub progressStyle: String, // "?android:progressBarStyle", Enum?
-        pub scaleX: f32, // 1.0
-        pub scaleY: f32, // 1.0
-        pub spinnerMode: SpinnerMode, // 1: Dropdown
+        pub progress_style: String, // "?android:progressBarStyle", Enum?
+        pub scale_x: f32, // 1.0
+        pub scale_y: f32, // 1.0
+        pub spinner_mode: SpinnerMode, // 1: Dropdown
         pub text: TextConfig,
-        pub translationX: f32, // 0.0
-        pub translationY: f32, // 0.0
+        pub translation_x: f32, // 0.0
+        pub translation_y: f32, // 0.0
         pub r#type: u8, // 0
     }
 
@@ -131,6 +132,7 @@ pub mod models {
     }
 
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[serde(rename_all = "camelCase")]
     pub struct ImageConfig {
         pub rotate: i16, // 0
         pub scale_type: image::ImageScaleType, // CENTER
@@ -153,22 +155,23 @@ pub mod models {
     }
 
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[serde(rename_all = "camelCase")]
     pub struct LayoutConfig {
-        pub backgroundColor: Color, // 16777215,
+        pub background_color: Color, // 16777215,
         pub gravity: u8, // 0 - Enum?
         pub height: layout::Size, // -2: MATCH_PARENT
-        pub layoutGravity: u8, // 0 - Enum?
-        pub marginBottom: u32, // 0
-        pub marginLeft: u32, // 0
-        pub marginRight: u32, // 0
-        pub marginTop: u32, // 0
+        pub layout_gravity: u8, // 0 - Enum?
+        pub margin_bottom: u32, // 0
+        pub margin_left: u32, // 0
+        pub margin_right: u32, // 0
+        pub margin_top: u32, // 0
         pub orientation: layout::Orientation, // 1: vertical
-        pub paddingBottom: u32, // 8
-        pub paddingLeft: u32, // 8
-        pub paddingRight: u32, // 8
-        pub paddingTop: u32, // 8
+        pub padding_bottom: u32, // 8
+        pub padding_left: u32, // 8
+        pub padding_right: u32, // 8
+        pub padding_top: u32, // 8
         pub weight: u32, // 0
-        pub weightSum: u32, // 0
+        pub weight_sum: u32, // 0
         pub width: layout::Size, // -1: WRAP_CONTENT
     }
 
@@ -214,18 +217,19 @@ pub mod models {
     }
 
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[serde(rename_all = "camelCase")]
     pub struct TextConfig {
         pub hint: String, // ""
-        pub hintColor: Color, // -10453621
-        pub imeOption: text::ImeOption, // 1: None
-        pub inputType: text::InputType, // 1: Text
+        pub hint_color: Color, // -10453621
+        pub ime_option: text::ImeOption, // 1: None
+        pub input_type: text::InputType, // 1: Text
         pub line: u32, // 0
-        pub singleLine: bool, // (int) 0
+        pub single_line: bool, // (int) 0
         pub text: String, // ""
-        pub textColor: Color, // -16777216
-        pub textFont: String, // "default_font",
-        pub textSize: u32, // 12,
-        pub textType: text::TextType, // 0: Normal
+        pub text_color: Color, // -16777216
+        pub text_font: String, // "default_font",
+        pub text_size: u32, // 12,
+        pub text_type: text::TextType, // 0: Normal
     }
 
     pub mod text {
