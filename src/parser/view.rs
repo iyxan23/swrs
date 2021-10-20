@@ -1,9 +1,94 @@
+use std::collections::HashMap;
+use std::str::Split;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
+use crate::parser::ProjectData;
 
 #[derive(Debug, PartialEq)]
 pub struct View {
     pub screens: Vec<Screen>
+}
+
+impl ProjectData for View {
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        // This splits the decrypted content into parts of screens
+        let mut lines = decrypted_content.split("\n");
+
+        //                                 name  contents
+        let mut screen_contents: HashMap<String, String> = HashMap::new();
+        //                           name  content
+        let mut fab_views: HashMap<String, String> = HashMap::new();
+
+        fn get_screen_contents(lines: &mut Split<&str>) -> SWRSResult<String> {
+            let mut result = String::new();
+
+            loop {
+                let line = lines.next();
+                if line.is_none() { break; }
+                let line = line.unwrap();
+
+                // stop on empty line
+                if line.trim().is_empty() { break; }
+
+                result.push_str(line);
+                result.push_str("\n");
+            }
+
+            Ok(result)
+        }
+
+        // the plan is to scan these and turn them into lists, then parse the items on the list
+        loop {
+            let line = lines.next();
+            if line.is_none() { break; }
+            let line = line.unwrap();
+
+            if line.starts_with("@") {
+                if line.ends_with(".xml") {
+                    let name = &line[1..line.len() - 4];
+                    let content = get_screen_contents(&mut lines)?;
+
+                    screen_contents.insert(name.to_string(), content);
+                } else if line.ends_with(".xml_fab") {
+                    let name = &line[1..line.len() - 8];
+                    let content = lines
+                        .next()
+                        .ok_or_else(||
+                            SWRSError::ParseError(
+                                format!("EOF while trying to get {}'s fab content", name)
+                            )
+                        )?;
+
+                    fab_views.insert(name.to_string(), content.to_string());
+                }
+            }
+        }
+
+        // then build them into a vector of screens
+        Ok(View {
+            screens:
+                screen_contents
+                    .drain()
+                    .map(|(name, content)| -> SWRSResult<Screen> {
+                        Screen::parse(
+                            name.as_str(),
+                            content.as_str(),
+                            fab_views
+                                .get(name.as_str())
+                                .ok_or_else(||
+                                    SWRSError::ParseError(
+                                        format!("Cannot find fab view of screen {}", name)
+                                    )
+                                )?
+                        )
+                    })
+                    .collect::<SWRSResult<Vec<Screen>>>()?
+        })
+    }
+
+    fn reconstruct(&self) -> SWRSResult<&str> {
+        todo!()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -14,26 +99,10 @@ pub struct Screen {
 }
 
 impl Screen {
-    /// Note: the parameter screen_content & fab_view must include the header "@{name}.xml(_fab)"
-    /// at the beginning
-    pub fn parse(screen_content: &str, fab_view: &str) -> SWRSResult<Screen> {
+    /// Note: screen_content & fab_view should not contain its header, the name contained in the
+    /// header must be passed through the name parameter
+    pub fn parse(name: &str, screen_content: &str, fab_view: &str) -> SWRSResult<Screen> {
         let mut content_iterator = screen_content.split("\n");
-
-        // get the name from the header
-        let name = {
-            let header =
-                (&mut content_iterator)
-                    .next()
-                    .ok_or_else(||
-                        SWRSError::ParseError("EOF whilst trying to read header".to_string())
-                    )?;
-
-            if !header.ends_with(".xml") || !header.starts_with("@") {
-                Err(SWRSError::ParseError("View header does not have either .xml at the end or @ at the beginning".to_string()))
-            } else {
-                Ok(&header[1..header.len() - 4])
-            }
-        }?.to_string();
 
         // parse the views inside screen_content
         let mut views: Vec<AndroidView> = vec![];
@@ -58,6 +127,8 @@ impl Screen {
                     SWRSError::ParseError("Couldn't get fab_view's header".to_string())
                 )?
             )?;
+
+        let name = name.to_string();
 
         Ok(Screen { name, views, fab_view })
     }
