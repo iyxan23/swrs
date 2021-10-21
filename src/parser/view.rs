@@ -168,8 +168,12 @@ pub mod models {
         pub index: u32, // 0
         pub layout: LayoutConfig,
         pub max: u32, // 100
+
+        #[serde(default)] // <- this value is not present in fab views
         pub parent: String, // "something1"
-        pub parent_type: u8, // 0
+        pub parent_type: i8, // 0 - note: can be -1 for some reason
+
+        #[serde(default)] // <- this value is not present in fab views
         pub pre_id: String, // ""
         pub pre_index: u32, // 0
         pub pre_parent_type: u8, // 0
