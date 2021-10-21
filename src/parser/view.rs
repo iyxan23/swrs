@@ -139,6 +139,7 @@ pub mod models {
     use serde::{Deserialize, Serialize};
     use crate::color::Color;
     use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
@@ -146,8 +147,12 @@ pub mod models {
         pub ad_size: String, // ""
         pub ad_unit_id: String, // ""
         pub alpha: f32, // 1.0
+
+        #[serde(with = "bool_to_one_zero")]
         pub checked: bool, // (int) 0
         pub choice_mode: ChoiceMode, // None
+
+        #[serde(with = "bool_to_one_zero")]
         pub clickable: bool, // (int) 1
         pub custom_view: String, // ""
 
@@ -160,6 +165,8 @@ pub mod models {
         pub first_day_of_week: u8, // 1
         pub id: String, // "something1"
         pub image: ImageConfig,
+
+        #[serde(with = "bool_to_str")]
         pub indeterminate: bool, // (str) "false"
         pub index: u32, // 0
         pub layout: LayoutConfig,
@@ -295,6 +302,8 @@ pub mod models {
         pub ime_option: text::ImeOption, // 1: None
         pub input_type: text::InputType, // 1: Text
         pub line: u32, // 0
+
+        #[serde(with = "bool_to_one_zero")]
         pub single_line: bool, // (int) 0
         pub text: String, // ""
         pub text_color: Color, // -16777216

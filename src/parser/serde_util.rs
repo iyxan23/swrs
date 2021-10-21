@@ -39,7 +39,7 @@ pub(crate) mod date_to_timestamp {
 
 // modules used by serde to de/serialize string numbers into regular numbers
 //
-// can't globally define a generic type for each functions in a module, so I had to do this ¯\_(ツ)_/¯
+// can't globally define a generic type for each functions in a module, so I had to hardcode u16 ¯\_(ツ)_/¯
 pub(crate) mod string_to_u16 {
     use serde::{Deserialize, Deserializer, Serializer};
     use serde::de::Error;
@@ -50,5 +50,36 @@ pub(crate) mod string_to_u16 {
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<u16, D::Error> where D: Deserializer<'de> {
         String::deserialize(deserializer)?.parse().map_err(|_|D::Error::custom("a number"))
+    }
+}
+
+/// this module serializes a boolean into 1 (true) or 0 (false) and vice versa
+pub(crate) mod bool_to_one_zero {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(val: &bool, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_u8(if *val { 1 } else { 0 })
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<bool, D::Error> where D: Deserializer<'de> {
+        u8::deserialize(deserializer).map(|r| r != 0)
+    }
+}
+
+/// this module serializes a boolean into "true" if true or "false" if false and vice versa
+pub(crate) mod bool_to_str {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use serde::de::Error;
+
+    pub fn serialize<S>(val: &bool, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_str(if *val { "true" } else { "false" })
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<bool, D::Error> where D: Deserializer<'de> {
+        match String::deserialize(deserializer)?.as_str() {
+            "true" => { Ok(true) }
+            "false" => { Ok(false) }
+            _ => { Err(D::Error::custom("true or false")) }
+        }
     }
 }
