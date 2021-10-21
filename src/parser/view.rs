@@ -153,6 +153,8 @@ pub mod models {
 
         /// Divider height of a listview (in dp)
         pub divider_height: u16, // 0
+
+        #[serde(with = "bool_to_one_zero")]
         pub enabled: bool, // (int) 0
 
         /// Sets the first day of a week for a calendar
