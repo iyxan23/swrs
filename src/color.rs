@@ -66,6 +66,10 @@ impl<'de> Deserialize<'de> for Color {
                 self.visit_f64(v as f64)
             }
 
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> where E: Error {
+                self.visit_i64(v as i64)
+            }
+
             fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> where E: serde::de::Error {
                 // this weird conversion is here to preserve the binary formation of the value.
                 // the conversion from f64 to u32 right would break the negative value and thus
