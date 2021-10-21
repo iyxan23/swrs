@@ -120,17 +120,8 @@ impl Screen {
             );
         }
 
-        // get & parse the fab view
-        let fab_view =
-            AndroidView::parse(
-                fab_view
-                .split("\n")
-                .collect::<Vec<&str>>()
-                .get(1)
-                .ok_or_else(||
-                    SWRSError::ParseError("Couldn't get fab_view's header".to_string())
-                )?
-            )?;
+        // parse the fab view
+        let fab_view = AndroidView::parse(fab_view)?;
 
         let name = name.to_string();
 
