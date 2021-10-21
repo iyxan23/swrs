@@ -28,7 +28,11 @@ impl ProjectData for View {
                 let line = line.unwrap();
 
                 // stop on empty line
-                if line.trim().is_empty() { break; }
+                if line.trim().is_empty() {
+                    // also since we have \n left out on the last line we should trim it
+                    result = result.trim_end().to_string();
+                    break;
+                }
 
                 result.push_str(line);
                 result.push_str("\n");
