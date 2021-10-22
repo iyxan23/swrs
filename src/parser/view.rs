@@ -135,6 +135,7 @@ pub mod models {
     use crate::color::Color;
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
+    use crate::parser::view::models::layout::gravity::Gravity;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
@@ -281,19 +282,25 @@ pub mod models {
     #[serde(rename_all = "camelCase")]
     pub struct LayoutConfig {
         pub background_color: Color, // 16777215,
-        pub gravity: u8, // 0 - Enum?
+
+        pub gravity: Gravity, // 0 - Enum?
+        pub layout_gravity: Gravity, // 0 - Enum?
+
         pub height: layout::Size, // -2: MATCH_PARENT
         pub width: layout::Size, // -1: WRAP_CONTENT
-        pub layout_gravity: u8, // 0 - Enum?
+
         pub margin_bottom: u32, // 0
         pub margin_left: u32, // 0
         pub margin_right: u32, // 0
         pub margin_top: u32, // 0
-        pub orientation: layout::Orientation, // 1: vertical
+
         pub padding_bottom: u32, // 8
         pub padding_left: u32, // 8
         pub padding_right: u32, // 8
         pub padding_top: u32, // 8
+
+        pub orientation: layout::Orientation, // 1: vertical
+
         pub weight: u32, // 0
         pub weight_sum: u32, // 0
     }
@@ -302,10 +309,10 @@ pub mod models {
         fn default() -> Self {
             LayoutConfig {
                 background_color: Color::from(16777215),
-                gravity: 0,
+                gravity: Default::default(),
                 height: layout::Size::MatchParent,
                 width: layout::Size::WrapContent,
-                layout_gravity: 0,
+                layout_gravity: Default::default(),
                 margin_bottom: 0,
                 margin_left: 0,
                 margin_right: 0,
@@ -359,6 +366,40 @@ pub mod models {
         pub enum Orientation {
             Vertical = 1,
             Horizontal = -1,
+        }
+
+        pub mod gravity {
+            use serde::{Serialize, Deserialize};
+
+            pub const NONE              : u8 = 0;
+            pub const CENTER_HORIZONTAL : u8 = 1;
+            pub const LEFT              : u8 = 3;
+            pub const RIGHT             : u8 = 5;
+            pub const CENTER_VERTICAL   : u8 = 16;
+            pub const CENTER            : u8 = 17;
+            pub const TOP               : u8 = 48;
+            pub const BOTTOM            : u8 = 80;
+
+            #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+            pub struct Gravity(pub u8);
+
+            impl Gravity {
+                pub fn new(value: u8) -> Gravity { Gravity(value) }
+
+                pub fn center_horizontal(&self) -> bool { self.0 & CENTER_HORIZONTAL == CENTER_HORIZONTAL }
+                pub fn left(&self) -> bool              { self.0 & LEFT == LEFT }
+                pub fn right(&self) -> bool             { self.0 & RIGHT == RIGHT }
+                pub fn center_vertical(&self) -> bool   { self.0 & CENTER_VERTICAL == CENTER_VERTICAL }
+                pub fn center(&self) -> bool            { self.0 & CENTER == CENTER }
+                pub fn top(&self) -> bool               { self.0 & TOP == TOP }
+                pub fn bottom(&self) -> bool            { self.0 & BOTTOM == BOTTOM }
+            }
+
+            impl Default for Gravity {
+                fn default() -> Self {
+                    Gravity(NONE)
+                }
+            }
         }
     }
 
