@@ -193,6 +193,41 @@ pub mod models {
             serde_json::from_str(decrypted_content)
                 .map_err(|e| SWRSError::ParseError(e.to_string()))
         }
+
+        pub fn new_empty(id: &str, r#type: u8, parent_id: &str, parent_type: i8) -> AndroidView {
+            AndroidView {
+                ad_size: "".to_string(),
+                ad_unit_id: "".to_string(),
+                alpha: 1.0,
+                checked: false,
+                choice_mode: ChoiceMode::None,
+                clickable: true,
+                custom_view: "".to_string(),
+                divider_height: 0,
+                enabled: true,
+                first_day_of_week: 1,
+                id: id.to_string(),
+                image: Default::default(),
+                indeterminate: false,
+                index: 0,
+                layout: Default::default(),
+                max: 100,
+                parent: parent_id.to_string(),
+                parent_type,
+                pre_id: "".to_string(),
+                pre_index: 0,
+                pre_parent_type: 0,
+                progress: 0,
+                progress_style: "".to_string(),
+                scale_x: 1.0,
+                scale_y: 1.0,
+                spinner_mode: SpinnerMode::Dropdown,
+                text: Default::default(),
+                translation_x: 0.0,
+                translation_y: 0.0,
+                r#type
+            }
+        }
     }
 
     #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
@@ -217,6 +252,15 @@ pub mod models {
         pub scale_type: image::ImageScaleType, // CENTER
     }
 
+    impl Default for ImageConfig {
+        fn default() -> Self {
+            ImageConfig {
+                rotate: 0,
+                scale_type: image::ImageScaleType::Center
+            }
+        }
+    }
+
     pub mod image {
         use serde::{Serialize, Deserialize};
 
@@ -239,6 +283,7 @@ pub mod models {
         pub background_color: Color, // 16777215,
         pub gravity: u8, // 0 - Enum?
         pub height: layout::Size, // -2: MATCH_PARENT
+        pub width: layout::Size, // -1: WRAP_CONTENT
         pub layout_gravity: u8, // 0 - Enum?
         pub margin_bottom: u32, // 0
         pub margin_left: u32, // 0
@@ -251,7 +296,29 @@ pub mod models {
         pub padding_top: u32, // 8
         pub weight: u32, // 0
         pub weight_sum: u32, // 0
-        pub width: layout::Size, // -1: WRAP_CONTENT
+    }
+
+    impl Default for LayoutConfig {
+        fn default() -> Self {
+            LayoutConfig {
+                background_color: Color::from(16777215),
+                gravity: 0,
+                height: layout::Size::MatchParent,
+                width: layout::Size::WrapContent,
+                layout_gravity: 0,
+                margin_bottom: 0,
+                margin_left: 0,
+                margin_right: 0,
+                margin_top: 0,
+                orientation: layout::Orientation::Vertical,
+                padding_bottom: 8,
+                padding_left: 8,
+                padding_right: 8,
+                padding_top: 8,
+                weight: 0,
+                weight_sum: 0,
+            }
+        }
     }
 
     pub mod layout {
@@ -311,6 +378,24 @@ pub mod models {
         pub text_font: String, // "default_font",
         pub text_size: u32, // 12,
         pub text_type: text::TextType, // 0: Normal
+    }
+
+    impl Default for TextConfig {
+        fn default() -> Self {
+            TextConfig {
+                hint: "".to_string(),
+                hint_color: Color::from(-10453621_i32 as u32),
+                ime_option: text::ImeOption::Normal,
+                input_type: text::InputType::Text,
+                line: 0,
+                single_line: false,
+                text: "".to_string(),
+                text_color: Color::from(-16777216_i32 as u32),
+                text_font: "default_font".to_string(),
+                text_size: 12,
+                text_type: text::TextType::Normal,
+            }
+        }
     }
 
     pub mod text {
