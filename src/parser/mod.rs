@@ -5,6 +5,7 @@ pub mod file;
 pub mod library;
 pub mod resource;
 pub mod view;
+pub mod logic;
 pub(crate) mod serde_util;
 
 /// Represents a project file (file, library, logic, project, etc) that can be parsed from its
