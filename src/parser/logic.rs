@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+use crate::color::Color;
+use crate::error::{SWRSError, SWRSResult};
 
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
@@ -163,6 +166,24 @@ pub struct BlocksContainer {
 
 }
 
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Block {
+    pub color: Color,
+    pub id: String,
+    pub next_block: i32,
+    pub op_code: String,
+    pub parameters: Vec<String>,
+    pub spec: String,
+    pub sub_stack1: i32,
+    pub sub_stack2: i32,
+    pub r#type: String,
+    pub type_name: String,
+}
 
+impl Block {
+    pub fn parse(s: &str) -> SWRSResult<Block> {
+        serde_json::from_str(s)
+            .map_err(|e|SWRSError::ParseError(e.to_string()))
+    }
 }
