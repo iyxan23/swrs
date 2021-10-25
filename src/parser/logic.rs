@@ -114,9 +114,41 @@ pub mod variable {
 }
 
 pub mod component {
-    pub type ComponentPool = Vec<Component>;
+    use serde::{Serialize, Deserialize};
+    use crate::error::{SWRSError, SWRSResult};
 
-    pub struct Component {}
+    pub struct ComponentPool(Vec<Component>);
+
+    impl ComponentPool {
+        pub fn parse(s: &str) -> SWRSResult<ComponentPool> {
+            Ok(ComponentPool(
+                s.split("\n")
+                    .map(Component::parse)
+                    .collect::<SWRSResult<Vec<Component>>>()?
+            ))
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    pub struct Component {
+        #[serde(rename = "componentId")]
+        pub id: String,
+
+        pub param1: String,
+        pub param2: String,
+        pub param3: String,
+
+        pub r#type: u8,
+    }
+
+    impl Component {
+        pub fn parse(s: &str) -> SWRSResult<Component> {
+            serde_json::from_str(s)
+                .map_err(|e| SWRSError::ParseError(
+                    format!("Failed to parse component: {}", e.to_string())
+                ))
+        }
+    }
 }
 
 pub mod more_block {
