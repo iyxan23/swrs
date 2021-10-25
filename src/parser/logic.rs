@@ -9,7 +9,7 @@ pub struct Logic {
 
 pub struct ScreenLogic {
     pub name: String,
-    pub events: Vec<Event>,
+    pub events: HashMap<BlocksContainerHeader, BlocksContainer>,
     pub variables: variable::VariablePool,
     pub components: component::ComponentPool,
     pub more_blocks: more_block::MoreBlockPool,
@@ -19,6 +19,8 @@ pub mod variable {
     use std::collections::HashMap;
     use std::convert::TryFrom;
     use crate::error::{SWRSError, SWRSResult};
+
+    // todo: make variablepoolheader
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct VariablePool(HashMap<String, Variable>);
@@ -120,6 +122,8 @@ pub mod component {
     use serde::{Serialize, Deserialize};
     use crate::error::{SWRSError, SWRSResult};
 
+    // todo: make componentpoolhedaer
+
     pub struct ComponentPool(Vec<Component>);
 
     impl ComponentPool {
@@ -160,10 +164,47 @@ pub mod more_block {
     pub struct MoreBlock {}
 }
 
-type Event = BlocksContainer;
+/// Represents the header of a blocks container
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct BlocksContainerHeader {
+    pub screen_name: String,
+    pub container_name: String,
+}
 
-pub struct BlocksContainer {
+impl BlocksContainerHeader {
+    /// Parses the header of a blocks container
+    pub fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
+        if !s.starts_with("@") { return Err(SWRSError::ParseError("header does not start with @".to_string())) }
 
+        let mut parts = s.split(".java_");
+        let screen_name = parts.next()
+            .ok_or_else(||SWRSError::ParseError("Cannot get the screen name of a blocks header".to_string()))?[1..].to_string();
+
+        let container_name = parts.next()
+            .ok_or_else(|| SWRSError::ParseError("Cannot get the container name of a blocks header".to_string()))?.to_string();
+
+        Ok(
+            BlocksContainerHeader {
+                screen_name,
+                container_name
+            }
+        )
+    }
+}
+
+/// Basically a list of blocks
+#[derive(Debug, Eq, PartialEq)]
+pub struct BlocksContainer(Vec<Block>);
+
+impl BlocksContainer {
+    /// This just parses a list of blocks, do not include the header
+    pub fn parse(s: &str) -> SWRSResult<BlocksContainer> {
+        Ok(BlocksContainer(
+            s.split("\n")
+                .map(Block::parse)
+                .collect::<SWRSResult<Vec<Block>>>()?
+        ))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
