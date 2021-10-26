@@ -12,6 +12,7 @@ impl Logic {
     pub fn parse(logic: &str) -> SWRSResult<Logic> {
         let mut lines = logic.split("\n");
         let mut screens = HashMap::<String, ScreenLogic>::new();
+        let mut line_counter = 0u32;
 
         loop {
             let line = lines.next();
@@ -67,14 +68,69 @@ impl Logic {
 
             } else if line.ends_with("java_func") {
                 // moreblocks pool
+                let screen_name = &line[1..9]; // 9 -> length of "java_func"
+                todo!();
 
             } else {
                 // some kind of event
+                // parse the header
+                let header = BlocksContainerHeader::parse(line)
+                    .map_err(|e|
+                        SWRSError::ParseError(
+                            format!(
+                                "Error whilst reading a blocks container header at line {}: {}",
+                                line_counter, e
+                            )
+                        )
+                    )?;
 
+                // collect all blocks (read everything until empty line)
+                let blocks_str = {
+                    let mut result = String::new();
+
+                    loop {
+                        let line = lines.next();
+                        if line.is_none() { break; }
+                        let line = line.unwrap();
+
+                        if !line.trim().is_empty() {
+                            result.push_str(line);
+                            result.push_str("\n");
+                        }
+                    }
+
+                    result = result.trim().to_string();
+                    result
+                };
+
+                // parse the blocks
+                let blocks = BlocksContainer::parse(blocks_str.as_str())
+                    .map_err(|e|SWRSError::ParseError(
+                        format!(
+                            "Error whilst parsing blocks for the screen {} on event name {}: {}",
+                            header.screen_name, header.container_name, e)
+                    ))?;
+
+                // first we check if it has the screen in screens, if not then add it
+                if !screens.contains_key(header.screen_name.as_str()) {
+                    screens.insert(
+                        header.screen_name.to_owned(),
+                        ScreenLogic::new_empty(header.screen_name.to_owned())
+                    );
+                }
+
+                // then put the blocks pool to the screen
+                screens
+                    .get_mut(header.screen_name.as_str())
+                    .unwrap()
+                    .events
+                    .insert(header, blocks);
             }
+
+            line_counter += 1;
         }
 
-        todo!()
+        Ok(Logic { screens })
     }
 }
 
