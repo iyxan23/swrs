@@ -20,10 +20,8 @@ pub mod variable {
     use std::convert::TryFrom;
     use crate::error::{SWRSError, SWRSResult};
 
-    // todo: make variablepoolheader
-
     #[derive(Debug, Eq, PartialEq)]
-    pub struct VariablePool(HashMap<String, Variable>);
+    pub struct VariablePool(pub HashMap<String, Variable>);
 
     impl VariablePool {
         /// Parses a variable pool, do not include the header in the input
@@ -41,14 +39,6 @@ pub mod variable {
                 });
 
             Ok(VariablePool(result_map))
-        }
-
-        pub fn variable(&self, name: &str) -> Option<&Variable> {
-            self.0.get(name)
-        }
-
-        pub fn variables(&self) -> Vec<(&String, &Variable)> {
-            self.0.iter().collect()
         }
     }
 
@@ -122,9 +112,7 @@ pub mod component {
     use serde::{Serialize, Deserialize};
     use crate::error::{SWRSError, SWRSResult};
 
-    // todo: make componentpoolhedaer
-
-    pub struct ComponentPool(Vec<Component>);
+    pub struct ComponentPool(pub Vec<Component>);
 
     impl ComponentPool {
         pub fn parse(s: &str) -> SWRSResult<ComponentPool> {
@@ -174,7 +162,7 @@ pub struct BlocksContainerHeader {
 impl BlocksContainerHeader {
     /// Parses the header of a blocks container
     pub fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
-        if !s.starts_with("@") { return Err(SWRSError::ParseError("header does not start with @".to_string())) }
+        if !s.starts_with("@") { return Err(SWRSError::ParseError("Header does not start with @".to_string())) }
 
         let mut parts = s.split(".java_");
         let screen_name = parts.next()
@@ -225,6 +213,6 @@ pub struct Block {
 impl Block {
     pub fn parse(s: &str) -> SWRSResult<Block> {
         serde_json::from_str(s)
-            .map_err(|e|SWRSError::ParseError(e.to_string()))
+            .map_err(|e|SWRSError::ParseError(format!("Failed to parse the JSON of a block: {}", e)))
     }
 }
