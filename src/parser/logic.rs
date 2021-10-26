@@ -2,9 +2,80 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
+use crate::parser::logic::variable::VariablePool;
 
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
+}
+
+impl Logic {
+    pub fn parse(logic: &str) -> SWRSResult<Logic> {
+        let mut lines = logic.split("\n");
+        let mut screens = HashMap::<String, ScreenLogic>::new();
+
+        loop {
+            let line = lines.next();
+            if line.is_none() { break; }
+            let line = line.unwrap();
+
+            if !line.starts_with("@") {
+                // todo: warning: skipping line {} because it doesn't ressemble a header
+                break;
+            }
+
+            // todo: @MainActivity.java_list, @MainActivity.java_events
+            if line.ends_with("java_var") {
+                // variable pool
+                // read the screen name
+                let screen_name = &line[1..8]; // 8 -> length of "java_var"
+
+                // collect all the variables (get all things until an empty line)
+                let variables_str = {
+                    let mut result = String::new();
+
+                    loop {
+                        let line = lines.next();
+                        if line.is_none() { break; }
+                        let line = line.unwrap();
+
+                        if !line.trim().is_empty() {
+                            result.push_str(line);
+                            result.push_str("\n");
+                        }
+                    }
+
+                    result = result.trim().to_string();
+                    result
+                };
+
+                // parse variables
+                let variable_pool = VariablePool::parse(variables_str.as_str())
+                    .map_err(|e| SWRSError::ParseError(format!("Error whilst parsing variable pool: {}", e)))?;
+
+                // then put the variable pool to the screen name
+                if !screens.contains_key(screen_name) {
+                    screens.insert(
+                        screen_name.to_string(),
+                        ScreenLogic::new_empty(screen_name.to_string())
+                    );
+                }
+
+                screens
+                    .get_mut(screen_name)
+                    .unwrap() // this shouldn't be empty, we've initialized it just in case before
+                    .variables = variable_pool;
+
+            } else if line.ends_with("java_func") {
+                // moreblocks pool
+
+            } else {
+                // some kind of event
+
+            }
+        }
+
+        todo!()
+    }
 }
 
 pub struct ScreenLogic {
@@ -13,6 +84,18 @@ pub struct ScreenLogic {
     pub variables: variable::VariablePool,
     pub components: component::ComponentPool,
     pub more_blocks: more_block::MoreBlockPool,
+}
+
+impl ScreenLogic {
+    pub fn new_empty(name: String) -> ScreenLogic {
+        ScreenLogic {
+            name,
+            events: Default::default(),
+            variables: Default::default(),
+            components: Default::default(),
+            more_blocks: vec![]
+        }
+    }
 }
 
 pub mod variable {
@@ -39,6 +122,12 @@ pub mod variable {
                 });
 
             Ok(VariablePool(result_map))
+        }
+    }
+
+    impl Default for VariablePool {
+        fn default() -> Self {
+            VariablePool(Default::default())
         }
     }
 
@@ -121,6 +210,12 @@ pub mod component {
                     .map(Component::parse)
                     .collect::<SWRSResult<Vec<Component>>>()?
             ))
+        }
+    }
+
+    impl Default for ComponentPool {
+        fn default() -> Self {
+            ComponentPool(vec![])
         }
     }
 
