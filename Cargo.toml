@@ -3,7 +3,7 @@ name = "swrs"
 description = "A simple rust library that reads and parses a sketchware project"
 authors = ["Iyxan23 <nurihsanalghifari@gmail.com>"]
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 aes = "^0.7.5"
