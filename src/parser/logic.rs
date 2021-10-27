@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
+use crate::parser::ProjectData;
 
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
 }
 
-impl Logic {
-    pub fn parse(logic: &str) -> SWRSResult<Logic> {
+impl ProjectData for Logic {
+    fn parse(logic: &str) -> SWRSResult<Logic> {
         let mut lines = logic.split("\n");
         let mut screens = HashMap::<String, ScreenLogic>::new();
         let mut line_counter = 0u32;
@@ -19,7 +20,7 @@ impl Logic {
             let line = line.unwrap();
 
             if !line.starts_with("@") {
-                // todo: warning: skipping line {} because it doesn't ressemble a header
+                // todo: warning: skipping line {} because it doesn't resemble a header
                 break;
             }
 
@@ -50,7 +51,9 @@ impl Logic {
 
                 // parse variables
                 let variable_pool = variable::VariablePool::parse(variables_str.as_str())
-                    .map_err(|e| SWRSError::ParseError(format!("Error whilst parsing variable pool: {}", e)))?;
+                    .map_err(|e| SWRSError::ParseError(format!(
+                        "Error whilst parsing variable pool: {}", e
+                    )))?;
 
                 // then put the variable pool to the screen name
                 if !screens.contains_key(screen_name) {
@@ -160,6 +163,10 @@ impl Logic {
         }
 
         Ok(Logic { screens })
+    }
+
+    fn reconstruct(&self) -> SWRSResult<&str> {
+        todo!()
     }
 }
 
@@ -412,14 +419,20 @@ pub struct BlocksContainerHeader {
 impl BlocksContainerHeader {
     /// Parses the header of a blocks container
     pub fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
-        if !s.starts_with("@") { return Err(SWRSError::ParseError("Header does not start with @".to_string())) }
+        if !s.starts_with("@") {
+            return Err(SWRSError::ParseError("Header does not start with @".to_string()))
+        }
 
         let mut parts = s.split(".java_");
         let screen_name = parts.next()
-            .ok_or_else(||SWRSError::ParseError("Cannot get the screen name of a blocks header".to_string()))?[1..].to_string();
+            .ok_or_else(||SWRSError::ParseError(
+                "Cannot get the screen name of a blocks header".to_string()
+            ))?[1..].to_string();
 
         let container_name = parts.next()
-            .ok_or_else(|| SWRSError::ParseError("Cannot get the container name of a blocks header".to_string()))?.to_string();
+            .ok_or_else(|| SWRSError::ParseError(
+                "Cannot get the container name of a blocks header".to_string()
+            ))?.to_string();
 
         Ok(
             BlocksContainerHeader {
