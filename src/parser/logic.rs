@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
-use crate::parser::logic::variable::VariablePool;
 
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
@@ -50,7 +49,7 @@ impl Logic {
                 };
 
                 // parse variables
-                let variable_pool = VariablePool::parse(variables_str.as_str())
+                let variable_pool = variable::VariablePool::parse(variables_str.as_str())
                     .map_err(|e| SWRSError::ParseError(format!("Error whilst parsing variable pool: {}", e)))?;
 
                 // then put the variable pool to the screen name
@@ -68,8 +67,38 @@ impl Logic {
 
             } else if line.ends_with("java_func") {
                 // moreblocks pool
-                let screen_name = &line[1..9]; // 9 -> length of "java_func"
-                todo!();
+                let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_func"
+
+                // collect all stuff until an empty line
+                let more_blocks_str = {
+                    let mut result = String::new();
+
+                    loop {
+                        let line = lines.next();
+                        if line.is_none() { break; }
+                        let line = line.unwrap();
+
+                        if !line.trim().is_empty() {
+                            result.push_str(line);
+                            result.push_str("\n");
+                        }
+                    }
+
+                    result = result.trim().to_string();
+                    result
+                };
+
+                // then parse it
+                let more_block_pool = more_block::MoreBlockPool::parse(more_blocks_str.as_str())
+                    .map_err(|e|SWRSError::ParseError(
+                        format!("Error whilst parsing moreblock pool of {}: {}", screen_name, e)
+                    ))?;
+
+                // then put it on the screen i guess
+                screens
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .more_blocks = more_block_pool;
 
             } else {
                 // some kind of event
