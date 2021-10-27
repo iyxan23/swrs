@@ -9,7 +9,7 @@ use swrs::parser::view::models::{
     AndroidView, ChoiceMode, ImageConfig, LayoutConfig, SpinnerMode, TextConfig,
 };
 use swrs::parser::view::{Screen, View};
-use swrs::parser::ProjectData;
+use swrs::parser::Parsable;
 
 fn main() {
     let view = r#"@main.xml

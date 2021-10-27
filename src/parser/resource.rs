@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::error::{SWRSError, SWRSResult};
-use super::ProjectData;
+use super::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Resource {
@@ -9,7 +9,7 @@ pub struct Resource {
     pub fonts: Vec<ResourceItem>,
 }
 
-impl ProjectData for Resource {
+impl Parsable for Resource {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
         let mut iterator = decrypted_content.split("\n");
 
@@ -55,7 +55,7 @@ impl ProjectData for Resource {
         Ok(result)
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }

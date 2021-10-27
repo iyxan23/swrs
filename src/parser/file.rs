@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use serde_repr::{Serialize_repr, Deserialize_repr};
 use crate::error::{SWRSError, SWRSResult};
-use super::ProjectData;
+use super::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct File {
@@ -9,7 +9,7 @@ pub struct File {
     pub custom_views: Vec<FileItem>,
 }
 
-impl ProjectData for File {
+impl Parsable for File {
     fn parse(file: &str) -> SWRSResult<File> {
         let mut iterator = file.split("\n");
 
@@ -50,7 +50,7 @@ impl ProjectData for File {
         Ok(result)
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }

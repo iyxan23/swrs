@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::str::Split;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
-use crate::parser::ProjectData;
+use crate::parser::Parsable;
 
 #[derive(Debug, PartialEq)]
 pub struct View {
     pub screens: Vec<Screen>
 }
 
-impl ProjectData for View {
+impl Parsable for View {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
         // This splits the decrypted content into parts of screens
         let mut lines = decrypted_content.split("\n");
@@ -90,7 +90,7 @@ impl ProjectData for View {
         })
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }

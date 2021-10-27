@@ -1,7 +1,7 @@
 extern crate swrs;
 
 use swrs::parser::file::{ActivityOptions, File, FileItem, FileType, KeyboardSetting, Orientation, Theme};
-use swrs::parser::ProjectData;
+use swrs::parser::Parsable;
 
 fn main() {
     let file = r#"

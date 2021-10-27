@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
-use crate::parser::ProjectData;
+use crate::parser::Parsable;
 
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
 }
 
-impl ProjectData for Logic {
+impl Parsable for Logic {
     fn parse(logic: &str) -> SWRSResult<Logic> {
         let mut lines = logic.split("\n");
         let mut screens = HashMap::<String, ScreenLogic>::new();
@@ -165,7 +165,7 @@ impl ProjectData for Logic {
         Ok(Logic { screens })
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }
@@ -194,13 +194,14 @@ pub mod variable {
     use std::collections::HashMap;
     use std::convert::TryFrom;
     use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct VariablePool(pub HashMap<String, Variable>);
 
-    impl VariablePool {
+    impl Parsable for VariablePool {
         /// Parses a variable pool, do not include the header in the input
-        pub fn parse(s: &str) -> SWRSResult<VariablePool> {
+        fn parse(s: &str) -> SWRSResult<VariablePool> {
             let mut result_map = HashMap::new();
 
             s.split("\n")
@@ -214,6 +215,10 @@ pub mod variable {
                 });
 
             Ok(VariablePool(result_map))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            todo!()
         }
     }
 
@@ -229,8 +234,8 @@ pub mod variable {
         pub r#type: VariableType,
     }
 
-    impl Variable {
-        pub fn parse(s: &str) -> SWRSResult<Variable> {
+    impl Parsable for Variable {
+        fn parse(s: &str) -> SWRSResult<Variable> {
             let (var_type, var_name) = {
                 let mut iter = s.split(":");
 
@@ -258,6 +263,10 @@ pub mod variable {
                         .map_err(|e| SWRSError::ParseError(e.to_string()))?
                 )?
             })
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            todo!()
         }
     }
 
@@ -292,16 +301,21 @@ pub mod variable {
 pub mod component {
     use serde::{Serialize, Deserialize};
     use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
 
     pub struct ComponentPool(pub Vec<Component>);
 
-    impl ComponentPool {
-        pub fn parse(s: &str) -> SWRSResult<ComponentPool> {
+    impl Parsable for ComponentPool {
+        fn parse(s: &str) -> SWRSResult<ComponentPool> {
             Ok(ComponentPool(
                 s.split("\n")
                     .map(Component::parse)
                     .collect::<SWRSResult<Vec<Component>>>()?
             ))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            todo!()
         }
     }
 
@@ -323,12 +337,16 @@ pub mod component {
         pub r#type: u8,
     }
 
-    impl Component {
-        pub fn parse(s: &str) -> SWRSResult<Component> {
+    impl Parsable for Component {
+        fn parse(s: &str) -> SWRSResult<Component> {
             serde_json::from_str(s)
                 .map_err(|e| SWRSError::ParseError(
                     format!("Failed to parse component: {}", e.to_string())
                 ))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            todo!()
         }
     }
 }
@@ -336,13 +354,14 @@ pub mod component {
 pub mod more_block {
     use std::collections::HashMap;
     use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
 
     pub struct MoreBlockPool(HashMap<String, MoreBlock>);
 
-    impl MoreBlockPool {
+    impl Parsable for MoreBlockPool {
         /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
         /// header into the input
-        pub fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
+        fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
             let mut more_blocks = s.split("\n")
                 .map(MoreBlock::parse)
                 .collect::<SWRSResult<Vec<MoreBlock>>>()?;
@@ -360,13 +379,14 @@ pub mod more_block {
         }
 
         /// Reconstructs a moreblock pool to its string form
-        pub fn reconstruct(&self) -> String {
-            self.0
+        fn reconstruct(&self) -> SWRSResult<String> {
+            Ok(self.0
                 .values()
                 .map(MoreBlock::reconstruct)
-                .fold(String::new(), |ac, i| {
-                    format!("{}{}", ac, i)
-                })
+                .fold(SWRSResult::Ok(String::new()), |ac, i| {
+                    Ok(format!("{}{}", ac?, i?))
+                })?
+            )
         }
     }
 
@@ -383,12 +403,12 @@ pub mod more_block {
         pub spec: String,
     }
 
-    impl MoreBlock {
+    impl Parsable for MoreBlock {
         /// Parses a moreblock item, example:
         /// ```
         /// execute_shell:execute_shell %s.command
         /// ```
-        pub fn parse(s: &str) -> SWRSResult<MoreBlock> {
+        fn parse(s: &str) -> SWRSResult<MoreBlock> {
             let (id, spec) = s.split_once(':')
                 .ok_or_else(||SWRSError::ParseError(
                     format!("Failed to parse a moreblock, couldn't split `:`")
@@ -403,8 +423,8 @@ pub mod more_block {
         }
 
         /// Reconstructs a moreblock into its original form
-        pub fn reconstruct(&self) -> String {
-            format!("{}:{}", self.id, self.spec)
+        fn reconstruct(&self) -> SWRSResult<String> {
+            Ok(format!("{}:{}", self.id, self.spec))
         }
     }
 }
@@ -416,9 +436,9 @@ pub struct BlocksContainerHeader {
     pub container_name: String,
 }
 
-impl BlocksContainerHeader {
+impl Parsable for BlocksContainerHeader {
     /// Parses the header of a blocks container
-    pub fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
+    fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
         if !s.starts_with("@") {
             return Err(SWRSError::ParseError("Header does not start with @".to_string()))
         }
@@ -441,20 +461,28 @@ impl BlocksContainerHeader {
             }
         )
     }
+
+    fn reconstruct(&self) -> SWRSResult<String> {
+        todo!()
+    }
 }
 
 /// Basically a list of blocks
 #[derive(Debug, Eq, PartialEq)]
 pub struct BlocksContainer(Vec<Block>);
 
-impl BlocksContainer {
+impl Parsable for BlocksContainer {
     /// This just parses a list of blocks, do not include the header
-    pub fn parse(s: &str) -> SWRSResult<BlocksContainer> {
+    fn parse(s: &str) -> SWRSResult<BlocksContainer> {
         Ok(BlocksContainer(
             s.split("\n")
                 .map(Block::parse)
                 .collect::<SWRSResult<Vec<Block>>>()?
         ))
+    }
+
+    fn reconstruct(&self) -> SWRSResult<String> {
+        todo!()
     }
 }
 
@@ -473,9 +501,13 @@ pub struct Block {
     pub type_name: String,
 }
 
-impl Block {
-    pub fn parse(s: &str) -> SWRSResult<Block> {
+impl Parsable for Block {
+    fn parse(s: &str) -> SWRSResult<Block> {
         serde_json::from_str(s)
             .map_err(|e|SWRSError::ParseError(format!("Failed to parse the JSON of a block: {}", e)))
+    }
+
+    fn reconstruct(&self) -> SWRSResult<String> {
+        todo!()
     }
 }

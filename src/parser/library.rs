@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use crate::error::{SWRSError, SWRSResult};
-use super::ProjectData;
+use super::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Library {
@@ -13,7 +13,7 @@ pub struct Library {
     pub appcompat_enabled: bool,
 }
 
-impl ProjectData for Library {
+impl Parsable for Library {
     fn parse(library: &str) -> SWRSResult<Library> {
         let mut iterator = library.split("\n");
         let mut result = Library {
@@ -77,7 +77,7 @@ impl ProjectData for Library {
         Ok(result)
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }

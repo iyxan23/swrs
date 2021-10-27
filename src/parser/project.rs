@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use crate::parser::serde_util::{string_to_u16, date_to_timestamp};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
-use super::ProjectData;
+use super::Parsable;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Project {
@@ -47,13 +47,13 @@ pub struct ProjectColorPalette {
     pub color_control_highlight: Color,
 }
 
-impl ProjectData for Project {
+impl Parsable for Project {
     fn parse(project: &str) -> SWRSResult<Project> {
         serde_json::from_str(project)
             .map_err(|e| SWRSError::ParseError(e.to_string()))
     }
 
-    fn reconstruct(&self) -> SWRSResult<&str> {
+    fn reconstruct(&self) -> SWRSResult<String> {
         todo!()
     }
 }

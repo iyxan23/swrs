@@ -1,7 +1,7 @@
 extern crate swrs;
 
 use swrs::parser::library::{FirebaseDB, GoogleMap, Library};
-use swrs::parser::ProjectData;
+use swrs::parser::Parsable;
 
 fn main() {
     let library = r#"@firebaseDB

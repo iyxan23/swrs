@@ -1,3 +1,4 @@
+use crate::error::SWRSError;
 use super::error::SWRSResult;
 
 pub mod project;
@@ -8,12 +9,14 @@ pub mod view;
 pub mod logic;
 pub(crate) mod serde_util;
 
-/// Represents a project file (file, library, logic, project, etc) that can be parsed from its
-/// decrypted content & be reconstructed back into its original string form
-pub trait ProjectData {
+/// Represents a parsable (and possibly re-construct-able) object
+pub trait Parsable {
     /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`SWRSResult`]
     fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized;
 
     /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
-    fn reconstruct(&self) -> SWRSResult<&str>;
+    /// by default, if not implemented, this will return [`SWRSError::NotImplementedError`]
+    fn reconstruct(&self) -> SWRSResult<String> {
+        Err(SWRSError::NotImplementedError)
+    }
 }

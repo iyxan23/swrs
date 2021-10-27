@@ -1,6 +1,6 @@
 extern crate swrs;
 
-use swrs::parser::ProjectData;
+use swrs::parser::Parsable;
 use swrs::parser::resource::{Resource, ResourceItem};
 
 fn main() {
