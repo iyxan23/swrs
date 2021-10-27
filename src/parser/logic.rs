@@ -149,7 +149,7 @@ impl ScreenLogic {
             events: Default::default(),
             variables: Default::default(),
             components: Default::default(),
-            more_blocks: vec![]
+            more_blocks: Default::default(),
         }
     }
 }
@@ -298,9 +298,79 @@ pub mod component {
 }
 
 pub mod more_block {
-    pub type MoreBlockPool = Vec<MoreBlock>;
+    use std::collections::HashMap;
+    use crate::error::{SWRSError, SWRSResult};
 
-    pub struct MoreBlock {}
+    pub struct MoreBlockPool(HashMap<String, MoreBlock>);
+
+    impl MoreBlockPool {
+        /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
+        /// header into the input
+        pub fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
+            let mut more_blocks = s.split("\n")
+                .map(MoreBlock::parse)
+                .collect::<SWRSResult<Vec<MoreBlock>>>()?;
+
+            let mut result = HashMap::<String, MoreBlock>::new();
+
+            // turn the more_blocks vec into a hashmap
+            more_blocks
+                .drain(..)
+                .for_each(|more_block| {
+                    result.insert((&more_block.id).to_owned(), more_block);
+                });
+
+            Ok(MoreBlockPool(result))
+        }
+
+        /// Reconstructs a moreblock pool to its string form
+        pub fn reconstruct(&self) -> String {
+            self.0
+                .values()
+                .map(MoreBlock::reconstruct)
+                .fold(String::new(), |ac, i| {
+                    format!("{}{}", ac, i)
+                })
+        }
+    }
+
+    impl Default for MoreBlockPool {
+        fn default() -> Self {
+            MoreBlockPool(HashMap::new())
+        }
+    }
+
+    /// Represents an item of @ActivityName.java_func
+    #[derive(Debug, Clone)]
+    pub struct MoreBlock {
+        pub id: String,
+        pub spec: String,
+    }
+
+    impl MoreBlock {
+        /// Parses a moreblock item, example:
+        /// ```
+        /// execute_shell:execute_shell %s.command
+        /// ```
+        pub fn parse(s: &str) -> SWRSResult<MoreBlock> {
+            let (id, spec) = s.split_once(':')
+                .ok_or_else(||SWRSError::ParseError(
+                    format!("Failed to parse a moreblock, couldn't split `:`")
+                ))?;
+
+            Ok(
+                MoreBlock {
+                    id: id.to_string(),
+                    spec: spec.to_string(),
+                }
+            )
+        }
+
+        /// Reconstructs a moreblock into its original form
+        pub fn reconstruct(&self) -> String {
+            format!("{}:{}", self.id, self.spec)
+        }
+    }
 }
 
 /// Represents the header of a blocks container
