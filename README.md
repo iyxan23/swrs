@@ -3,6 +3,8 @@ A rusty library that reads, parses and re-constructs sketchware projects.
 
 This might look dumb to use rust, but I'm currently planning to do something bigger with this.
 
+This might also look dumb to even make this library because sketchware is practically dead by now. But I had this dream of making something _rather interesting_ with sketchware, so I would say this project is for _learning-purposes_. I hope I'll be able to adapt this library to sketchware 2 when/if it got released, and probably create support to sketchware mod versions aswell.
+
 ## Development state
 This project is **In-progress (unfinished; partly finished)**. I really do hope in getting this project finished lmao
 
