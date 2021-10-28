@@ -303,6 +303,7 @@ pub mod component {
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
 
+    #[derive(Debug, Eq, PartialEq)]
     pub struct ComponentPool(pub Vec<Component>);
 
     impl Parsable for ComponentPool {
@@ -356,7 +357,8 @@ pub mod more_block {
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
 
-    pub struct MoreBlockPool(HashMap<String, MoreBlock>);
+    #[derive(Debug, Eq, PartialEq)]
+    pub struct MoreBlockPool(pub HashMap<String, MoreBlock>);
 
     impl Parsable for MoreBlockPool {
         /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
@@ -397,7 +399,7 @@ pub mod more_block {
     }
 
     /// Represents an item of @ActivityName.java_func
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct MoreBlock {
         pub id: String,
         pub spec: String,

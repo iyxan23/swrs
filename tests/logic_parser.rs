@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use swrs::parser::logic::component::{Component};
+use swrs::parser::logic::more_block::{MoreBlock, MoreBlockPool};
 use swrs::parser::logic::variable::{Variable, VariablePool, VariableType};
 use swrs::parser::Parsable;
 
@@ -200,4 +202,86 @@ fn parse_variable_pool_1() {
             panic!("Cannot find field {} in the parsed value", variable.0);
         }
     }
+}
+
+#[test]
+fn parse_more_block() {
+    let input = "cool_moreblock:hello world %s";
+    let result = match MoreBlock::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse moreblock: {}", err)
+    };
+
+    let expected = MoreBlock {
+        id: "cool_moreblock".to_string(),
+        spec: "hello world %s".to_string()
+    };
+
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn parse_more_block_pool_0() {
+    let input = "cool_moreblock:hello world %s\nhello_world:very poggers %s cool %i";
+    let result = match MoreBlockPool::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse moreblock pool: {}", err)
+    };
+
+    let mut expected = HashMap::<String, MoreBlock>::new();
+    expected.insert("cool_moreblock".to_string(), MoreBlock { id: "cool_moreblock".to_string(), spec: "hello world %s".to_string() });
+    expected.insert("hello_world".to_string(), MoreBlock { id: "hello_world".to_string(), spec: "very poggers %s cool %i".to_string() });
+
+    assert_eq!(result, MoreBlockPool(expected));
+}
+
+#[test]
+fn parse_more_block_pool_1() {
+    let input = "\
+CardView:CardView %s.color %d.radius %d.shadow %m.view.view
+setBackgroundLinear:setBackgroundLinear %m.view.view fromFilePath %s.path
+SaveLinear:SaveLinear %m.view.view to path %s.path
+edtDial:edtDial Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess
+save_and_exit:save_and_exit Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess
+canvas:canvas %d.width %d.height
+setCornerRadius:setCornerRadius to %m.view.view percentage %d.percent
+EditTextLimit:EditTextLimit %m.textview.edittext setLimit %d.limit output %m.textview.output_tv
+saveView:saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath";
+
+    let result = match MoreBlockPool::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse moreblock pool: {}", err)
+    };
+
+    let mut expected = HashMap::<String, MoreBlock>::new();
+    expected.insert("CardView".to_string(), MoreBlock { id: "CardView".to_string(), spec: "CardView %s.color %d.radius %d.shadow %m.view.view".to_string() });
+    expected.insert("setBackgroundLinear".to_string(), MoreBlock { id: "setBackgroundLinear".to_string(), spec: "setBackgroundLinear %m.view.view fromFilePath %s.path".to_string() });
+    expected.insert("SaveLinear".to_string(), MoreBlock { id: "SaveLinear".to_string(), spec: "SaveLinear %m.view.view to path %s.path".to_string() });
+    expected.insert("edtDial".to_string(), MoreBlock { id: "edtDial".to_string(), spec: "edtDial Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess".to_string() });
+    expected.insert("save_and_exit".to_string(), MoreBlock { id: "save_and_exit".to_string(), spec: "save_and_exit Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess".to_string() });
+    expected.insert("canvas".to_string(), MoreBlock { id: "canvas".to_string(), spec: "canvas %d.width %d.height".to_string() });
+    expected.insert("setCornerRadius".to_string(), MoreBlock { id: "setCornerRadius".to_string(), spec: "setCornerRadius to %m.view.view percentage %d.percent".to_string() });
+    expected.insert("EditTextLimit".to_string(), MoreBlock { id: "EditTextLimit".to_string(), spec: "EditTextLimit %m.textview.edittext setLimit %d.limit output %m.textview.output_tv".to_string() });
+    expected.insert("saveView".to_string(), MoreBlock { id: "saveView".to_string(), spec: "saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath".to_string() });
+
+    assert_eq!(result, MoreBlockPool(expected));
+}
+
+#[test]
+fn parse_component() {
+    let input = r#"{"componentId":"dialog","param1":"","param2":"","param3":"","type":7}"#;
+    let result = match Component::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse component: {}", err)
+    };
+
+    let expected = Component {
+        id: "dialog".to_string(),
+        param1: "".to_string(),
+        param2: "".to_string(),
+        param3: "".to_string(),
+        r#type: 7
+    };
+
+    assert_eq!(result, expected);
 }
