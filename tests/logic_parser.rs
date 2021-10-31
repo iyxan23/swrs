@@ -5,6 +5,8 @@ use swrs::parser::logic::more_block::{MoreBlock, MoreBlockPool};
 use swrs::parser::logic::variable::{Variable, VariablePool, VariableType};
 use swrs::parser::Parsable;
 
+// Variables =======================================================================================
+
 #[test]
 fn parse_variable_0() {
     let input = "1:my_int";
@@ -205,6 +207,85 @@ fn parse_variable_pool_1() {
     }
 }
 
+// Variables =======================================================================================
+
+// List variables ==================================================================================
+
+#[test]
+fn parse_list_variable() {
+    let input = "0:my_booleans";
+    let result = match ListVariable::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse list variable: {}", err)
+    };
+
+    assert_eq!(
+        result,
+        ListVariable {
+            name: "my_booleans".to_string(),
+            r#type: VariableType::Boolean
+        }
+    )
+}
+
+#[test]
+fn parse_list_variable_pool() {
+    let input = r#"0:booleans
+1:integers
+2:strings
+3:maps"#;
+    let result = match ListVariablePool::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse list variable pool: {}", err)
+    };
+
+    let expected = {
+        let mut map = HashMap::<String, ListVariable>::new();
+
+        map.insert("booleans".to_string(), ListVariable { name: "booleans".to_string(), r#type: VariableType::Boolean });
+        map.insert("integers".to_string(), ListVariable { name: "integers".to_string(), r#type: VariableType::Integer });
+        map.insert("strings".to_string(), ListVariable { name: "strings".to_string(), r#type: VariableType::String });
+        map.insert("maps".to_string(), ListVariable { name: "maps".to_string(), r#type: VariableType::HashMap });
+
+        ListVariablePool(map)
+    };
+
+    assert_eq!(expected, result)
+}
+
+// List variables ==================================================================================
+
+// Components ======================================================================================
+
+#[test]
+fn parse_component() {
+    let input = r#"{"componentId":"dialog","param1":"","param2":"","param3":"","type":7}"#;
+    let result = match Component::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse component: {}", err)
+    };
+
+    let expected = Component {
+        id: "dialog".to_string(),
+        param1: "".to_string(),
+        param2: "".to_string(),
+        param3: "".to_string(),
+        r#type: 7
+    };
+
+    assert_eq!(result, expected);
+}
+
+// Components ======================================================================================
+
+// Events ==========================================================================================
+
+// todo: impl events
+
+// Events ==========================================================================================
+
+// Functions / MoreBlocks ==========================================================================
+
 #[test]
 fn parse_more_block() {
     let input = "cool_moreblock:hello world %s";
@@ -268,66 +349,8 @@ saveView:saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath
     assert_eq!(result, MoreBlockPool(expected));
 }
 
-#[test]
-fn parse_component() {
-    let input = r#"{"componentId":"dialog","param1":"","param2":"","param3":"","type":7}"#;
-    let result = match Component::parse(input) {
-        Ok(r) => r,
-        Err(err) => panic!("Failed to parse component: {}", err)
-    };
+// Functions / MoreBlocks ==========================================================================
 
-    let expected = Component {
-        id: "dialog".to_string(),
-        param1: "".to_string(),
-        param2: "".to_string(),
-        param3: "".to_string(),
-        r#type: 7
-    };
+// Full logic ======================================================================================
 
-    assert_eq!(result, expected);
-}
-
-
-// List variable
-
-#[test]
-fn parse_list_variable() {
-    let input = "0:my_booleans";
-    let result = match ListVariable::parse(input) {
-        Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable: {}", err)
-    };
-
-    assert_eq!(
-        result,
-        ListVariable {
-            name: "my_booleans".to_string(),
-            r#type: VariableType::Boolean
-        }
-    )
-}
-
-#[test]
-fn parse_list_variable_pool() {
-    let input = r#"0:booleans
-1:integers
-2:strings
-3:maps"#;
-    let result = match ListVariablePool::parse(input) {
-        Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable pool: {}", err)
-    };
-
-    let expected = {
-        let mut map = HashMap::<String, ListVariable>::new();
-
-        map.insert("booleans".to_string(), ListVariable { name: "booleans".to_string(), r#type: VariableType::Boolean });
-        map.insert("integers".to_string(), ListVariable { name: "integers".to_string(), r#type: VariableType::Integer });
-        map.insert("strings".to_string(), ListVariable { name: "strings".to_string(), r#type: VariableType::String });
-        map.insert("maps".to_string(), ListVariable { name: "maps".to_string(), r#type: VariableType::HashMap });
-
-        ListVariablePool(map)
-    };
-
-    assert_eq!(expected, result)
-}
+// todo
