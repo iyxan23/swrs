@@ -24,7 +24,6 @@ impl Parsable for Logic {
                 break;
             }
 
-            // todo: @MainActivity.java_list, @MainActivity.java_events
             if line.ends_with("java_var") {
                 // variable pool
                 // read the screen name
@@ -44,19 +43,38 @@ impl Parsable for Logic {
             } else if line.ends_with("java_list") {
                 // list variable pool
                 // get the screen name
-                let screen_name = (&line[1..9]).to_string();
+                let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_list"
 
                 // then parse it
                 let list_variable_pool = list_variable::ListVariablePool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(
-                        format!("Error whilst parsing list variable pool of {}: {}", screen_name, e)
-                    ))?;
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing list variable pool of {}: {}",
+                        screen_name, e
+                    )))?;
 
                 // then put it on the screens list with the screen_name above
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name))
                     .list_variables = list_variable_pool;
+
+            } else if line.ends_with("java_components") {
+                // component pool
+                // get screen name
+                let screen_name = (&line[1..15]).to_string(); // 15 -> length of "java_components"
+
+                // then parse it
+                let component_pool = component::ComponentPool::parse_iter(&mut lines)
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing component pool of {}: {}",
+                        screen_name, e
+                    )))?;
+
+                // then put it on the screens list with the screen_name above
+                screens
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .components = component_pool;
 
             } else if line.ends_with("java_events") {
                 todo!();
@@ -67,9 +85,10 @@ impl Parsable for Logic {
 
                 // then parse it
                 let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(
-                        format!("Error whilst parsing moreblock pool of {}: {}", screen_name, e)
-                    ))?;
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing moreblock pool of {}: {}",
+                        screen_name, e
+                    )))?;
 
                 // then put it on the screen i guess
                 screens
