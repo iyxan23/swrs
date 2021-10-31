@@ -49,6 +49,26 @@ impl Parsable for Logic {
                     .unwrap() // this shouldn't be empty, we've initialized it just in case before
                     .variables = variable_pool;
 
+            } else if line.ends_with("java_list") {
+                // list variable pool
+                // get the screen name
+                let screen_name = (&line[1..9]).to_string();
+
+                // then parse it
+                let list_variable_pool = list_variable::ListVariablePool::parse_iter(&mut lines)
+                    .map_err(|e|SWRSError::ParseError(
+                        format!("Error whilst parsing list variable pool of {}: {}", screen_name, e)
+                    ))?;
+
+                // then put it on the screens list with the screen_name above
+                screens
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .list_variables = list_variable_pool;
+
+            } else if line.ends_with("java_events") {
+                todo!();
+
             } else if line.ends_with("java_func") {
                 // moreblocks pool
                 let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_func"
@@ -117,6 +137,7 @@ pub struct ScreenLogic {
     pub name: String,
     pub block_containers: HashMap<BlockContainerHeader, BlockContainer>,
     pub variables: variable::VariablePool,
+    pub list_variables: list_variable::ListVariablePool,
     pub components: component::ComponentPool,
     pub more_blocks: more_block::MoreBlockPool,
 }
@@ -127,6 +148,7 @@ impl ScreenLogic {
             name,
             block_containers: Default::default(),
             variables: Default::default(),
+            list_variables: Default::default(),
             components: Default::default(),
             more_blocks: Default::default(),
         }
@@ -220,7 +242,7 @@ pub mod variable {
         }
     }
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     #[repr(u8)]
     pub enum VariableType {
         Boolean,
@@ -244,6 +266,88 @@ pub mod variable {
                     )
                 )
             }
+        }
+    }
+}
+
+pub mod list_variable {
+    use std::collections::HashMap;
+    use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
+
+    /// Represents a list variable pool
+    ///
+    /// `0: HashMap<String, ListVariable>` is a map of variable name -> [`ListVariable`]
+    #[derive(Debug, Eq, PartialEq)]
+    pub struct ListVariablePool(pub HashMap<String, ListVariable>);
+
+    impl ListVariablePool {
+        /// Parses an iterator of newlines (should be taken from `.split("\n")`) into a [`ListVariablePool`]
+        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+            newline_iter
+                .by_ref()
+                .take_while(|i|i != &"\n")
+                .map(ListVariable::parse)
+                .try_fold(ListVariablePool(HashMap::new()), |mut acc, i| {
+                    let i = i
+                        .map_err(|e|SWRSError::ParseError(format!(
+                            "Failed to parse a list variable item at line {}: {}", acc.0.len(), e
+                        )))?;
+
+                    acc.0.insert(i.name.to_owned(), i);
+
+                    Ok(acc)
+                })
+        }
+    }
+
+    impl Parsable for ListVariablePool {
+        fn parse(s: &str) -> SWRSResult<Self> {
+            ListVariablePool::parse_iter(&mut s.split("\n"))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            todo!()
+        }
+    }
+
+    impl Default for ListVariablePool {
+        fn default() -> Self {
+            ListVariablePool(HashMap::new())
+        }
+    }
+
+    #[derive(Debug, Eq, PartialEq)]
+    pub struct ListVariable {
+        pub name: String,
+        pub r#type: super::variable::VariableType
+    }
+
+    impl Parsable for ListVariable {
+        fn parse(s: &str) -> SWRSResult<Self> {
+            let (lvar_type, name) = {
+                Ok(s.split_once(":")
+                    .ok_or_else(||SWRSError::ParseError("Failed to split list variable by \":\"".to_string()))?)
+            }?;
+
+            Ok(ListVariable {
+                name: name.to_string(),
+                r#type: <super::variable::VariableType as TryFrom<u8>>
+                    ::try_from(
+                    lvar_type
+                        .parse()
+                        .map_err(|_|SWRSError::ParseError(
+                            "Couldn't turn the list's variable type into integer".to_string()
+                        ))?
+                    )
+                    .map_err(|e|
+                        SWRSError::ParseError(e.to_string())
+                    )?,
+            })
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            Ok(format!("{}:{}", self.r#type as u8, self.name))
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use swrs::parser::logic::component::{Component};
+use swrs::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use swrs::parser::logic::more_block::{MoreBlock, MoreBlockPool};
 use swrs::parser::logic::variable::{Variable, VariablePool, VariableType};
 use swrs::parser::Parsable;
@@ -284,4 +285,49 @@ fn parse_component() {
     };
 
     assert_eq!(result, expected);
+}
+
+
+// List variable
+
+#[test]
+fn parse_list_variable() {
+    let input = "0:my_booleans";
+    let result = match ListVariable::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse list variable: {}", err)
+    };
+
+    assert_eq!(
+        result,
+        ListVariable {
+            name: "my_booleans".to_string(),
+            r#type: VariableType::Boolean
+        }
+    )
+}
+
+#[test]
+fn parse_list_variable_pool() {
+    let input = r#"0:booleans
+1:integers
+2:strings
+3:maps"#;
+    let result = match ListVariablePool::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse list variable pool: {}", err)
+    };
+
+    let expected = {
+        let mut map = HashMap::<String, ListVariable>::new();
+
+        map.insert("booleans".to_string(), ListVariable { name: "booleans".to_string(), r#type: VariableType::Boolean });
+        map.insert("integers".to_string(), ListVariable { name: "integers".to_string(), r#type: VariableType::Integer });
+        map.insert("strings".to_string(), ListVariable { name: "strings".to_string(), r#type: VariableType::String });
+        map.insert("maps".to_string(), ListVariable { name: "maps".to_string(), r#type: VariableType::HashMap });
+
+        ListVariablePool(map)
+    };
+
+    assert_eq!(expected, result)
 }
