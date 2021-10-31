@@ -28,25 +28,17 @@ impl Parsable for Logic {
             if line.ends_with("java_var") {
                 // variable pool
                 // read the screen name
-                let screen_name = &line[1..8]; // 8 -> length of "java_var"
+                let screen_name = (&line[1..8]).to_string(); // 8 -> length of "java_var"
 
                 // parse variables
-                let variable_pool = variable::VariablePool::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
-                    .map_err(|e| SWRSError::ParseError(format!(
-                        "Error whilst parsing variable pool: {}", e
+                let variable_pool = variable::VariablePool::parse_iter(&mut lines)
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing variable pool of {}: {}", screen_name, e
                     )))?;
 
-                // then put the variable pool to the screen name
-                if !screens.contains_key(screen_name) {
-                    screens.insert(
-                        screen_name.to_string(),
-                        ScreenLogic::new_empty(screen_name.to_string())
-                    );
-                }
-
                 screens
-                    .get_mut(screen_name)
-                    .unwrap() // this shouldn't be empty, we've initialized it just in case before
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .variables = variable_pool;
 
             } else if line.ends_with("java_list") {
@@ -74,7 +66,7 @@ impl Parsable for Logic {
                 let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_func"
 
                 // then parse it
-                let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
+                let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
                     .map_err(|e|SWRSError::ParseError(
                         format!("Error whilst parsing moreblock pool of {}: {}", screen_name, e)
                     ))?;
@@ -82,42 +74,29 @@ impl Parsable for Logic {
                 // then put it on the screen i guess
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
                     .more_blocks = more_block_pool;
 
             } else {
-                // some kind of event
+                // some kind of event that will contain blocks
                 // parse the header
                 let header = BlockContainerHeader::parse(line)
-                    .map_err(|e|
-                        SWRSError::ParseError(
-                            format!(
-                                "Error whilst reading a blocks container header at line {}: {}",
-                                line_counter, e
-                            )
-                        )
-                    )?;
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst reading a blocks container header at line {}: {}",
+                        line_counter, e
+                    )))?;
 
                 // parse the blocks
                 let blocks = BlockContainer::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
-                    .map_err(|e|SWRSError::ParseError(
-                        format!(
-                            "Error whilst parsing blocks for the screen {} on event name {}: {}",
-                            header.screen_name, header.container_name, e)
-                    ))?;
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing blocks for the screen {} on event name {}: {}",
+                        header.screen_name, header.container_name, e
+                    )))?;
 
-                // first we check if it has the screen in screens, if not then add it
-                if !screens.contains_key(header.screen_name.as_str()) {
-                    screens.insert(
-                        header.screen_name.to_owned(),
-                        ScreenLogic::new_empty(header.screen_name.to_owned())
-                    );
-                }
-
-                // then put the blocks pool to the screen
+                // then add this to the block container pool
                 screens
-                    .get_mut(header.screen_name.as_str())
-                    .unwrap()
+                    .entry(header.screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(header.screen_name.to_owned()))
                     .block_containers
                     .insert(header, blocks);
             }
@@ -170,9 +149,9 @@ pub mod variable {
             let mut result_map = HashMap::new();
 
             newline_iter
-                .map(|s| {
-                    Variable::parse(s)
-                })
+                .by_ref()
+                .take_while(|i|i != &"\n")
+                .map(Variable::parse)
                 .collect::<SWRSResult<Vec<Variable>>>()?
                 .drain(..)
                 .for_each(|variable| {
@@ -422,8 +401,10 @@ pub mod more_block {
 
     impl MoreBlockPool {
         /// Parses a moreblock pool using an iterator of newlines
-        pub fn parse_iter<'a>(newline_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             let mut more_blocks = newline_iter
+                .by_ref()
+                .take_while(|i|i != &"\n")
                 .map(MoreBlock::parse)
                 .collect::<SWRSResult<Vec<MoreBlock>>>()?;
 
@@ -444,7 +425,7 @@ pub mod more_block {
         /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
         /// header into the input
         fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
-            MoreBlockPool::parse_iter(s.split("\n"))
+            MoreBlockPool::parse_iter(&mut s.split("\n"))
         }
 
         /// Reconstructs a moreblock pool to its string form
@@ -544,6 +525,8 @@ impl BlockContainer {
     /// Parses a block container from an iterator of newlines
     fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
         Ok(BlockContainer(newline_iter
+            .by_ref()
+            .take_while(|i|i != &"\n")
             .map(Block::parse)
             .collect::<SWRSResult<Vec<Block>>>()?
         ))
