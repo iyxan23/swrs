@@ -50,7 +50,7 @@ fn parse_variable_pool_0() {
 2:my_2nd_str
 3:my_hashmap";
 
-    let result = match VariablePool::parse(input) {
+    let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
         Err(err) => panic!("Failed to parse variables: {}", err)
     };
@@ -132,7 +132,7 @@ fn parse_variable_pool_1() {
 2:folder_path
 2:output_path";
 
-    let result = match VariablePool::parse(input) {
+    let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
         Err(err) => panic!("Failed to parse variables: {}", err)
     };

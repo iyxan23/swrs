@@ -30,27 +30,8 @@ impl Parsable for Logic {
                 // read the screen name
                 let screen_name = &line[1..8]; // 8 -> length of "java_var"
 
-                // collect all the variables (get all things until an empty line)
-                let variables_str = {
-                    let mut result = String::new();
-
-                    loop {
-                        let line = lines.next();
-                        if line.is_none() { break; }
-                        let line = line.unwrap();
-
-                        if !line.trim().is_empty() {
-                            result.push_str(line);
-                            result.push_str("\n");
-                        }
-                    }
-
-                    result = result.trim().to_string();
-                    result
-                };
-
                 // parse variables
-                let variable_pool = variable::VariablePool::parse(variables_str.as_str())
+                let variable_pool = variable::VariablePool::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
                     .map_err(|e| SWRSError::ParseError(format!(
                         "Error whilst parsing variable pool: {}", e
                     )))?;
@@ -72,27 +53,8 @@ impl Parsable for Logic {
                 // moreblocks pool
                 let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_func"
 
-                // collect all stuff until an empty line
-                let more_blocks_str = {
-                    let mut result = String::new();
-
-                    loop {
-                        let line = lines.next();
-                        if line.is_none() { break; }
-                        let line = line.unwrap();
-
-                        if !line.trim().is_empty() {
-                            result.push_str(line);
-                            result.push_str("\n");
-                        }
-                    }
-
-                    result = result.trim().to_string();
-                    result
-                };
-
                 // then parse it
-                let more_block_pool = more_block::MoreBlockPool::parse(more_blocks_str.as_str())
+                let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
                     .map_err(|e|SWRSError::ParseError(
                         format!("Error whilst parsing moreblock pool of {}: {}", screen_name, e)
                     ))?;
@@ -106,7 +68,7 @@ impl Parsable for Logic {
             } else {
                 // some kind of event
                 // parse the header
-                let header = BlocksContainerHeader::parse(line)
+                let header = BlockContainerHeader::parse(line)
                     .map_err(|e|
                         SWRSError::ParseError(
                             format!(
@@ -116,27 +78,8 @@ impl Parsable for Logic {
                         )
                     )?;
 
-                // collect all blocks (read everything until empty line)
-                let blocks_str = {
-                    let mut result = String::new();
-
-                    loop {
-                        let line = lines.next();
-                        if line.is_none() { break; }
-                        let line = line.unwrap();
-
-                        if !line.trim().is_empty() {
-                            result.push_str(line);
-                            result.push_str("\n");
-                        }
-                    }
-
-                    result = result.trim().to_string();
-                    result
-                };
-
                 // parse the blocks
-                let blocks = BlocksContainer::parse(blocks_str.as_str())
+                let blocks = BlockContainer::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
                     .map_err(|e|SWRSError::ParseError(
                         format!(
                             "Error whilst parsing blocks for the screen {} on event name {}: {}",
@@ -155,7 +98,7 @@ impl Parsable for Logic {
                 screens
                     .get_mut(header.screen_name.as_str())
                     .unwrap()
-                    .events
+                    .block_containers
                     .insert(header, blocks);
             }
 
@@ -172,7 +115,7 @@ impl Parsable for Logic {
 
 pub struct ScreenLogic {
     pub name: String,
-    pub events: HashMap<BlocksContainerHeader, BlocksContainer>,
+    pub block_containers: HashMap<BlockContainerHeader, BlockContainer>,
     pub variables: variable::VariablePool,
     pub components: component::ComponentPool,
     pub more_blocks: more_block::MoreBlockPool,
@@ -182,7 +125,7 @@ impl ScreenLogic {
     pub fn new_empty(name: String) -> ScreenLogic {
         ScreenLogic {
             name,
-            events: Default::default(),
+            block_containers: Default::default(),
             variables: Default::default(),
             components: Default::default(),
             more_blocks: Default::default(),
@@ -199,12 +142,12 @@ pub mod variable {
     #[derive(Debug, Eq, PartialEq)]
     pub struct VariablePool(pub HashMap<String, Variable>);
 
-    impl Parsable for VariablePool {
-        /// Parses a variable pool, do not include the header in the input
-        fn parse(s: &str) -> SWRSResult<VariablePool> {
+    impl VariablePool {
+        /// Parses a variable pool from an iterator of newline string
+        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             let mut result_map = HashMap::new();
 
-            s.split("\n")
+            newline_iter
                 .map(|s| {
                     Variable::parse(s)
                 })
@@ -215,6 +158,13 @@ pub mod variable {
                 });
 
             Ok(VariablePool(result_map))
+        }
+    }
+
+    impl Parsable for VariablePool {
+        /// Parses a variable pool, do not include the header in the input
+        fn parse(s: &str) -> SWRSResult<VariablePool> {
+            VariablePool::parse_iter(&mut s.split("\n"))
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
@@ -306,13 +256,19 @@ pub mod component {
     #[derive(Debug, Eq, PartialEq)]
     pub struct ComponentPool(pub Vec<Component>);
 
-    impl Parsable for ComponentPool {
-        fn parse(s: &str) -> SWRSResult<ComponentPool> {
+    impl ComponentPool {
+        pub fn parse_iter<'a>(newlines_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             Ok(ComponentPool(
-                s.split("\n")
+                newlines_iter
                     .map(Component::parse)
                     .collect::<SWRSResult<Vec<Component>>>()?
             ))
+        }
+    }
+
+    impl Parsable for ComponentPool {
+        fn parse(s: &str) -> SWRSResult<ComponentPool> {
+            ComponentPool::parse_iter(s.split("\n"))
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
@@ -360,11 +316,10 @@ pub mod more_block {
     #[derive(Debug, Eq, PartialEq)]
     pub struct MoreBlockPool(pub HashMap<String, MoreBlock>);
 
-    impl Parsable for MoreBlockPool {
-        /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
-        /// header into the input
-        fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
-            let mut more_blocks = s.split("\n")
+    impl MoreBlockPool {
+        /// Parses a moreblock pool using an iterator of newlines
+        pub fn parse_iter<'a>(newline_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+            let mut more_blocks = newline_iter
                 .map(MoreBlock::parse)
                 .collect::<SWRSResult<Vec<MoreBlock>>>()?;
 
@@ -379,6 +334,14 @@ pub mod more_block {
 
             Ok(MoreBlockPool(result))
         }
+    }
+
+    impl Parsable for MoreBlockPool {
+        /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
+        /// header into the input
+        fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
+            MoreBlockPool::parse_iter(s.split("\n"))
+        }
 
         /// Reconstructs a moreblock pool to its string form
         fn reconstruct(&self) -> SWRSResult<String> {
@@ -386,7 +349,7 @@ pub mod more_block {
                 .values()
                 .map(MoreBlock::reconstruct)
                 .fold(SWRSResult::Ok(String::new()), |ac, i| {
-                    Ok(format!("{}{}", ac?, i?))
+                    Ok(format!("{}\n{}", ac?, i?))
                 })?
             )
         }
@@ -433,14 +396,14 @@ pub mod more_block {
 
 /// Represents the header of a blocks container
 #[derive(Debug, Eq, PartialEq, Hash)]
-pub struct BlocksContainerHeader {
+pub struct BlockContainerHeader {
     pub screen_name: String,
     pub container_name: String,
 }
 
-impl Parsable for BlocksContainerHeader {
-    /// Parses the header of a blocks container
-    fn parse(s: &str) -> SWRSResult<BlocksContainerHeader> {
+impl Parsable for BlockContainerHeader {
+    /// Parses the header of a block container
+    fn parse(s: &str) -> SWRSResult<BlockContainerHeader> {
         if !s.starts_with("@") {
             return Err(SWRSError::ParseError("Header does not start with @".to_string()))
         }
@@ -448,16 +411,16 @@ impl Parsable for BlocksContainerHeader {
         let mut parts = s.split(".java_");
         let screen_name = parts.next()
             .ok_or_else(||SWRSError::ParseError(
-                "Cannot get the screen name of a blocks header".to_string()
+                "Cannot get the screen name of a block container header".to_string()
             ))?[1..].to_string();
 
         let container_name = parts.next()
             .ok_or_else(|| SWRSError::ParseError(
-                "Cannot get the container name of a blocks header".to_string()
+                "Cannot get the container name of a block container header".to_string()
             ))?.to_string();
 
         Ok(
-            BlocksContainerHeader {
+            BlockContainerHeader {
                 screen_name,
                 container_name
             }
@@ -471,16 +434,22 @@ impl Parsable for BlocksContainerHeader {
 
 /// Basically a list of blocks
 #[derive(Debug, Eq, PartialEq)]
-pub struct BlocksContainer(Vec<Block>);
+pub struct BlockContainer(Vec<Block>);
 
-impl Parsable for BlocksContainer {
-    /// This just parses a list of blocks, do not include the header
-    fn parse(s: &str) -> SWRSResult<BlocksContainer> {
-        Ok(BlocksContainer(
-            s.split("\n")
-                .map(Block::parse)
-                .collect::<SWRSResult<Vec<Block>>>()?
+impl BlockContainer {
+    /// Parses a block container from an iterator of newlines
+    fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+        Ok(BlockContainer(newline_iter
+            .map(Block::parse)
+            .collect::<SWRSResult<Vec<Block>>>()?
         ))
+    }
+}
+
+impl Parsable for BlockContainer {
+    /// This just parses a list of blocks, do not include the header
+    fn parse(s: &str) -> SWRSResult<BlockContainer> {
+        BlockContainer::parse_iter(&mut s.split("\n"))
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
