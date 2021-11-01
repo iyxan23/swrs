@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use swrs::parser::logic::component::{Component};
+use swrs::parser::logic::event::{Event, EventPool};
 use swrs::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use swrs::parser::logic::more_block::{MoreBlock, MoreBlockPool};
 use swrs::parser::logic::variable::{Variable, VariablePool, VariableType};
@@ -280,7 +281,57 @@ fn parse_component() {
 
 // Events ==========================================================================================
 
-// todo: impl events
+#[test]
+fn parse_event() {
+    let input = r#"{"eventName":"onClick","eventType":1,"targetId":"linear10","targetType":0}"#;
+    let result = match Event::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse event: {}", err)
+    };
+
+    let expected = Event {
+        event_name: "onClick".to_string(),
+        event_type: 1,
+        target_id: "linear10".to_string(),
+        target_type: 0
+    };
+
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn parse_event_pool() {
+    let input = r#"{"eventName":"onResponse","eventType":2,"targetId":"ping_test","targetType":17}
+{"eventName":"onErrorResponse","eventType":2,"targetId":"ping_test","targetType":17}
+{"eventName":"onClick","eventType":1,"targetId":"item_2","targetType":0}
+{"eventName":"onClick","eventType":1,"targetId":"item_3","targetType":0}
+{"eventName":"onClick","eventType":1,"targetId":"item_5","targetType":0}
+{"eventName":"onClick","eventType":1,"targetId":"item_1","targetType":0}
+{"eventName":"onCheckedChange","eventType":1,"targetId":"switch_theme","targetType":13}
+{"eventName":"onResponse","eventType":2,"targetId":"get_ip","targetType":17}
+{"eventName":"onClick","eventType":1,"targetId":"aver","targetType":0}
+{"eventName":"onClick","eventType":1,"targetId":"dsdk","targetType":0}"#;
+
+    let result = match EventPool::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse event pool: {}", err)
+    };
+
+    let expected = EventPool(vec![
+        Event { event_name: "onResponse".to_string(), event_type: 2, target_id: "ping_test".to_string(), target_type: 17 },
+        Event { event_name: "onErrorResponse".to_string(), event_type: 2, target_id: "ping_test".to_string(), target_type: 17 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_2".to_string(), target_type: 0 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_3".to_string(), target_type: 0 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_5".to_string(), target_type: 0 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_1".to_string(), target_type: 0 },
+        Event { event_name: "onCheckedChange".to_string(), event_type: 1, target_id: "switch_theme".to_string(), target_type: 13 },
+        Event { event_name: "onResponse".to_string(), event_type: 2, target_id: "get_ip".to_string(), target_type: 17 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "aver".to_string(), target_type: 0 },
+        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "dsdk".to_string(), target_type: 0 },
+    ]);
+
+    assert_eq!(result, expected);
+}
 
 // Events ==========================================================================================
 

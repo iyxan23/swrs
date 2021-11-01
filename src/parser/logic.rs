@@ -498,6 +498,66 @@ pub mod more_block {
     }
 }
 
+pub mod event {
+    use serde::{Serialize, Deserialize};
+    use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
+
+    #[derive(Debug, Eq, PartialEq)]
+    pub struct EventPool(pub Vec<Event>);
+
+    impl EventPool {
+        /// Parses an event pool from a newline iterator
+        pub fn parse_iter<'a>(newline_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+            Ok(EventPool(
+                newline_iter
+                    .map(Event::parse)
+                    .collect::<SWRSResult<Vec<Event>>>()?
+            ))
+        }
+    }
+
+    impl Parsable for EventPool {
+        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+            EventPool::parse_iter(decrypted_content.split("\n"))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            self.0
+                .iter()
+                .try_fold(String::new(), |acc, event| {
+                    Ok(format!("{}\n{}", acc, event.reconstruct()?))
+                })
+        }
+    }
+
+    #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Event {
+        pub event_name: String,
+        pub event_type: u8,
+        pub target_id: String,
+        pub target_type: u8,
+    }
+
+    impl Parsable for Event {
+        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+            serde_json::from_str(decrypted_content)
+                .map_err(|e|SWRSError::ParseError(format!(
+                    "Failed to parse event: {}", e
+                )))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            serde_json::to_string(self)
+                .map_err(|e|SWRSError::ParseError(format!(
+                    "Failed to reconstruct event: {}", e
+                )))
+        }
+    }
+}
+
+// List variable
 /// Represents the header of a blocks container
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct BlockContainerHeader {
