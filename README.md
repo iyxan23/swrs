@@ -17,8 +17,7 @@ Stuff:
  - [x] Parsing `resource`
  - [x] Parsing `view`
    > Note: This is a simple implementation, I'm planning to create a way to neglect unnecessary fields depending on its view type (something like TextView, it only cares about `text` and other stuff, fields like `spinner_mode` will be erased) and convert them back into its root form to serialize/reconstruct it.
- - [ ] Parsing `logic`
-   WIP as of 22 Oct 2021
+ - [x] Parsing `logic`
  - [ ] Reconstructing `project`
  - [ ] Reconstructing `file`
  - [ ] Reconstructing `library`
