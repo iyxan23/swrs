@@ -4,6 +4,7 @@ use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
 use crate::parser::Parsable;
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Logic {
     pub screens: HashMap<String, ScreenLogic>
 }
@@ -146,6 +147,7 @@ impl Parsable for Logic {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct ScreenLogic {
     pub name: String,
     pub block_containers: HashMap<BlockContainerHeader, BlockContainer>,
@@ -223,24 +225,11 @@ pub mod variable {
 
     impl Parsable for Variable {
         fn parse(s: &str) -> SWRSResult<Variable> {
-            let (var_type, var_name) = {
-                let mut iter = s.split(":");
-
-                Ok((
-                    iter.next()
-                        .ok_or(
-                            SWRSError::ParseError(
-                                "The variable type does not exist".to_string()
-                            )
-                        )?,
-                    iter.next()
-                        .ok_or(
-                            SWRSError::ParseError(
-                                "The variable name does not exist".to_string()
-                            )
-                        )?
-                ))
-            }?;
+            let (var_type, var_name) =
+                s.split_once(":")
+                    .ok_or_else(||SWRSError::ParseError(format!(
+                        "Couldn't get the variable type / name"
+                    )))?;
 
             Ok(Variable {
                 name: var_name.to_string(),
