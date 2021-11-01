@@ -9,7 +9,6 @@ pub enum SWRSError {
     DecryptionError(BlockModeError),
     IOError(io::Error),
     ParseError(String),
-    NotImplementedError,
 }
 
 impl Display for SWRSError {
@@ -23,9 +22,6 @@ impl Display for SWRSError {
             }
             SWRSError::ParseError(msg) => {
                 write!(f, "parse error: {}", msg)
-            }
-            SWRSError::NotImplementedError => {
-                write!(f, "not implemented error")
             }
         }
     }

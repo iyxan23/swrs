@@ -1,4 +1,3 @@
-use crate::error::SWRSError;
 use super::error::SWRSResult;
 
 pub mod project;
@@ -17,6 +16,6 @@ pub trait Parsable {
     /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
     /// by default, if not implemented, this will return [`SWRSError::NotImplementedError`]
     fn reconstruct(&self) -> SWRSResult<String> {
-        Err(SWRSError::NotImplementedError)
+        unimplemented!()
     }
 }
