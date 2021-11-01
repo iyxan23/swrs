@@ -77,7 +77,22 @@ impl Parsable for Logic {
                     .components = component_pool;
 
             } else if line.ends_with("java_events") {
-                todo!();
+                // event pool
+                // get the screen name from the header
+                let screen_name = (&line[1..12]).to_string();
+
+                // then parse it
+                let event_pool = event::EventPool::parse_iter(&mut lines)
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst parsing event pool of {}: {}",
+                        screen_name, e
+                    )))?;
+
+                // then put it on the screen it belongs to
+                screens
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .events = event_pool;
 
             } else if line.ends_with("java_func") {
                 // moreblocks pool
@@ -137,6 +152,7 @@ pub struct ScreenLogic {
     pub variables: variable::VariablePool,
     pub list_variables: list_variable::ListVariablePool,
     pub components: component::ComponentPool,
+    pub events: event::EventPool,
     pub more_blocks: more_block::MoreBlockPool,
 }
 
@@ -148,6 +164,7 @@ impl ScreenLogic {
             variables: Default::default(),
             list_variables: Default::default(),
             components: Default::default(),
+            events: Default::default(),
             more_blocks: Default::default(),
         }
     }
@@ -508,9 +525,11 @@ pub mod event {
 
     impl EventPool {
         /// Parses an event pool from a newline iterator
-        pub fn parse_iter<'a>(newline_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             Ok(EventPool(
                 newline_iter
+                    .by_ref()
+                    .take_while(|i|i != &"\n")
                     .map(Event::parse)
                     .collect::<SWRSResult<Vec<Event>>>()?
             ))
@@ -519,7 +538,7 @@ pub mod event {
 
     impl Parsable for EventPool {
         fn parse(decrypted_content: &str) -> SWRSResult<Self> {
-            EventPool::parse_iter(decrypted_content.split("\n"))
+            EventPool::parse_iter(&mut decrypted_content.split("\n"))
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
@@ -528,6 +547,12 @@ pub mod event {
                 .try_fold(String::new(), |acc, event| {
                     Ok(format!("{}\n{}", acc, event.reconstruct()?))
                 })
+        }
+    }
+
+    impl Default for EventPool {
+        fn default() -> Self {
+            EventPool(vec![])
         }
     }
 
