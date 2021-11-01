@@ -121,7 +121,7 @@ impl Parsable for Logic {
                     )))?;
 
                 // parse the blocks
-                let blocks = BlockContainer::parse_iter(&mut lines.by_ref().take_while(|i|i ==&"\n"))
+                let blocks = BlockContainer::parse_iter(&mut lines)
                     .map_err(|e|SWRSError::ParseError(format!(
                         "Error whilst parsing blocks for the screen {} on event name {}: {}",
                         header.screen_name, header.container_name, e
@@ -186,7 +186,7 @@ pub mod variable {
 
             newline_iter
                 .by_ref()
-                .take_while(|i|i != &"\n")
+                .take_while(|i|*i != "")
                 .map(Variable::parse)
                 .collect::<SWRSResult<Vec<Variable>>>()?
                 .drain(..)
@@ -301,7 +301,7 @@ pub mod list_variable {
         pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             newline_iter
                 .by_ref()
-                .take_while(|i|i != &"\n")
+                .take_while(|i|*i != "")
                 .map(ListVariable::parse)
                 .try_fold(ListVariablePool(HashMap::new()), |mut acc, i| {
                     let i = i
@@ -379,6 +379,7 @@ pub mod component {
         pub fn parse_iter<'a>(newlines_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             Ok(ComponentPool(
                 newlines_iter
+                    .take_while(|i|*i != "")
                     .map(Component::parse)
                     .collect::<SWRSResult<Vec<Component>>>()?
             ))
@@ -440,7 +441,7 @@ pub mod more_block {
         pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
             let mut more_blocks = newline_iter
                 .by_ref()
-                .take_while(|i|i != &"\n")
+                .take_while(|i|*i != "")
                 .map(MoreBlock::parse)
                 .collect::<SWRSResult<Vec<MoreBlock>>>()?;
 
@@ -529,7 +530,7 @@ pub mod event {
             Ok(EventPool(
                 newline_iter
                     .by_ref()
-                    .take_while(|i|i != &"\n")
+                    .take_while(|i|*i != "")
                     .map(Event::parse)
                     .collect::<SWRSResult<Vec<Event>>>()?
             ))
@@ -630,7 +631,7 @@ impl BlockContainer {
     fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
         Ok(BlockContainer(newline_iter
             .by_ref()
-            .take_while(|i|i != &"\n")
+            .take_while(|i|*i != "")
             .map(Block::parse)
             .collect::<SWRSResult<Vec<Block>>>()?
         ))
