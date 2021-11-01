@@ -27,7 +27,7 @@ impl Parsable for Logic {
             if line.ends_with("java_var") {
                 // variable pool
                 // read the screen name
-                let screen_name = (&line[1..8]).to_string(); // 8 -> length of "java_var"
+                let screen_name = (&line[1..line.len() - 9]).to_string(); // 8 (length of "java_var") + 1 (the dot)
 
                 // parse variables
                 let variable_pool = variable::VariablePool::parse_iter(&mut lines)
@@ -61,7 +61,7 @@ impl Parsable for Logic {
             } else if line.ends_with("java_components") {
                 // component pool
                 // get screen name
-                let screen_name = (&line[1..15]).to_string(); // 15 -> length of "java_components"
+                let screen_name = (&line[1..line.len() - 16]).to_string(); // 15 (length of "java_components") + 1 (the dot)
 
                 // then parse it
                 let component_pool = component::ComponentPool::parse_iter(&mut lines)
@@ -79,7 +79,7 @@ impl Parsable for Logic {
             } else if line.ends_with("java_events") {
                 // event pool
                 // get the screen name from the header
-                let screen_name = (&line[1..12]).to_string();
+                let screen_name = (&line[1..line.len() - 12]).to_string(); // 11 (length of "java_events") + 1 (the dot)
 
                 // then parse it
                 let event_pool = event::EventPool::parse_iter(&mut lines)
@@ -96,7 +96,7 @@ impl Parsable for Logic {
 
             } else if line.ends_with("java_func") {
                 // moreblocks pool
-                let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_func"
+                let screen_name = (&line[1..line.len() - 10]).to_string(); // 9 (length of "java_func") + 1 (the dot)
 
                 // then parse it
                 let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
