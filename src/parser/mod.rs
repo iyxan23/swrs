@@ -14,7 +14,7 @@ pub trait Parsable {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized;
 
     /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
-    /// by default, if not implemented, this will return [`SWRSError::NotImplementedError`]
+    /// by default, if not implemented, this will panic ([`unimplemented!()`])
     fn reconstruct(&self) -> SWRSResult<String> {
         unimplemented!()
     }

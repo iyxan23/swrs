@@ -51,7 +51,22 @@ impl Parsable for File {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(format!(
+            "@activity\n{}\n@customview\n{}",
+            self.activities
+                .iter()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                })?
+                .trim(),
+
+            self.custom_views
+                .iter()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                })?
+                .trim(),
+        ))
     }
 }
 
@@ -72,9 +87,15 @@ pub struct FileItem {
     pub theme: Theme,
 }
 
-impl FileItem {
-    pub fn parse(file_item: &str) -> SWRSResult<FileItem> {
-        serde_json::from_str(file_item).map_err(|e|SWRSError::ParseError(e.to_string()))
+impl Parsable for FileItem {
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        serde_json::from_str(decrypted_content)
+            .map_err(|e|SWRSError::ParseError(e.to_string()))
+    }
+
+    fn reconstruct(&self) -> SWRSResult<String> {
+        serde_json::to_string(self)
+            .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
     }
 }
 
