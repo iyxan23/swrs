@@ -54,6 +54,7 @@ impl Parsable for Project {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        serde_json::to_string(self)
+            .map_err(|e| SWRSError::ParseError(e.to_string()))
     }
 }
