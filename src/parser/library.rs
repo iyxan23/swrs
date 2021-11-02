@@ -1,117 +1,101 @@
-use core::str::Split;
 use serde::{Serialize, Deserialize};
-use serde::de::DeserializeOwned;
-use serde_json::Value;
 use crate::error::{SWRSError, SWRSResult};
 use super::Parsable;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Library {
-    pub firebase_db: Option<FirebaseDB>,
-    pub admob: Option<AdMob>,
-    pub google_map: Option<GoogleMap>,
-    pub appcompat_enabled: bool,
+    pub firebase_db: LibraryItem,
+    pub compat: LibraryItem,
+    pub admob: LibraryItem,
+    pub google_map: LibraryItem,
 }
 
 impl Parsable for Library {
-    fn parse(library: &str) -> SWRSResult<Library> {
-        let mut iterator = library.split("\n");
-        let mut result = Library {
-            firebase_db: None,
-            admob: None,
-            google_map: None,
-            appcompat_enabled: false
-        };
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        let mut newline_iter = decrypted_content.split("\n");
+
+        let mut firebase_db = Option::<LibraryItem>::None;
+        let mut compat      = Option::<LibraryItem>::None;
+        let mut admob       = Option::<LibraryItem>::None;
+        let mut google_map  = Option::<LibraryItem>::None;
 
         loop {
-            let line = iterator.next();
+            let line = newline_iter.next();
             if line.is_none() { break; }
             let line = line.unwrap();
 
-            fn parse_lib_data<'a, T>(iterator: &mut Split<'a, &str>, cur_line: &str) -> SWRSResult<Option<T>>
-            where T: DeserializeOwned {
-                let data = iterator.next();
-                if data.is_none() {
-                    return Err(
-                        SWRSError::ParseError(
-                            format!("EOF whilst trying to parse the data of {}", cur_line)
-                        )
-                    );
-                }
-
-                let value: Value = serde_json::from_str(data.unwrap())
-                    .map_err(|e|SWRSError::ParseError(e.to_string()))?;
-
-                if value["useYn"] == "Y" {
-                    serde_json::from_value(value)
-                        .map_err(|e|SWRSError::ParseError(e.to_string()))
-                        .map(|r|Option::Some(r))
-                } else {
-                    Ok(None)
-                }
-            }
-
             match line {
-                "@firebaseDB" => { result.firebase_db = parse_lib_data(&mut iterator, line)?; }
-                "@compat" => {
-                    let data = iterator.next();
-                    if data.is_none() {
-                        return Err(
-                            SWRSError::ParseError("EOF whilst trying to parse the data of @compat".to_string())
-                        )
-                    }
-
-                    let value: Value = serde_json::from_str(data.unwrap())
-                        .map_err(|e|SWRSError::ParseError(e.to_string()))?;
-
-                    if value["useYn"] == "Y" {
-                        result.appcompat_enabled = true;
-                    }
+                "@firebaseDB" => {
+                    firebase_db = Some(LibraryItem::parse(
+                        newline_iter.next()
+                            .ok_or_else(||SWRSError::ParseError("Couldn't get firebaseDB's library information".to_string()))?
+                    )?);
                 }
-                "@admob" => { result.admob = parse_lib_data(&mut iterator, line)?; }
-                "@googleMap" => { result.google_map = parse_lib_data(&mut iterator, line)?; }
-                &_ => {}
+
+                "@compat" => {
+                    compat = Some(LibraryItem::parse(
+                        newline_iter.next()
+                            .ok_or_else(||SWRSError::ParseError("Couldn't get compat's library information".to_string()))?
+                    )?);
+                }
+
+                "@admob" => {
+                    admob = Some(LibraryItem::parse(
+                        newline_iter.next()
+                            .ok_or_else(||SWRSError::ParseError("Couldn't get admob's library information".to_string()))?
+                    )?);
+                }
+
+                "@googleMap" => {
+                    google_map = Some(LibraryItem::parse(
+                        newline_iter.next()
+                            .ok_or_else(||SWRSError::ParseError("Couldn't get googleMap's library information".to_string()))?
+                    )?);
+                }
+                _ => ()
             }
         }
 
-        Ok(result)
+        Ok(Library {
+            firebase_db: firebase_db.ok_or_else(||SWRSError::ParseError("Cannot find firebaseDB's library information".to_string()))?,
+            compat: compat.ok_or_else(||SWRSError::ParseError("Cannot find compat's library information".to_string()))?,
+            admob: admob.ok_or_else(||SWRSError::ParseError("Cannot find admob's library information".to_string()))?,
+            google_map: google_map.ok_or_else(||SWRSError::ParseError("Cannot find googlemap's library information".to_string()))?,
+        })
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(format!(
+            "@firebaseDB\n{}\n@compat\n{}\n@admob\n{}\n@googleMap\n{}",
+            self.firebase_db.reconstruct()?,
+            self.compat.reconstruct()?,
+            self.admob.reconstruct()?,
+            self.google_map.reconstruct()?,
+        ))
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct FirebaseDB {
-    #[serde(rename = "data")]
-    pub project_id: String,
-
-    #[serde(rename = "reserved1")]
-    pub app_id: String,
-
-    #[serde(rename = "reserved2")]
-    pub api_key: String,
-
-    #[serde(rename = "reserved3")]
-    pub storage_bucket: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct AdMob {
-    pub ad_units: Vec<AdUnit>,
+pub struct LibraryItem {
+    pub ad_units: Vec<String>,
+    pub data: String,
+    pub lib_type: u8,
+    pub reserved1: String,
+    pub reserved2: String,
+    pub reserved3: String,
     pub test_devices: Vec<String>,
+    pub use_yn: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct AdUnit {
-    pub id: String,
-    pub name: String
-}
+impl Parsable for LibraryItem {
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized {
+        serde_json::from_str(decrypted_content)
+            .map_err(|e|SWRSError::ParseError(e.to_string()))
+    }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct GoogleMap {
-    #[serde(rename = "data")]
-    pub api_key: String,
+    fn reconstruct(&self) -> SWRSResult<String> {
+        serde_json::to_string(self)
+            .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
+    }
 }

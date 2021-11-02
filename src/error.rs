@@ -9,6 +9,7 @@ pub enum SWRSError {
     DecryptionError(BlockModeError),
     IOError(io::Error),
     ParseError(String),
+    ReconstructionError(String),
 }
 
 impl Display for SWRSError {
@@ -22,6 +23,9 @@ impl Display for SWRSError {
             }
             SWRSError::ParseError(msg) => {
                 write!(f, "parse error: {}", msg)
+            }
+            SWRSError::ReconstructionError(err) => {
+                write!(f, "reconstruction error: {}", err)
             }
         }
     }

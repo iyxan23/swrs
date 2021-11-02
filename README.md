@@ -20,7 +20,7 @@ Stuff:
  - [x] Parsing `logic`
  - [x] Reconstructing `project`
  - [ ] Reconstructing `file`
- - [ ] Reconstructing `library`
+ - [x] Reconstructing `library`
  - [ ] Reconstructing `resource`
  - [ ] Reconstructing `view`
  - [ ] Reconstructing `logic`
