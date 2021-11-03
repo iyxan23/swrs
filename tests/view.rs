@@ -1,6 +1,5 @@
-use serde::de::Unexpected::Char;
 use swrs::parser::Parsable;
-use swrs::parser::view::models::{AndroidView, ChoiceMode};
+use swrs::parser::view::models::AndroidView;
 use swrs::parser::view::View;
 
 #[test]
