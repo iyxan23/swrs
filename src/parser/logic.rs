@@ -39,7 +39,7 @@ impl Parsable for Logic {
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
-                    .variables = variable_pool;
+                    .variables = Some(variable_pool);
 
             } else if line.ends_with("java_list") {
                 // list variable pool
@@ -57,7 +57,7 @@ impl Parsable for Logic {
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name))
-                    .list_variables = list_variable_pool;
+                    .list_variables = Some(list_variable_pool);
 
             } else if line.ends_with("java_components") {
                 // component pool
@@ -75,7 +75,7 @@ impl Parsable for Logic {
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name))
-                    .components = component_pool;
+                    .components = Some(component_pool);
 
             } else if line.ends_with("java_events") {
                 // event pool
@@ -93,7 +93,7 @@ impl Parsable for Logic {
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name))
-                    .events = event_pool;
+                    .events = Some(event_pool);
 
             } else if line.ends_with("java_func") {
                 // moreblocks pool
@@ -110,7 +110,7 @@ impl Parsable for Logic {
                 screens
                     .entry(screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(screen_name))
-                    .more_blocks = more_block_pool;
+                    .more_blocks = Some(more_block_pool);
 
             } else {
                 // some kind of event that will contain blocks
@@ -143,7 +143,60 @@ impl Parsable for Logic {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        // first we are going to append each screens' containers in different variables
+        let mut variable_containers = String::new();
+        let mut more_block_containers = String::new();
+        let mut component_containers = String::new();
+        let mut event_containers = String::new();
+        let mut block_containers = String::new();
+
+        for screen in self.screens.values() {
+            if let Some(variables) = &screen.variables {
+                variable_containers
+                    .push_str(format!(
+                        "{}\n", variables.reconstruct()?
+                    ).as_str());
+            }
+
+            if let Some(more_block) = &screen.more_blocks {
+                more_block_containers
+                    .push_str(format!(
+                        "{}\n", more_block.reconstruct()?
+                    ).as_str());
+            }
+
+            if let Some(component) = &screen.components {
+                component_containers
+                    .push_str(format!(
+                        "{}\n", component.reconstruct()?
+                    ).as_str());
+            }
+
+            if let Some(event) = &screen.events {
+                event_containers
+                    .push_str(format!(
+                        "{}\n", event.reconstruct()?
+                    ).as_str());
+            }
+
+            block_containers
+                .push_str(
+                    screen
+                        .block_containers
+                        .iter()
+                        .try_fold(String::new(), |acc, (header, blocks)|
+                            Ok(format!("{}{}\n{}\n", acc, header.reconstruct()?, blocks.reconstruct()?))
+                        )?
+                        .as_str()
+                );
+        }
+
+        // stitch them together and boom!
+        Ok(format!(
+            "{}\n{}\n{}\n{}\n{}",
+            variable_containers.trim(), more_block_containers.trim(), component_containers.trim(),
+            event_containers.trim(), block_containers.trim()
+        ).trim().to_string())
     }
 }
 
@@ -151,11 +204,11 @@ impl Parsable for Logic {
 pub struct ScreenLogic {
     pub name: String,
     pub block_containers: HashMap<BlockContainerHeader, BlockContainer>,
-    pub variables: variable::VariablePool,
-    pub list_variables: list_variable::ListVariablePool,
-    pub components: component::ComponentPool,
-    pub events: event::EventPool,
-    pub more_blocks: more_block::MoreBlockPool,
+    pub variables: Option<variable::VariablePool>,
+    pub list_variables: Option<list_variable::ListVariablePool>,
+    pub components: Option<component::ComponentPool>,
+    pub events: Option<event::EventPool>,
+    pub more_blocks: Option<more_block::MoreBlockPool>,
 }
 
 impl ScreenLogic {
@@ -207,7 +260,13 @@ pub mod variable {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            todo!()
+            Ok(self.0
+                .values()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                })?
+                .trim()
+                .to_string())
         }
     }
 
@@ -242,7 +301,7 @@ pub mod variable {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            todo!()
+            Ok(format!("{}:{}", self.name, self.r#type as u8))
         }
     }
 
@@ -311,7 +370,13 @@ pub mod list_variable {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            todo!()
+            Ok(self.0
+                .values()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                })?
+                .trim()
+                .to_string())
         }
     }
 
@@ -381,7 +446,13 @@ pub mod component {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            todo!()
+            Ok(self.0
+                .iter()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                })?
+                .trim()
+                .to_string())
         }
     }
 
@@ -406,13 +477,16 @@ pub mod component {
     impl Parsable for Component {
         fn parse(s: &str) -> SWRSResult<Component> {
             serde_json::from_str(s)
-                .map_err(|e| SWRSError::ParseError(
-                    format!("Failed to parse component: {}", e.to_string())
-                ))
+                .map_err(|e|SWRSError::ParseError(format!(
+                    "Failed to parse component: {}", e
+                )))
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            todo!()
+            serde_json::to_string(self)
+                .map_err(|e|SWRSError::ReconstructionError(format!(
+                    "Failed to reconstruct component: {}", e
+                )))
         }
     }
 }
@@ -459,10 +533,11 @@ pub mod more_block {
             Ok(self.0
                 .values()
                 .map(MoreBlock::reconstruct)
-                .fold(SWRSResult::Ok(String::new()), |ac, i| {
-                    Ok(format!("{}\n{}", ac?, i?))
+                .try_fold(String::new(), |ac, i| {
+                    Ok(format!("{}\n{}", ac, i?))
                 })?
-            )
+                .trim()
+                .to_string())
         }
     }
 
@@ -490,12 +565,10 @@ pub mod more_block {
                     format!("Failed to parse a moreblock, couldn't split `:`")
                 ))?;
 
-            Ok(
-                MoreBlock {
-                    id: id.to_string(),
-                    spec: spec.to_string(),
-                }
-            )
+            Ok(MoreBlock {
+                id: id.to_string(),
+                spec: spec.to_string()
+            })
         }
 
         /// Reconstructs a moreblock into its original form
@@ -532,11 +605,13 @@ pub mod event {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            self.0
+            Ok(self.0
                 .iter()
                 .try_fold(String::new(), |acc, event| {
                     Ok(format!("{}\n{}", acc, event.reconstruct()?))
-                })
+                })?
+                .trim()
+                .to_string())
         }
     }
 
@@ -598,22 +673,20 @@ impl Parsable for BlockContainerHeader {
                 "Cannot get the container name of a block container header".to_string()
             ))?.to_string();
 
-        Ok(
-            BlockContainerHeader {
-                screen_name,
-                container_name
-            }
-        )
+        Ok(BlockContainerHeader {
+            screen_name,
+            container_name
+        })
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(format!("@{}.java_{}", self.screen_name, self.container_name))
     }
 }
 
 /// Basically a list of blocks
 #[derive(Debug, Eq, PartialEq)]
-pub struct BlockContainer(Vec<Block>);
+pub struct BlockContainer(pub Vec<Block>);
 
 impl BlockContainer {
     /// Parses a block container from an iterator of newlines
@@ -634,7 +707,13 @@ impl Parsable for BlockContainer {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(self.0
+            .iter()
+            .try_fold(String::new(), |acc, i| {
+                Ok(format!("{}\n{}", acc, i.reconstruct()?))
+            })?
+            .trim()
+            .to_string())
     }
 }
 
@@ -656,10 +735,15 @@ pub struct Block {
 impl Parsable for Block {
     fn parse(s: &str) -> SWRSResult<Block> {
         serde_json::from_str(s)
-            .map_err(|e|SWRSError::ParseError(format!("Failed to parse the JSON of a block: {}", e)))
+            .map_err(|e|SWRSError::ParseError(format!(
+                "Failed to parse the JSON of a block: {}", e
+            )))
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        serde_json::to_string(self)
+            .map_err(|e|SWRSError::ReconstructionError(format!(
+                "Failed to reconstruct block: {}", e
+            )))
     }
 }
