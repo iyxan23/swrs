@@ -57,7 +57,21 @@ impl Parsable for View {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(format!(
+            "{}\n{}",
+            self.screens
+                .iter()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}@{}.xml\n{}\n", acc, i.0, i.1.reconstruct()?))
+                })?
+                .trim(),
+            self.fabs
+                .iter()
+                .try_fold(String::new(), |acc, i| {
+                    Ok(format!("{}@{}.xml_fab\n{}\n", acc, i.0, i.1.reconstruct()?))
+                })?
+                .trim()
+        ))
     }
 }
 
