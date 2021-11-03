@@ -22,7 +22,7 @@ Stuff:
  - [x] Reconstructing `file`
  - [x] Reconstructing `library`
  - [x] Reconstructing `resource`
- - [ ] Reconstructing `view`
+ - [x] Reconstructing `view`
  - [ ] Reconstructing `logic`
 
 ## Curious?

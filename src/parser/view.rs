@@ -1,93 +1,59 @@
 use std::collections::HashMap;
-use std::str::Split;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
 
 #[derive(Debug, PartialEq)]
 pub struct View {
-    pub screens: Vec<Screen>
+    /// All the screens contained in this View file, with its screen name as the map key
+    pub screens: HashMap<String, Screen>,
+
+    /// All the FABs contained in this view file, with its screen name as the map key
+    pub fabs: HashMap<String, AndroidView>
 }
 
 impl Parsable for View {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
-        // This splits the decrypted content into parts of screens
         let mut lines = decrypted_content.split("\n");
 
-        //                                 name  contents
-        let mut screen_contents: HashMap<String, String> = HashMap::new();
-        //                           name  content
-        let mut fab_views: HashMap<String, String> = HashMap::new();
+        let mut screens = HashMap::<String, Screen>::new();
+        let mut fabs = HashMap::<String, AndroidView>::new();
 
-        fn get_screen_contents(lines: &mut Split<&str>) -> SWRSResult<String> {
-            let mut result = String::new();
+        while let Some(line) = lines.next() {
+            if !line.starts_with("@") { break; }
 
-            loop {
-                let line = lines.next();
-                if line.is_none() { break; }
-                let line = line.unwrap();
+            let (screen_name, container_type) =
+                &line[1..]
+                    .split_once(".")
+                    .ok_or_else(||SWRSError::ParseError(
+                        "Cannot separate header of a screen into screen name & container type"
+                            .to_string()
+                    ))?;
 
-                // stop on empty line
-                if line.trim().is_empty() {
-                    // also since we have \n left out on the last line we should trim it
-                    result = result.trim_end().to_string();
-                    break;
-                }
+            if *container_type == "xml" {
+                let screen = Screen::parse_iter(&mut lines)
+                    .map_err(|e|SWRSError::ParseError(format!(
+                        "Error whilst trying to parse screen named {}: {}",
+                        screen_name, e
+                    )))?;
 
-                result.push_str(line);
-                result.push_str("\n");
-            }
+                screens.insert(screen_name.to_string(), screen);
 
-            Ok(result)
-        }
+            } else if *container_type == "xml_fab" {
+                let fab_view =
+                    AndroidView::parse(
+                        lines.next()
+                            .ok_or_else(||SWRSError::ParseError(format!(
+                                "EOF whilst trying to parse the fab view of {}",
+                                screen_name
+                            )))?
+                    )?;
 
-        // the plan is to scan these and turn them into lists, then parse the items on the list
-        loop {
-            let line = lines.next();
-            if line.is_none() { break; }
-            let line = line.unwrap();
-
-            if line.starts_with("@") {
-                if line.ends_with(".xml") {
-                    let name = &line[1..line.len() - 4];
-                    let content = get_screen_contents(&mut lines)?;
-
-                    screen_contents.insert(name.to_string(), content);
-                } else if line.ends_with(".xml_fab") {
-                    let name = &line[1..line.len() - 8];
-                    let content = lines
-                        .next()
-                        .ok_or_else(||
-                            SWRSError::ParseError(
-                                format!("EOF while trying to get {}'s fab content", name)
-                            )
-                        )?;
-
-                    fab_views.insert(name.to_string(), content.to_string());
-                }
+                fabs.insert(screen_name.to_string(), fab_view);
             }
         }
 
-        // then build them into a vector of screens
-        Ok(View {
-            screens:
-                screen_contents
-                    .drain()
-                    .map(|(name, content)| -> SWRSResult<Screen> {
-                        Screen::parse(
-                            name.as_str(),
-                            content.as_str(),
-                            fab_views
-                                .get(name.as_str())
-                                .ok_or_else(||
-                                    SWRSError::ParseError(
-                                        format!("Cannot find fab view of screen {}", name)
-                                    )
-                                )?
-                        )
-                    })
-                    .collect::<SWRSResult<Vec<Screen>>>()?
-        })
+        Ok(View { screens, fabs })
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
@@ -96,36 +62,38 @@ impl Parsable for View {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Screen {
-    pub name: String,
-    pub views: Vec<AndroidView>,
-    pub fab_view: AndroidView,
-}
+pub struct Screen(pub Vec<AndroidView>);
 
 impl Screen {
-    /// Note: screen_content & fab_view should not contain its header, the name contained in the
-    /// header must be passed through the name parameter
-    pub fn parse(name: &str, screen_content: &str, fab_view: &str) -> SWRSResult<Screen> {
-        let mut content_iterator = screen_content.split("\n");
+    /// Parses an iterator that iterates over newlines
+    ///
+    /// Must skip the header part
+    pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+        Ok(Screen(
+            newline_iter
+                .by_ref()
+                .take_while(|i|*i != "")
+                .map(AndroidView::parse)
+                .collect::<SWRSResult<Vec<AndroidView>>>()?
+        ))
+    }
+}
 
-        // parse the views inside screen_content
-        let mut views: Vec<AndroidView> = vec![];
-        loop {
-            let line = content_iterator.next();
-            if line.is_none() { break; }
-            let line = line.unwrap();
+impl Parsable for Screen {
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        Screen::parse_iter(&mut decrypted_content.split("\n"))
+    }
 
-            views.push(
-                AndroidView::parse(line)?
-            );
-        }
-
-        // parse the fab view
-        let fab_view = AndroidView::parse(fab_view)?;
-
-        let name = name.to_string();
-
-        Ok(Screen { name, views, fab_view })
+    fn reconstruct(&self) -> SWRSResult<String> {
+        Ok(
+            self.0
+                .iter()
+                .try_fold(String::new(), |acc, i|
+                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                )?
+                .trim()
+                .to_string()
+        )
     }
 }
 
@@ -134,6 +102,7 @@ pub mod models {
     use serde::{Deserialize, Serialize};
     use crate::color::Color;
     use crate::error::{SWRSError, SWRSResult};
+    use crate::parser::Parsable;
     use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
     use crate::parser::view::models::layout::gravity::Gravity;
 
@@ -190,11 +159,6 @@ pub mod models {
     }
 
     impl AndroidView {
-        pub fn parse(decrypted_content: &str) -> SWRSResult<AndroidView> {
-            serde_json::from_str(decrypted_content)
-                .map_err(|e| SWRSError::ParseError(e.to_string()))
-        }
-
         pub fn new_empty(id: &str, r#type: u8, parent_id: &str, parent_type: i8) -> AndroidView {
             AndroidView {
                 ad_size: "".to_string(),
@@ -228,6 +192,18 @@ pub mod models {
                 translation_y: 0.0,
                 r#type
             }
+        }
+    }
+
+    impl Parsable for AndroidView {
+        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+            serde_json::from_str(decrypted_content)
+                .map_err(|e|SWRSError::ParseError(e.to_string()))
+        }
+
+        fn reconstruct(&self) -> SWRSResult<String> {
+            serde_json::to_string(self)
+                .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
         }
     }
 
