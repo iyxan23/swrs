@@ -56,7 +56,25 @@ impl Parsable for Resource {
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
-        todo!()
+        Ok(format!(
+            "@images\n{}@sounds\n{}@fonts\n{}",
+            self.images
+                .iter()
+                .try_fold(String::new(), |acc, i|
+                    Ok(format!("{}{}\n", acc, i.reconstruct()?))
+                )?,
+            self.sounds
+                .iter()
+                .try_fold(String::new(), |acc, i|
+                    Ok(format!("{}{}\n", acc, i.reconstruct()?))
+                )?,
+            self.fonts
+                .iter()
+                .try_fold(String::new(), |acc, i|
+                    Ok(format!("{}{}\n", acc, i.reconstruct()?))
+                )?
+                .trim(), // i don't want the extra \n at the end of the file
+        ))
     }
 }
 
@@ -72,9 +90,14 @@ pub struct ResourceItem {
     pub r#type: u8,
 }
 
-impl ResourceItem {
-    pub fn parse(res_item_content: &str) -> SWRSResult<Self> {
-        serde_json::from_str(res_item_content)
+impl Parsable for ResourceItem {
+    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        serde_json::from_str(decrypted_content)
+            .map_err(|e|SWRSError::ParseError(e.to_string()))
+    }
+
+    fn reconstruct(&self) -> SWRSResult<String> {
+        serde_json::to_string(self)
             .map_err(|e|SWRSError::ParseError(e.to_string()))
     }
 }

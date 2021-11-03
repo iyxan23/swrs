@@ -21,7 +21,7 @@ Stuff:
  - [x] Reconstructing `project`
  - [x] Reconstructing `file`
  - [x] Reconstructing `library`
- - [ ] Reconstructing `resource`
+ - [x] Reconstructing `resource`
  - [ ] Reconstructing `view`
  - [ ] Reconstructing `logic`
 
