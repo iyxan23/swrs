@@ -341,6 +341,7 @@ pub mod models {
         #[repr(i8)]
         pub enum Orientation {
             Vertical = 1,
+            Unspecified = 0,
             Horizontal = -1,
         }
 
