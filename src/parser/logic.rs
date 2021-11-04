@@ -144,59 +144,72 @@ impl Parsable for Logic {
 
     fn reconstruct(&self) -> SWRSResult<String> {
         // first we are going to append each screens' containers in different variables
-        let mut variable_containers = String::new();
-        let mut more_block_containers = String::new();
-        let mut component_containers = String::new();
-        let mut event_containers = String::new();
-        let mut block_containers = String::new();
+        let mut variable_containers = Vec::<String>::new();
+        let mut list_variable_containers = Vec::<String>::new();
+        let mut more_block_containers = Vec::<String>::new();
+        let mut component_containers = Vec::<String>::new();
+        let mut event_containers = Vec::<String>::new();
+        let mut block_containers = Vec::<String>::new();
 
         for screen in self.screens.values() {
             if let Some(variables) = &screen.variables {
                 variable_containers
-                    .push_str(format!(
-                        "{}\n", variables.reconstruct()?
-                    ).as_str());
+                    .push(format!(
+                        "@{}.java_var\n{}", screen.name, variables.reconstruct()?
+                    ));
+            }
+
+            if let Some(list_variable) = &screen.list_variables {
+                list_variable_containers
+                    .push(format!(
+                        "@{}.java_list\n{}", screen.name, list_variable.reconstruct()?
+                    ))
             }
 
             if let Some(more_block) = &screen.more_blocks {
                 more_block_containers
-                    .push_str(format!(
-                        "{}\n", more_block.reconstruct()?
-                    ).as_str());
+                    .push(format!(
+                        "@{}.java_func\n{}", screen.name, more_block.reconstruct()?
+                    ));
             }
 
             if let Some(component) = &screen.components {
                 component_containers
-                    .push_str(format!(
-                        "{}\n", component.reconstruct()?
-                    ).as_str());
+                    .push(format!(
+                        "@{}.java_components\n{}", screen.name, component.reconstruct()?
+                    ));
             }
 
             if let Some(event) = &screen.events {
                 event_containers
-                    .push_str(format!(
-                        "{}\n", event.reconstruct()?
-                    ).as_str());
+                    .push(format!(
+                        "@{}.java_events\n{}", screen.name, event.reconstruct()?
+                    ));
             }
 
             block_containers
-                .push_str(
+                .push(
                     screen
                         .block_containers
                         .iter()
                         .try_fold(String::new(), |acc, (header, blocks)|
-                            Ok(format!("{}{}\n{}\n", acc, header.reconstruct()?, blocks.reconstruct()?))
+                            Ok(format!("{}{}\n{}\n\n", acc, header.reconstruct()?, blocks.reconstruct()?))
                         )?
-                        .as_str()
                 );
         }
 
         // stitch them together and boom!
-        Ok(format!(
-            "{}\n{}\n{}\n{}\n{}",
-            variable_containers.trim(), more_block_containers.trim(), component_containers.trim(),
-            event_containers.trim(), block_containers.trim()
-        ).trim().to_string())
+        Ok(variable_containers
+            .drain(..)
+            .chain(list_variable_containers.drain(..))
+            .chain(component_containers.drain(..))
+            .chain(event_containers.drain(..))
+            .chain(more_block_containers.drain(..))
+            .chain(block_containers.drain(..))
+            .fold(String::new(), |acc, i| format!("{}\n\n{}", acc, i.trim()))
+            .trim()
+            .to_string()
+        )
     }
 }
 
