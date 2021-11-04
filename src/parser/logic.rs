@@ -314,7 +314,7 @@ pub mod variable {
         }
 
         fn reconstruct(&self) -> SWRSResult<String> {
-            Ok(format!("{}:{}", self.name, self.r#type as u8))
+            Ok(format!("{}:{}", self.r#type as u8, self.name))
         }
     }
 
