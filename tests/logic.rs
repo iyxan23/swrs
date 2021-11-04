@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use ritelinked::LinkedHashMap;
 use swrs::parser::logic::Logic;
 use swrs::parser::logic::component::{Component};
 use swrs::parser::logic::event::{Event, EventPool};
@@ -242,7 +243,7 @@ fn parse_list_variable_pool() {
     };
 
     let expected = {
-        let mut map = HashMap::<String, ListVariable>::new();
+        let mut map = LinkedHashMap::<String, ListVariable>::new();
 
         map.insert("booleans".to_string(), ListVariable { name: "booleans".to_string(), r#type: VariableType::Boolean });
         map.insert("integers".to_string(), ListVariable { name: "integers".to_string(), r#type: VariableType::Integer });
@@ -362,7 +363,7 @@ fn parse_more_block_pool_0() {
         Err(err) => panic!("Failed to parse moreblock pool: {}", err)
     };
 
-    let mut expected = HashMap::<String, MoreBlock>::new();
+    let mut expected = LinkedHashMap::<String, MoreBlock>::new();
     expected.insert("cool_moreblock".to_string(), MoreBlock { id: "cool_moreblock".to_string(), spec: "hello world %s".to_string() });
     expected.insert("hello_world".to_string(), MoreBlock { id: "hello_world".to_string(), spec: "very poggers %s cool %i".to_string() });
 
@@ -387,7 +388,7 @@ saveView:saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath
         Err(err) => panic!("Failed to parse moreblock pool: {}", err)
     };
 
-    let mut expected = HashMap::<String, MoreBlock>::new();
+    let mut expected = LinkedHashMap::<String, MoreBlock>::new();
     expected.insert("CardView".to_string(), MoreBlock { id: "CardView".to_string(), spec: "CardView %s.color %d.radius %d.shadow %m.view.view".to_string() });
     expected.insert("setBackgroundLinear".to_string(), MoreBlock { id: "setBackgroundLinear".to_string(), spec: "setBackgroundLinear %m.view.view fromFilePath %s.path".to_string() });
     expected.insert("SaveLinear".to_string(), MoreBlock { id: "SaveLinear".to_string(), spec: "SaveLinear %m.view.view to path %s.path".to_string() });

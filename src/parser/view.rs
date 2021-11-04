@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use ritelinked::LinkedHashMap;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
@@ -6,18 +6,18 @@ use crate::parser::Parsable;
 #[derive(Debug, PartialEq)]
 pub struct View {
     /// All the screens contained in this View file, with its screen name as the map key
-    pub screens: HashMap<String, Screen>,
+    pub screens: LinkedHashMap<String, Screen>,
 
     /// All the FABs contained in this view file, with its screen name as the map key
-    pub fabs: HashMap<String, AndroidView>
+    pub fabs: LinkedHashMap<String, AndroidView>
 }
 
 impl Parsable for View {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
         let mut lines = decrypted_content.split("\n");
 
-        let mut screens = HashMap::<String, Screen>::new();
-        let mut fabs = HashMap::<String, AndroidView>::new();
+        let mut screens = LinkedHashMap::<String, Screen>::new();
+        let mut fabs = LinkedHashMap::<String, AndroidView>::new();
 
         while let Some(line) = lines.next() {
             if !line.starts_with("@") { break; }

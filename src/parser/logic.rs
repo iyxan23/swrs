@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use ritelinked::LinkedHashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
@@ -6,13 +6,13 @@ use crate::parser::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Logic {
-    pub screens: HashMap<String, ScreenLogic>
+    pub screens: LinkedHashMap<String, ScreenLogic>
 }
 
 impl Parsable for Logic {
     fn parse(logic: &str) -> SWRSResult<Logic> {
         let mut lines = logic.split("\n");
-        let mut screens = HashMap::<String, ScreenLogic>::new();
+        let mut screens = LinkedHashMap::<String, ScreenLogic>::new();
         let mut line_counter = 0u32;
 
         loop {
@@ -216,7 +216,7 @@ impl Parsable for Logic {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ScreenLogic {
     pub name: String,
-    pub block_containers: HashMap<BlockContainerHeader, BlockContainer>,
+    pub block_containers: LinkedHashMap<BlockContainerHeader, BlockContainer>,
     pub variables: Option<variable::VariablePool>,
     pub list_variables: Option<list_variable::ListVariablePool>,
     pub components: Option<component::ComponentPool>,
@@ -239,18 +239,18 @@ impl ScreenLogic {
 }
 
 pub mod variable {
-    use std::collections::HashMap;
     use std::convert::TryFrom;
+    use ritelinked::LinkedHashMap;
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
 
     #[derive(Debug, Eq, PartialEq)]
-    pub struct VariablePool(pub HashMap<String, Variable>);
+    pub struct VariablePool(pub LinkedHashMap<String, Variable>);
 
     impl VariablePool {
         /// Parses a variable pool from an iterator of newline string
         pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-            let mut result_map = HashMap::new();
+            let mut result_map = LinkedHashMap::new();
 
             newline_iter
                 .by_ref()
@@ -347,7 +347,7 @@ pub mod variable {
 }
 
 pub mod list_variable {
-    use std::collections::HashMap;
+    use ritelinked::LinkedHashMap;
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
 
@@ -355,7 +355,7 @@ pub mod list_variable {
     ///
     /// `0: HashMap<String, ListVariable>` is a map of variable name -> [`ListVariable`]
     #[derive(Debug, Eq, PartialEq)]
-    pub struct ListVariablePool(pub HashMap<String, ListVariable>);
+    pub struct ListVariablePool(pub LinkedHashMap<String, ListVariable>);
 
     impl ListVariablePool {
         /// Parses an iterator of newlines (should be taken from `.split("\n")`) into a [`ListVariablePool`]
@@ -364,7 +364,7 @@ pub mod list_variable {
                 .by_ref()
                 .take_while(|i|*i != "")
                 .map(ListVariable::parse)
-                .try_fold(ListVariablePool(HashMap::new()), |mut acc, i| {
+                .try_fold(ListVariablePool(LinkedHashMap::new()), |mut acc, i| {
                     let i = i
                         .map_err(|e|SWRSError::ParseError(format!(
                             "Failed to parse a list variable item at line {}: {}", acc.0.len(), e
@@ -395,7 +395,7 @@ pub mod list_variable {
 
     impl Default for ListVariablePool {
         fn default() -> Self {
-            ListVariablePool(HashMap::new())
+            ListVariablePool(LinkedHashMap::new())
         }
     }
 
@@ -505,12 +505,12 @@ pub mod component {
 }
 
 pub mod more_block {
-    use std::collections::HashMap;
+    use ritelinked::LinkedHashMap;
     use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
 
     #[derive(Debug, Eq, PartialEq)]
-    pub struct MoreBlockPool(pub HashMap<String, MoreBlock>);
+    pub struct MoreBlockPool(pub LinkedHashMap<String, MoreBlock>);
 
     impl MoreBlockPool {
         /// Parses a moreblock pool using an iterator of newlines
@@ -521,7 +521,7 @@ pub mod more_block {
                 .map(MoreBlock::parse)
                 .collect::<SWRSResult<Vec<MoreBlock>>>()?;
 
-            let mut result = HashMap::<String, MoreBlock>::new();
+            let mut result = LinkedHashMap::<String, MoreBlock>::new();
 
             // turn the more_blocks vec into a hashmap
             more_blocks
@@ -556,7 +556,7 @@ pub mod more_block {
 
     impl Default for MoreBlockPool {
         fn default() -> Self {
-            MoreBlockPool(HashMap::new())
+            MoreBlockPool(LinkedHashMap::new())
         }
     }
 
