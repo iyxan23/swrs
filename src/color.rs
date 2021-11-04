@@ -47,7 +47,7 @@ impl Default for Color {
 
 impl Serialize for Color {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_f32(self.value as i32 as f32)
+        serializer.serialize_i32(self.value as i32)
     }
 }
 
