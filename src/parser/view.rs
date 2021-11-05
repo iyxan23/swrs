@@ -58,17 +58,17 @@ impl Parsable for View {
 
     fn reconstruct(&self) -> SWRSResult<String> {
         Ok(format!(
-            "{}\n{}",
+            "{}\n\n{}",
             self.screens
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml\n{}\n", acc, i.0, i.1.reconstruct()?))
+                    Ok(format!("{}@{}.xml\n{}\n\n", acc, i.0, i.1.reconstruct()?))
                 })?
                 .trim(),
             self.fabs
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml_fab\n{}\n", acc, i.0, i.1.reconstruct()?))
+                    Ok(format!("{}@{}.xml_fab\n{}\n\n", acc, i.0, i.1.reconstruct()?))
                 })?
                 .trim()
         ))
@@ -153,13 +153,19 @@ pub mod models {
         pub layout: LayoutConfig,
         pub max: u32, // 100
 
+        #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)] // <- this value is not present in fab views
-        pub parent: String, // "something1"
+        pub parent: Option<String>, // "something1"
         pub parent_type: i8, // 0 - note: can be -1 for some reason
 
+        #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)] // <- this value is not present in fab views
-        pub pre_id: String, // ""
+        pub pre_id: Option<String>, // ""
         pub pre_index: u32, // 0
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        pub pre_parent: Option<String>,
         pub pre_parent_type: u8, // 0
         pub progress: u32, // 0
         pub progress_style: String, // "?android:progressBarStyle", Enum?
@@ -191,10 +197,11 @@ pub mod models {
                 index: 0,
                 layout: Default::default(),
                 max: 100,
-                parent: parent_id.to_string(),
+                parent: Some(parent_id.to_string()),
                 parent_type,
-                pre_id: "".to_string(),
+                pre_id: Some("".to_string()),
                 pre_index: 0,
+                pre_parent: None,
                 pre_parent_type: 0,
                 progress: 0,
                 progress_style: "".to_string(),
@@ -239,6 +246,9 @@ pub mod models {
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct ImageConfig {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        pub res_name: Option<String>,
         pub rotate: i16, // 0
         pub scale_type: image::ImageScaleType, // CENTER
     }
@@ -246,6 +256,7 @@ pub mod models {
     impl Default for ImageConfig {
         fn default() -> Self {
             ImageConfig {
+                res_name: None,
                 rotate: 0,
                 scale_type: image::ImageScaleType::Center
             }
@@ -274,25 +285,27 @@ pub mod models {
         pub background_color: Color, // 16777215,
 
         pub gravity: Gravity, // 0 - Enum?
-        pub layout_gravity: Gravity, // 0 - Enum?
 
         pub height: layout::Size, // -2: MATCH_PARENT
-        pub width: layout::Size, // -1: WRAP_CONTENT
+
+        pub layout_gravity: Gravity, // 0 - Enum?
 
         pub margin_bottom: u32, // 0
         pub margin_left: u32, // 0
         pub margin_right: u32, // 0
         pub margin_top: u32, // 0
 
+        pub orientation: layout::Orientation, // 1: vertical
+
         pub padding_bottom: u32, // 8
         pub padding_left: u32, // 8
         pub padding_right: u32, // 8
         pub padding_top: u32, // 8
 
-        pub orientation: layout::Orientation, // 1: vertical
-
         pub weight: u32, // 0
         pub weight_sum: u32, // 0
+
+        pub width: layout::Size, // -1: WRAP_CONTENT
     }
 
     impl Default for LayoutConfig {
