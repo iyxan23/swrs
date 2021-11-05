@@ -13,8 +13,13 @@ impl Color {
         Color { value: (0xFFu32 << 24 | (red as u32) << 16 | (green as u32) << 8 | (blue as u32) << 0) as u32 }
     }
 
-    pub fn rgb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
+    pub fn from_argb(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
+        Color { value: ((alpha as u32) << 24 | (red as u32) << 16 | (green as u32) << 8 | (blue as u32) << 0) as u32 }
+    }
 
+    pub fn argb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
+
+    pub fn alpha(&self) -> u8 { (self.value >> 24 & 0b111111111) as u8 }
     pub fn red(&self) -> u8 { (self.value >> 16 & 0b111111111) as u8 }
     pub fn green(&self) -> u8 { (self.value >> 8 & 0b111111111) as u8 }
     pub fn blue(&self) -> u8 { (self.value >> 0 & 0b111111111) as u8 }
@@ -22,20 +27,20 @@ impl Color {
 
 impl From<u32> for Color {
     fn from(val: u32) -> Self {
-        // only get the first 24 bits (8 red, 8 green, 8 blue)
-        Color { value: (0xFFu32 << 24) | val & 0xffffff }
+        // only get the first 32 bits (8 alpha, 8 red, 8 green, 8 blue)
+        Color { value: val & 0xffffffff }
     }
 }
 
 impl Display for Color {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
+        f.write_str(&*format!("{:#010x}", self.value))
     }
 }
 
 impl Debug for Color {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&*format!("{:#08x}", self.value & 0xffffff))
+        f.write_str(&*format!("{:#010x}", self.value))
     }
 }
 
