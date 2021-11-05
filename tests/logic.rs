@@ -434,3 +434,37 @@ execute_shell:execute_shell %s.command
 
     // sadly i can't check if it produces a correct output, if someone got time, please do this
 }
+
+#[test]
+fn reconstruct_logic() {
+    // A project of mine
+    let input = r#"@MainActivity.java_var
+2:out
+
+@MainActivity.java_func
+execute_shell:execute_shell %s.command
+
+@MainActivity.java_onCreate_initializeLogic
+{"color":-10701022,"id":"12","nextBlock":10,"opCode":"addSourceDirectly","parameters":["// For those who are familiar with Linux commands, we're reading /proc/cpuinfo, and /proc/meminfo"],"spec":"add source directly %s.inputOnly","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}
+{"color":-7711273,"id":"10","nextBlock":13,"opCode":"definedFunc","parameters":["cat /proc/cpuinfo"],"spec":"execute_shell %s.command","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}
+{"color":-11899692,"id":"13","nextBlock":11,"opCode":"setText","parameters":["cpuinfo","@16"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}
+{"color":-1147626,"id":"16","nextBlock":-1,"opCode":"getVar","parameters":[],"spec":"out","subStack1":-1,"subStack2":-1,"type":"s","typeName":""}
+{"color":-7711273,"id":"11","nextBlock":14,"opCode":"definedFunc","parameters":["cat /proc/meminfo"],"spec":"execute_shell %s.command","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}
+{"color":-11899692,"id":"14","nextBlock":-1,"opCode":"setText","parameters":["raminfo","@15"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}
+{"color":-1147626,"id":"15","nextBlock":-1,"opCode":"getVar","parameters":[],"spec":"out","subStack1":-1,"subStack2":-1,"type":"s","typeName":""}
+
+@MainActivity.java_execute_shell_moreBlock
+{"color":-10701022,"id":"10","nextBlock":-1,"opCode":"addSourceDirectly","parameters":["StringBuilder output = new StringBuilder();\ntry {\njava.lang.Process cmdProc = Runtime.getRuntime().exec(_command);\n\n\njava.io.BufferedReader stdoutReader = new java.io.BufferedReader(\n         new java.io.InputStreamReader(cmdProc.getInputStream()));\nString line;\nwhile ((line = stdoutReader.readLine()) != null) {\n   // process procs standard output here\n  output.append(line + \"\\n\");\n}\n\nthis.out = output.toString();\n\n} catch (java.io.IOException e) {\nthis.out = \"Error occurred\";\n}"],"spec":"add source directly %s.inputOnly","subStack1":-1,"subStack2":-1,"type":" ","typeName":""}"#;
+
+    let result = match Logic::parse(input) {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to parse logic: {}", err)
+    };
+
+    let reconstructed = match result.reconstruct() {
+        Ok(r) => r,
+        Err(err) => panic!("Failed to reconstruct logic: {}", err)
+    };
+
+    assert_eq!(input, reconstructed);
+}
