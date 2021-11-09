@@ -2,6 +2,8 @@ pub mod parser;
 pub mod error;
 pub mod color;
 
+pub mod api;
+
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
 use block_modes::{Cbc, BlockMode};
