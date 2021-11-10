@@ -1,6 +1,6 @@
 extern crate swrs;
 
-use swrs::parser::library::{FirebaseDB, GoogleMap, Library};
+use swrs::parser::library::{Library, LibraryItem};
 use swrs::parser::Parsable;
 
 fn main() {
@@ -14,17 +14,46 @@ fn main() {
 {"adUnits":[],"data":"google map api key","libType":3,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"Y"}"#;
 
     let expected = Library {
-        firebase_db: Some(FirebaseDB {
-            project_id: "project_id".to_string(),
-            app_id: "app_id".to_string(),
-            api_key: "api_key".to_string(),
-            storage_bucket: "storage_bucket".to_string(),
-        }),
-        admob: None,
-        google_map: Some(GoogleMap {
-            api_key: "google map api key".to_string(),
-        }),
-        appcompat_enabled: true
+        firebase_db: LibraryItem {
+            ad_units: vec![],
+            data: "project_id".to_string(),
+            lib_type: 0,
+            reserved1: "app_id".to_string(),
+            reserved2: "api_key".to_string(),
+            reserved3: "storage_bucket".to_string(),
+            test_devices: vec![],
+            use_yn: "Y".to_string()
+        },
+        compat: LibraryItem {
+            ad_units: vec![],
+            data: "".to_string(),
+            lib_type: 1,
+            reserved1: "".to_string(),
+            reserved2: "".to_string(),
+            reserved3: "".to_string(),
+            test_devices: vec![],
+            use_yn: "Y".to_string()
+        },
+        admob: LibraryItem {
+            ad_units: vec![],
+            data: "".to_string(),
+            lib_type: 2,
+            reserved1: "".to_string(),
+            reserved2: "".to_string(),
+            reserved3: "".to_string(),
+            test_devices: vec![],
+            use_yn: "N".to_string()
+        },
+        google_map: LibraryItem {
+            ad_units: vec![],
+            data: "google map api key".to_string(),
+            lib_type: 3,
+            reserved1: "".to_string(),
+            reserved2: "".to_string(),
+            reserved3: "".to_string(),
+            test_devices: vec![],
+            use_yn: "Y".to_string()
+        }
     };
 
     let parsed_library = Library::parse(library).unwrap();
