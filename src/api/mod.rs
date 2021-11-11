@@ -1,4 +1,5 @@
-use crate::error::{SWRSError, SWRSResult};
+use crate::color::Color;
+use crate::error::SWRSError;
 use crate::parser::RawSketchwareProject;
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
@@ -25,11 +26,43 @@ pub struct Metadata {
 }
 
 pub struct Colors {
-
+    pub color_primary: Color,
+    pub color_primary_dark: Color,
+    pub color_accent: Color,
+    pub color_control_normal: Color,
+    pub color_control_highlight: Color,
 }
 
 pub struct Libraries {
+    pub app_compat_enabled: bool,
+    pub firebase: Option<library::Firebase>,
+    pub ad_mob: Option<library::AdMob>,
+    pub google_map: Option<library::GoogleMap>,
+}
 
+mod library {
+    pub struct Firebase {
+        pub project_id: String,     // key: data
+        pub app_id: String,         // key: reserved1
+        pub api_key: String,        // key: reserved2
+        pub storage_bucket: String, // key: reserved3
+    }
+
+    pub struct AdMob {
+        pub ad_units: Vec<ad_mob::AdUnit>,  // key: adUnits
+        pub test_devices: Vec<String>,      // key: testDevices
+    }
+
+    pub mod ad_mob {
+        pub struct AdUnit {
+            pub id: String,
+            pub name: String,
+        }
+    }
+
+    pub struct GoogleMap {
+        pub api_key: String,        // key: data
+    }
 }
 
 pub struct Resources {
