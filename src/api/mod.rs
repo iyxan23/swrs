@@ -1,24 +1,10 @@
+pub mod screen;
+pub mod view;
+
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::parser::RawSketchwareProject;
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
-
-pub struct Blocks {
-
-}
-
-pub struct Layout {
-
-}
-
-pub struct Screen {
-    pub layout: Layout,
-    pub blocks: Blocks,
-}
-
-pub struct CustomView {
-
-}
 
 pub struct Metadata {
     pub name: String,
@@ -69,10 +55,11 @@ pub struct Resources {
 
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SketchwareProject {
     pub metadata: Metadata,
     pub colors: Colors,
-    pub screens: Vec<Screen>,
+    pub screens: Vec<screen::Screen>,
     pub custom_views: Vec<CustomView>,
     pub libraries: Libraries,
     pub resources: Resources,
