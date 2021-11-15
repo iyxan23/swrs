@@ -93,3 +93,19 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
         todo!()
     }
 }
+
+impl TryInto<RawSketchwareProject> for SketchwareProject {
+    type Error = SWRSError;
+
+    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
+        ParsedSketchwareProject::parse_from(SketchwareProject::try_into()?)
+    }
+}
+
+impl TryInto<ParsedSketchwareProject> for SketchwareProject {
+    type Error = SWRSError;
+
+    fn try_into(self) -> Result<ParsedSketchwareProject, Self::Error> {
+        todo!()
+    }
+}
