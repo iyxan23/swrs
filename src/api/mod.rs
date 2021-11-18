@@ -1,5 +1,6 @@
 pub mod screen;
 pub mod view;
+pub mod code;
 
 use crate::color::Color;
 use crate::error::SWRSError;
