@@ -7,9 +7,18 @@ use crate::error::SWRSError;
 use crate::parser::RawSketchwareProject;
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
+/// A model that holds a metadata of a project. like its name, package name, etc.
 pub struct Metadata {
     pub name: String,
-    pub project_name: String,
+    pub workspace_name: String,
+    pub package_name: String,
+
+    /// Timestamp of the time this project was created, in seconds
+    pub time_created: u64,
+
+    pub sketchware_version: u8,
+    pub version_name: String,
+    pub version_code: u16,
 }
 
 pub struct Colors {
@@ -78,7 +87,36 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
     fn try_from(val: ParsedSketchwareProject) -> Result<Self, Self::Error> {
-        todo!()
+        // todo: screens, customviews, libraries, resources
+        Ok(SketchwareProject {
+            metadata: Metadata {
+                name: val.project.app_name,
+                workspace_name: val.project.workspace_name,
+                package_name: val.project.package_name,
+                time_created: val.project.date_created,
+                sketchware_version: val.project.sketchware_version,
+                version_name: val.project.version_name,
+                version_code: val.project.version_code
+            },
+            colors: Colors {
+                color_primary: val.project.color_palette.color_primary,
+                color_primary_dark: val.project.color_palette.color_primary_dark,
+                color_accent: val.project.color_palette.color_accent,
+                color_control_normal: val.project.color_palette.color_control_normal,
+                color_control_highlight: val.project.color_palette.color_control_highlight,
+            },
+            screens: vec![],
+            custom_views: vec![],
+            libraries: Libraries {
+                app_compat_enabled: val.library.compat.use_yn == "Y",
+                firebase: None,
+                ad_mob: None,
+                google_map: None
+            },
+            resources: Resources {
+
+            }
+        })
     }
 }
 
