@@ -1,6 +1,7 @@
 pub mod screen;
 pub mod view;
-pub mod code;
+pub mod block;
+pub mod component;
 
 use crate::color::Color;
 use crate::error::SWRSError;
