@@ -10,7 +10,11 @@ use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
 pub struct Metadata {
+    /// The app name of the project
     pub name: String,
+
+    /// The workspace name of the project (also known as a project name); The name that appears on
+    /// the actionbar on the editor when you're editing the project
     pub workspace_name: String,
     pub package_name: String,
 
@@ -22,6 +26,7 @@ pub struct Metadata {
     pub version_code: u16,
 }
 
+/// A model that stores color values of a project
 pub struct Colors {
     pub color_primary: Color,
     pub color_primary_dark: Color,
@@ -30,6 +35,7 @@ pub struct Colors {
     pub color_control_highlight: Color,
 }
 
+/// A model that stores libraries' information of a project
 pub struct Libraries {
     pub app_compat_enabled: bool,
     pub firebase: Option<library::Firebase>,
@@ -66,6 +72,7 @@ pub struct Resources {
 
 }
 
+/// A sketchware project
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SketchwareProject {
     pub metadata: Metadata,

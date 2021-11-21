@@ -1,4 +1,5 @@
 // todo: add more params
+/// An enum that contains all types of components with its parameters
 pub enum Component {
     Intent,
     SharedPreferences,
