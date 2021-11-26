@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::error::SWRSResult;
-use crate::parser::view::models::layout;
+use crate::parser::view::models::{image, layout, text, TextConfig};
 use crate::parser::view::View as RawView;
 
 /// A model that represents a single view
@@ -43,6 +43,9 @@ pub struct View {
     /// type is not recognized.
     pub view: Option<ViewType>,
 
+    /// The children of this view
+    pub children: Vec<View>,
+
     /// The raw view of this View. This may be used to access every fields of this view in its raw
     /// form. Changes made to this are NOT going to be accounted in the reconstruction of this view
     /// unfortunately.
@@ -63,5 +66,81 @@ pub struct SidesValue {
 /// fields that aren't used in the specific view type will be neglected.
 #[derive(Debug, Eq, PartialEq)]
 pub enum ViewType {
+    LinearLayout {
+        orientation: layout::Orientation,
+        gravity: layout::gravity::Gravity
+    },
+    ScrollView {
+        orientation: layout::Orientation,
+        gravity: layout::gravity::Gravity,
+    },
+    Button {
+        text: String,
+        text_color: Color,
+        text_size: u32,
+        text_style: text::TextType,
+    },
+    TextView {
+        text: String,
+        text_color: Color,
+        text_size: u32,
+        single_line: bool,
+        text_font: String,
+        text_style: text::TextType,
+        lines: u32,
+    },
+    EditText {
+        text: String,
+        text_color: Color,
+        text_size: u32,
+        single_line: bool,
+        text_font: String,
+        text_style: text::TextType,
+        lines: u32,
 
+        hint: String,
+        hint_color: Color,
+        ime_option: text::ImeOption,
+        input_type: text::InputType,
+    },
+    ImageView {
+        image_res_name: String,
+        image_scale_type: image::ImageScaleType,
+    },
+    WebView {
+
+    },
+    ProgressBar {
+
+    },
+    ListView {
+
+    },
+    Spinner {
+
+    },
+    CheckBox {
+
+    },
+    VerticalScrollView {
+
+    },
+    Switch {
+
+    },
+    SeekBar {
+
+    },
+    CalendarView {
+
+    },
+    Fab {
+
+    },
+    AdView {
+
+    },
+    MapView {
+
+    }
 }
