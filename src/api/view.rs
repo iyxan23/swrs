@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::error::SWRSResult;
-use crate::parser::view::models::{image, layout, text, TextConfig};
+use crate::parser::view::models::{image, layout, SpinnerMode, text, TextConfig};
 use crate::parser::view::View as RawView;
 
 /// A model that represents a single view
@@ -68,7 +68,7 @@ pub struct SidesValue {
 pub enum ViewType {
     LinearLayout {
         orientation: layout::Orientation,
-        gravity: layout::gravity::Gravity
+        gravity: layout::gravity::Gravity,
     },
     ScrollView {
         orientation: layout::Orientation,
@@ -107,40 +107,50 @@ pub enum ViewType {
         image_res_name: String,
         image_scale_type: image::ImageScaleType,
     },
-    WebView {
-
-    },
+    WebView,
     ProgressBar {
-
+        max_progress: u32,
+        progress: u32,
+        indeterminate: bool,
+        progress_style: String,
     },
     ListView {
-
+        divider_height: u32,
+        custom_view: String,
     },
     Spinner {
-
+        spinner_mode: SpinnerMode,
     },
     CheckBox {
+        checked: bool,
 
-    },
-    VerticalScrollView {
-
+        text: String,
+        text_color: Color,
+        text_size: u32,
+        text_font: String,
+        text_style: text::TextType,
     },
     Switch {
+        checked: bool,
 
+        text: String,
+        text_color: Color,
+        text_size: u32,
+        text_font: String,
+        text_style: text::TextType,
     },
     SeekBar {
-
+        max_progress: u32,
+        progress: u32,
     },
     CalendarView {
-
+        first_day_of_week: u32,
     },
     Fab {
-
+        image_res_name: String,
     },
     AdView {
-
+        adview_size: u32,
     },
-    MapView {
-
-    }
+    MapView
 }
