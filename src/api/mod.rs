@@ -3,6 +3,8 @@ pub mod view;
 pub mod block;
 pub mod component;
 
+use std::collections::HashMap;
+use crate::api::view::View;
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::parser::RawSketchwareProject;
@@ -68,8 +70,10 @@ mod library {
     }
 }
 
-pub struct Resources {
-
+/// A model that represents a custom view
+pub struct CustomView {
+    pub res_name: String,
+    pub view: View,
 }
 
 /// A sketchware project
@@ -80,7 +84,12 @@ pub struct SketchwareProject {
     pub screens: Vec<screen::Screen>,
     pub custom_views: Vec<CustomView>,
     pub libraries: Libraries,
-    pub resources: Resources,
+
+    /// A map of resource name (the name defined in the res folder) and resource full name (the
+    /// actual filename)
+    ///
+    /// todo: actually implement a resource system
+    pub resources: HashMap<String, String>,
 }
 
 impl TryFrom<RawSketchwareProject> for SketchwareProject {
@@ -121,9 +130,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 ad_mob: None,
                 google_map: None
             },
-            resources: Resources {
-
-            }
+            resources: HashMap::new()
         })
     }
 }
