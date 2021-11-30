@@ -102,3 +102,18 @@ impl SketchwareProject {
         })
     }
 }
+
+impl TryInto<RawSketchwareProject> for SketchwareProject {
+    type Error = SWRSError;
+
+    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
+        Ok(RawSketchwareProject {
+            project: self.project.reconstruct()?,
+            file: self.file.reconstruct()?,
+            library: self.library.reconstruct()?,
+            resource: self.resource.reconstruct()?,
+            view: self.view.reconstruct()?,
+            logic: self.logic.reconstruct()?
+        })
+    }
+}

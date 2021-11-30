@@ -78,7 +78,7 @@ impl Parsable for Library {
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryItem {
-    pub ad_units: Vec<String>,
+    pub ad_units: Vec<AdUnit>,
     pub data: String,
     pub lib_type: u8,
     pub reserved1: String,
@@ -98,4 +98,12 @@ impl Parsable for LibraryItem {
         serde_json::to_string(self)
             .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
     }
+}
+
+/// A struct that represents an ad unit; Ad units are containers you place in your apps to show ads
+/// to users (source: https://support.google.com/admob/answer/6128738?hl=en)
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct AdUnit {
+    pub id: String,
+    pub name: String,
 }

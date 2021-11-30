@@ -7,11 +7,19 @@ use std::collections::HashMap;
 use crate::api::view::View;
 use crate::color::Color;
 use crate::error::SWRSError;
+use crate::parser;
 use crate::parser::RawSketchwareProject;
+use crate::parser::resource::Resource;
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
 pub struct Metadata {
+    /// The local ID of this project, should not be used for transferring sketchware projects to
+    /// other devices
+    ///
+    /// Has a maximum value of 999, can go down to 0 but starts at 600
+    pub local_id: u16,
+
     /// The app name of the project
     pub name: String,
 
@@ -54,15 +62,8 @@ mod library {
     }
 
     pub struct AdMob {
-        pub ad_units: Vec<ad_mob::AdUnit>,  // key: adUnits
+        pub ad_units: Vec<crate::parser::library::AdUnit>,  // key: adUnits
         pub test_devices: Vec<String>,      // key: testDevices
-    }
-
-    pub mod ad_mob {
-        pub struct AdUnit {
-            pub id: String,
-            pub name: String,
-        }
     }
 
     pub struct GoogleMap {
@@ -107,6 +108,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
         // todo: screens, customviews, libraries, resources
         Ok(SketchwareProject {
             metadata: Metadata {
+                local_id: val.project.id,
                 name: val.project.app_name,
                 workspace_name: val.project.workspace_name,
                 package_name: val.project.package_name,
@@ -135,18 +137,131 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     }
 }
 
-impl TryInto<RawSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
-
-    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
-        ParsedSketchwareProject::parse_from(SketchwareProject::try_into()?)
-    }
-}
-
 impl TryInto<ParsedSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
     fn try_into(self) -> Result<ParsedSketchwareProject, Self::Error> {
-        todo!()
+        ParsedSketchwareProject::try_from(self)
+    }
+}
+
+impl TryInto<RawSketchwareProject> for SketchwareProject {
+    type Error = SWRSError;
+
+    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
+        ParsedSketchwareProject::try_from(self)?.try_into()
+    }
+}
+
+impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
+    type Error = SWRSError;
+
+    fn try_from(val: SketchwareProject) -> Result<Self, Self::Error> {
+        Ok(ParsedSketchwareProject {
+            project: parser::project::Project {
+                id: val.metadata.local_id,
+                app_name: val.metadata.name,
+                workspace_name: val.metadata.workspace_name,
+                package_name: val.metadata.package_name,
+                version_code: val.metadata.version_code,
+                version_name: val.metadata.version_name,
+                date_created: val.metadata.time_created,
+                custom_icon: todo!("figure out where the custom icon is, and provide a field that stores the custom icon"),
+                color_palette: parser::project::ProjectColorPalette {
+                    color_primary: val.colors.color_primary,
+                    color_primary_dark: val.colors.color_primary_dark,
+                    color_accent: val.colors.color_accent,
+                    color_control_normal: val.colors.color_control_normal,
+                    color_control_highlight: val.colors.color_control_highlight,
+                },
+                sketchware_version: val.metadata.sketchware_version,
+            },
+            file: parser::file::File { activities: vec![todo!()], custom_views: vec![todo!()] },
+            library: parser::library::Library {
+                firebase_db: match val.libraries.firebase {
+                    Some(val) => parser::library::LibraryItem {
+                        ad_units: vec![],
+                        data: val.project_id,
+                        lib_type: 0,
+                        reserved1: val.app_id,
+                        reserved2: val.api_key,
+                        reserved3: val.storage_bucket,
+                        test_devices: vec![],
+                        use_yn: "Y".to_string()
+                    },
+                    None => parser::library::LibraryItem {
+                        ad_units: vec![],
+                        data: "".to_string(),
+                        lib_type: 0,
+                        reserved1: "".to_string(),
+                        reserved2: "".to_string(),
+                        reserved3: "".to_string(),
+                        test_devices: vec![],
+                        use_yn: "N".to_string()
+                    }
+                },
+                compat: parser::library::LibraryItem {
+                    ad_units: vec![],
+                    data: "".to_string(),
+                    lib_type: 1,
+                    reserved1: "".to_string(),
+                    reserved2: "".to_string(),
+                    reserved3: "".to_string(),
+                    test_devices: vec![],
+                    use_yn: if val.libraries.app_compat_enabled { "Y" } else { "N" }.to_string()
+                },
+                admob: match val.libraries.ad_mob {
+                    Some(val) => parser::library::LibraryItem {
+                        ad_units: val.ad_units,
+                        data: "".to_string(),
+                        lib_type: 2,
+                        reserved1: "".to_string(),
+                        reserved2: "".to_string(),
+                        reserved3: "".to_string(),
+                        test_devices: val.test_devices,
+                        use_yn: "Y".to_string()
+                    },
+                    None => parser::library::LibraryItem {
+                        ad_units: vec![],
+                        data: "".to_string(),
+                        lib_type: 2,
+                        reserved1: "".to_string(),
+                        reserved2: "".to_string(),
+                        reserved3: "".to_string(),
+                        test_devices: vec![],
+                        use_yn: "N".to_string()
+                    }
+                },
+                google_map: match val.libraries.google_map {
+                    Some(val) => parser::library::LibraryItem {
+                        ad_units: vec![],
+                        data: val.api_key,
+                        lib_type: 3,
+                        reserved1: "".to_string(),
+                        reserved2: "".to_string(),
+                        reserved3: "".to_string(),
+                        test_devices: vec![],
+                        use_yn: "Y".to_string()
+                    },
+                    None => parser::library::LibraryItem {
+                        ad_units: vec![],
+                        data: "".to_string(),
+                        lib_type: 3,
+                        reserved1: "".to_string(),
+                        reserved2: "".to_string(),
+                        reserved3: "".to_string(),
+                        test_devices: vec![],
+                        use_yn: "N".to_string()
+                    }
+                },
+            },
+            resource: Resource {
+                images: vec![],
+                sounds: vec![],
+                fonts: vec![]
+            },
+            view: parser::view::View { screens: Default::default(), fabs: Default::default() },
+            logic: parser::logic::Logic { screens: Default::default() },
+        })
     }
 }
