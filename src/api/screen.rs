@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::api::block::Blocks;
+use crate::api::block::spec::Spec;
 use crate::api::component::Component;
 use crate::api::layout::Layout;
 use crate::api::view::View;
