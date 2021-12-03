@@ -4,12 +4,13 @@ pub mod block;
 pub mod component;
 
 use std::collections::HashMap;
+use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::view::View;
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::parser;
 use crate::parser::RawSketchwareProject;
-use crate::parser::resource::Resource;
+use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
@@ -77,6 +78,17 @@ pub struct CustomView {
     pub view: View,
 }
 
+/// A model that stores data of resources
+///
+/// Each `HashMap`s are a map of resource name (the name defined in the res folder) and resource
+/// full name (the actual filename)
+// todo: actually implement a resource system
+pub struct Resources {
+    pub images: HashMap<String, String>,
+    pub sounds: HashMap<String, String>,
+    pub fonts: HashMap<String, String>,
+}
+
 /// A sketchware project
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SketchwareProject {
@@ -85,12 +97,7 @@ pub struct SketchwareProject {
     pub screens: Vec<screen::Screen>,
     pub custom_views: Vec<CustomView>,
     pub libraries: Libraries,
-
-    /// A map of resource name (the name defined in the res folder) and resource full name (the
-    /// actual filename)
-    ///
-    /// todo: actually implement a resource system
-    pub resources: HashMap<String, String>,
+    pub resources: Resources,
 }
 
 impl TryFrom<RawSketchwareProject> for SketchwareProject {
@@ -104,7 +111,28 @@ impl TryFrom<RawSketchwareProject> for SketchwareProject {
 impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
-    fn try_from(val: ParsedSketchwareProject) -> Result<Self, Self::Error> {
+    fn try_from(mut val: ParsedSketchwareProject) -> Result<Self, Self::Error> {
+        macro_rules! library_conv {
+            ($str_name:expr, $parsed_field_name:ident, $result:expr) => {{
+                match val.library.$parsed_field_name.use_yn {
+                    &"Y" => Some($result),
+                    &"N" => None,
+                    _ => return Err(SWRSError::ParseError(format!(
+                        "use_yn of {} library contains an invalid value: {}", $str_name, val.library.firebase_db.use_yn
+                    ))),
+                }
+            }};
+        }
+
+        macro_rules! resources_conv {
+            ($res_name:ident) => {{
+                val.resource.$res_name
+                    .drain(..)
+                    .map(|ResourceItem { full_name, name, .. }| (name, full_name))
+                    .collect()
+            }}
+        }
+
         // todo: screens, customviews, libraries, resources
         Ok(SketchwareProject {
             metadata: Metadata {
@@ -128,11 +156,25 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             custom_views: vec![],
             libraries: Libraries {
                 app_compat_enabled: val.library.compat.use_yn == "Y",
-                firebase: None,
-                ad_mob: None,
-                google_map: None
+                firebase: library_conv!("firebase", firebase_db, Firebase {
+                    project_id: val.library.firebase_db.data,
+                    app_id: val.library.firebase_db.reserved1,
+                    api_key: val.library.firebase_db.reserved2,
+                    storage_bucket: val.library.firebase_db.reserved3,
+                }),
+                ad_mob: library_conv!("admob", ad_mob, AdMob {
+                    ad_units: val.library.admob.ad_units,
+                    test_devices: val.library.admob.test_devices,
+                }),
+                google_map: library_conv!("google map", google_map, GoogleMap {
+                    api_key: val.library.google_map.data,
+                }),
             },
-            resources: HashMap::new()
+            resources: Resources {
+                images: resources_conv!(images),
+                sounds: resources_conv!(sounds),
+                fonts: resources_conv!(fonts),
+            }
         })
     }
 }
@@ -156,7 +198,16 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
 impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
     type Error = SWRSError;
 
-    fn try_from(val: SketchwareProject) -> Result<Self, Self::Error> {
+    fn try_from(mut val: SketchwareProject) -> Result<Self, Self::Error> {
+        macro_rules! resource_conv {
+            ($name:ident) => {{
+                val.resources.$name
+                    .drain()
+                    .map(|(full_name, name)| ResourceItem { full_name, name, r#type: 1 })
+                    .collect()
+            }}
+        }
+
         Ok(ParsedSketchwareProject {
             project: parser::project::Project {
                 id: val.metadata.local_id,
@@ -256,9 +307,9 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 },
             },
             resource: Resource {
-                images: vec![],
-                sounds: vec![],
-                fonts: vec![]
+                images: resource_conv!(images),
+                sounds: resource_conv!(sounds),
+                fonts: resource_conv!(fonts)
             },
             view: parser::view::View { screens: Default::default(), fabs: Default::default() },
             logic: parser::logic::Logic { screens: Default::default() },

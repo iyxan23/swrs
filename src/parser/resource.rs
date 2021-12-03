@@ -80,12 +80,15 @@ impl Parsable for Resource {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ResourceItem {
+    /// The filename of the resource
     #[serde(rename = "resFullName")]
     pub full_name: String,
 
+    /// The resource name of this resource
     #[serde(rename = "resName")]
     pub name: String,
 
+    // Unknown usage, this value is always 1
     #[serde(rename = "resType")]
     pub r#type: u8,
 }
