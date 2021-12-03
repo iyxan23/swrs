@@ -3,6 +3,7 @@ use crate::api::block::Blocks;
 use crate::api::component::Component;
 use crate::api::layout::Layout;
 use crate::api::view::View;
+use crate::parser::file::{ActivityOptions, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::variable::VariableType;
 
 /// A model that represents a screen / activity in a project
@@ -27,6 +28,15 @@ pub struct Screen {
 
     /// All the events in this screen
     pub events: Vec<Event>,
+
+    pub fullscreen_enabled: bool,
+    pub toolbar_enabled: bool,
+    pub drawer_enabled: bool,
+    pub fab_enabled: bool,
+
+    pub orientation: Orientation,
+    pub theme: Theme,
+    pub keyboard_setting: KeyboardSetting,
 }
 
 /// A model that represents a global variable
