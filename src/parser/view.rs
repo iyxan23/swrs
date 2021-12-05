@@ -1,23 +1,26 @@
-use ritelinked::LinkedHashMap;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct View {
-    /// All the screens contained in this View file, with its screen name as the map key
-    pub screens: LinkedHashMap<String, Screen>,
+    /// All the screens contained in this View file
+    ///
+    /// `.0` is the screen name, `.1` is the screen content
+    pub screens: Vec<(String, Screen)>,
 
-    /// All the FABs contained in this view file, with its screen name as the map key
-    pub fabs: LinkedHashMap<String, AndroidView>
+    /// All the FABs contained in this view file
+    ///
+    /// `.0` is the screen name, `.1` is the fab view
+    pub fabs: Vec<(String, AndroidView)>
 }
 
 impl Parsable for View {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
         let mut lines = decrypted_content.split("\n");
 
-        let mut screens = LinkedHashMap::<String, Screen>::new();
-        let mut fabs = LinkedHashMap::<String, AndroidView>::new();
+        let mut screens = Vec::<(String, Screen)>::new();
+        let mut fabs = Vec::<(String, AndroidView)>::new();
 
         while let Some(line) = lines.next() {
             if !line.starts_with("@") { break; }
@@ -37,7 +40,7 @@ impl Parsable for View {
                         screen_name, e
                     )))?;
 
-                screens.insert(screen_name.to_string(), screen);
+                screens.push((screen_name.to_string(), screen));
 
             } else if *container_type == "xml_fab" {
                 let fab_view =
@@ -49,7 +52,7 @@ impl Parsable for View {
                             )))?
                     )?;
 
-                fabs.insert(screen_name.to_string(), fab_view);
+                fabs.push((screen_name.to_string(), fab_view));
             }
         }
 
