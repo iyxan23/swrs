@@ -1,10 +1,5 @@
 use std::collections::HashMap;
-use std::ops::Index;
-use std::str::FromStr;
-use ritelinked::LinkedHashMap;
 use crate::color::Color;
-use crate::parser::logic::Block as RawBlock;
-use crate::SWRSError;
 
 /// A struct that basically stores blocks with its starting id
 #[derive(Debug, Clone, PartialEq)]
@@ -56,10 +51,11 @@ impl Iterator for BlocksIterator {
     }
 }
 
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct BlockId(pub u32);
 
 /// A model that represents a block
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     /// The id of this block
     pub id: BlockId,
@@ -93,7 +89,7 @@ pub struct Block {
 }
 
 /// Category of a block; known from its block color
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum BlockCategory {
     Variable,
     List,
@@ -111,6 +107,7 @@ pub mod spec {
     use crate::{SWRSError, SWRSResult};
 
     /// A model that represents the spec of a block
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Spec {
         pub items: Vec<SpecItem>
     }
@@ -120,13 +117,15 @@ pub mod spec {
         pub fn get_all_args(&self) -> Vec<&SpecItem> {
             self.items
                 .iter()
-                .filter_map(|i| if let SpecItem::Field = i { Some(i) } else { None })
+                .filter_map(|i| if let SpecItem::Field { .. } = i { Some(i) } else { None })
                 .collect()
         }
 
         /// Retrieves a specific index on all of the fields / args of this spec
         pub fn get_arg(&self, index: usize) -> Option<&SpecItem> {
-            self.get_all_args().get(index)
+            self.get_all_args()
+                .get(index)
+                .map(|i| *i)
         }
     }
 
@@ -136,7 +135,7 @@ pub mod spec {
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(Spec {
                 items: s.split(" ")
-                        .map(SpecFieldType::from_str)
+                        .map(SpecItem::from_str)
                         .collect::<SWRSResult<Vec<SpecItem>>>()?
             })
         }
@@ -154,6 +153,7 @@ pub mod spec {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq)]
     pub enum SpecItem {
         Text(String),
 
@@ -198,6 +198,7 @@ pub mod spec {
     }
 
     /// Types of a field
+    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     pub enum SpecFieldType {
         String,
         Boolean,

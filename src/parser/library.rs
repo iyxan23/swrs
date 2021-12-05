@@ -102,7 +102,7 @@ impl Parsable for LibraryItem {
 
 /// A struct that represents an ad unit; Ad units are containers you place in your apps to show ads
 /// to users (source: https://support.google.com/admob/answer/6128738?hl=en)
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AdUnit {
     pub id: String,
     pub name: String,

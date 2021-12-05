@@ -107,7 +107,7 @@ pub enum FileType {
     Drawer = 2,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(u8)]
 pub enum KeyboardSetting {
     Unspecified = 0,
@@ -115,7 +115,7 @@ pub enum KeyboardSetting {
     Hidden = 2,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Orientation {
     Portrait = 0,
@@ -123,7 +123,7 @@ pub enum Orientation {
     Both = 2,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(i8)]
 pub enum Theme {
     None = -1,

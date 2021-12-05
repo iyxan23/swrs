@@ -1,6 +1,5 @@
 use crate::color::Color;
-use crate::error::SWRSResult;
-use crate::parser::view::models::{image, layout, SpinnerMode, text, TextConfig};
+use crate::parser::view::models::{image, layout, SpinnerMode, text};
 use crate::parser::view::View as RawView;
 
 /// A model that represents a single view
@@ -9,7 +8,7 @@ use crate::parser::view::View as RawView;
 /// (sketchware original) view types with its used fields (`view`) (if the view type isn't
 /// recognized, it will be set as None) and another field that holds the raw view, just in case you
 /// needed it.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct View {
     /// The id of this view, must be unique in the layout it belongs to; this is used to identify
     /// and find views in your java code
@@ -54,7 +53,7 @@ pub struct View {
 
 /// A struct that stores 4 `u32` values (top, right, bottom, and left). Used as a model of
 /// padding and margin
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SidesValue {
     pub top: u32,
     pub right: u32,
@@ -64,7 +63,7 @@ pub struct SidesValue {
 
 /// An enum that contains every sketchware original view types and its necessary fields, any other
 /// fields that aren't used in the specific view type will be neglected.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ViewType {
     LinearLayout {
         orientation: layout::Orientation,

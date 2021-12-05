@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
-use crate::api::layout::Layout;
 use crate::api::view::View;
-use crate::parser::file::{ActivityOptions, KeyboardSetting, Orientation, Theme};
+use crate::parser::file::{KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::variable::VariableType;
 
 /// A model that represents a screen / activity in a project
+#[derive(Debug, Clone, PartialEq)]
 pub struct Screen {
     /// The layout name of this screen (without the .xml part); Retrieved from the `view` file
     pub layout_name: String,
@@ -41,12 +41,14 @@ pub struct Screen {
 }
 
 /// A model that represents a global variable
+#[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
     pub name: String,
     pub variable_type: VariableType,
 }
 
 /// A model that represents a moreblock
+#[derive(Debug, Clone, PartialEq)]
 pub struct MoreBlock {
     pub name: String,
     pub spec: Spec,
@@ -54,12 +56,14 @@ pub struct MoreBlock {
 }
 
 /// A model that represents an event
+#[derive(Debug, Clone, PartialEq)]
 pub struct Event {
     pub name: String,
     pub event_type: EventType,
     pub code: Blocks,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum EventType {
     ViewEvent {
         id: String

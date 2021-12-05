@@ -1,5 +1,6 @@
 // todo: add more params
 /// An enum that contains all types of components with its parameters
+#[derive(Debug, Clone, PartialEq)]
 pub enum Component {
     Intent,
     SharedPreferences,

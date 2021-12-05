@@ -78,7 +78,7 @@ impl Parsable for View {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Screen(pub Vec<AndroidView>);
 
 impl Screen {
@@ -123,7 +123,7 @@ pub mod models {
     use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
     use crate::parser::view::models::layout::gravity::Gravity;
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct AndroidView {
         pub ad_size: String, // ""
@@ -231,7 +231,7 @@ pub mod models {
         }
     }
 
-    #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+    #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
     #[repr(u8)]
     pub enum ChoiceMode {
         None = 0,
@@ -239,14 +239,14 @@ pub mod models {
         Multi = 2,
     }
 
-    #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+    #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
     #[repr(u8)]
     pub enum SpinnerMode {
         Dialog = 0,
         Dropdown = 1,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct ImageConfig {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,7 +269,7 @@ pub mod models {
     pub mod image {
         use serde::{Serialize, Deserialize};
 
-        #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
         #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
         pub enum ImageScaleType {
             Center,
@@ -282,7 +282,7 @@ pub mod models {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct LayoutConfig {
         pub background_color: Color, // 16777215,
@@ -338,7 +338,7 @@ pub mod models {
         use serde::{Deserialize, Serialize, Deserializer, Serializer};
         use serde_repr::{Serialize_repr, Deserialize_repr};
 
-        #[derive(Debug, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Eq, PartialEq)]
         pub enum Size {
             MatchParent, // -2
             WrapContent, // -1
@@ -367,7 +367,7 @@ pub mod models {
             }
         }
 
-        #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(i8)]
         pub enum Orientation {
             Vertical = 1,
@@ -387,7 +387,7 @@ pub mod models {
             pub const TOP               : u8 = 48;
             pub const BOTTOM            : u8 = 80;
 
-            #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+            #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
             pub struct Gravity(pub u8);
 
             impl Gravity {
@@ -410,7 +410,7 @@ pub mod models {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct TextConfig {
         pub hint: String, // ""
@@ -449,7 +449,7 @@ pub mod models {
     pub mod text {
         use serde_repr::{Deserialize_repr, Serialize_repr};
 
-        #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(u8)]
         pub enum ImeOption {
             Normal = 0,
@@ -461,7 +461,7 @@ pub mod models {
             Done = 6,
         }
 
-        #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(u16)]
         pub enum InputType {
             NumberDecimal = 8194,
@@ -472,7 +472,7 @@ pub mod models {
             Text = 1,
         }
 
-        #[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(u8)]
         pub enum TextType {
             Normal = 0,

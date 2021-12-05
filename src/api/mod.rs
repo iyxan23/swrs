@@ -14,6 +14,7 @@ use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Metadata {
     /// The local ID of this project, should not be used for transferring sketchware projects to
     /// other devices
@@ -38,6 +39,7 @@ pub struct Metadata {
 }
 
 /// A model that stores color values of a project
+#[derive(Debug, Clone, PartialEq)]
 pub struct Colors {
     pub color_primary: Color,
     pub color_primary_dark: Color,
@@ -47,6 +49,7 @@ pub struct Colors {
 }
 
 /// A model that stores libraries' information of a project
+#[derive(Debug, Clone, PartialEq)]
 pub struct Libraries {
     pub app_compat_enabled: bool,
     pub firebase: Option<library::Firebase>,
@@ -55,6 +58,7 @@ pub struct Libraries {
 }
 
 mod library {
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Firebase {
         pub project_id: String,     // key: data
         pub app_id: String,         // key: reserved1
@@ -62,17 +66,20 @@ mod library {
         pub storage_bucket: String, // key: reserved3
     }
 
+    #[derive(Debug, Clone, PartialEq)]
     pub struct AdMob {
         pub ad_units: Vec<crate::parser::library::AdUnit>,  // key: adUnits
         pub test_devices: Vec<String>,      // key: testDevices
     }
 
+    #[derive(Debug, Clone, PartialEq)]
     pub struct GoogleMap {
         pub api_key: String,        // key: data
     }
 }
 
 /// A model that represents a custom view
+#[derive(Debug, Clone, PartialEq)]
 pub struct CustomView {
     pub res_name: String,
     pub view: View,
@@ -83,6 +90,7 @@ pub struct CustomView {
 /// Each `HashMap`s are a map of resource name (the name defined in the res folder) and resource
 /// full name (the actual filename)
 // todo: actually implement a resource system
+#[derive(Debug, Clone, PartialEq)]
 pub struct Resources {
     pub images: HashMap<String, String>,
     pub sounds: HashMap<String, String>,
@@ -90,7 +98,7 @@ pub struct Resources {
 }
 
 /// A sketchware project
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SketchwareProject {
     pub metadata: Metadata,
     pub colors: Colors,
@@ -114,9 +122,9 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     fn try_from(mut val: ParsedSketchwareProject) -> Result<Self, Self::Error> {
         macro_rules! library_conv {
             ($str_name:expr, $parsed_field_name:ident, $result:expr) => {{
-                match val.library.$parsed_field_name.use_yn {
-                    &"Y" => Some($result),
-                    &"N" => None,
+                match val.library.$parsed_field_name.use_yn.as_str() {
+                    "Y" => Some($result),
+                    "N" => None,
                     _ => return Err(SWRSError::ParseError(format!(
                         "use_yn of {} library contains an invalid value: {}", $str_name, val.library.firebase_db.use_yn
                     ))),
@@ -162,7 +170,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                     api_key: val.library.firebase_db.reserved2,
                     storage_bucket: val.library.firebase_db.reserved3,
                 }),
-                ad_mob: library_conv!("admob", ad_mob, AdMob {
+                ad_mob: library_conv!("admob", admob, AdMob {
                     ad_units: val.library.admob.ad_units,
                     test_devices: val.library.admob.test_devices,
                 }),
@@ -179,14 +187,6 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     }
 }
 
-impl TryInto<ParsedSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
-
-    fn try_into(self) -> Result<ParsedSketchwareProject, Self::Error> {
-        ParsedSketchwareProject::try_from(self)
-    }
-}
-
 impl TryInto<RawSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
@@ -198,7 +198,7 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
 impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
     type Error = SWRSError;
 
-    fn try_from(mut val: SketchwareProject) -> Result<Self, Self::Error> {
+    fn try_from(val: SketchwareProject) -> Result<Self, Self::Error> {
         macro_rules! resource_conv {
             ($name:ident) => {{
                 val.resources.$name
