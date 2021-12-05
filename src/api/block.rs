@@ -68,6 +68,21 @@ pub mod spec {
         pub items: Vec<SpecItem>
     }
 
+    impl Spec {
+        /// Retrieves all fields / args of this spec
+        pub fn get_all_args(&self) -> Vec<&SpecItem> {
+            self.items
+                .iter()
+                .filter_map(|i| if let SpecItem::Field = i { Some(i) } else { None })
+                .collect()
+        }
+
+        /// Retrieves a specific index on all of the fields / args of this spec
+        pub fn get_arg(&self, index: usize) -> Option<&SpecItem> {
+            self.get_all_args().get(index)
+        }
+    }
+
     impl FromStr for Spec {
         type Err = SWRSError;
 
