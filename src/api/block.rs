@@ -6,9 +6,56 @@ use crate::color::Color;
 use crate::parser::logic::Block as RawBlock;
 use crate::SWRSError;
 
-pub type Blocks = LinkedHashMap<BlockId, Block>;
+/// A struct that basically stores blocks with its starting id
+#[derive(Debug, Clone, PartialEq)]
+pub struct Blocks {
+    pub starting_id: BlockId,
+    pub blocks: HashMap<BlockId, Block>
+}
 
-#[derive(Debug, Eq, PartialEq)]
+impl IntoIterator for Blocks {
+    type Item = Block;
+    type IntoIter = BlocksIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BlocksIterator {
+            next_block_id: Some(self.starting_id),
+            blocks: self,
+        }
+    }
+}
+
+/// An iterator that iterates over [`Blocks`] using each blocks' id and next_block
+pub struct BlocksIterator {
+    blocks: Blocks,
+    next_block_id: Option<BlockId>,
+}
+
+impl Iterator for BlocksIterator {
+    type Item = Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next_block_id {
+            None => None,
+            Some(next_block_id) => {
+                // get the next block
+                if let Some(block) = self.blocks.blocks.remove(&next_block_id) {
+                    // checks if this block has a next block
+                    if let Some(next_block) = block.next_block {
+                        // yes, update the next block id
+                        self.next_block_id = Some(next_block);
+                    } else {
+                        // apparently not, it seems like we're at the end of this iteration
+                        self.next_block_id = None;
+                    }
+
+                    Some(block)
+                } else { None }
+            }
+        }
+    }
+}
+
 pub struct BlockId(pub u32);
 
 /// A model that represents a block
@@ -17,8 +64,8 @@ pub struct Block {
     /// The id of this block
     pub id: BlockId,
 
-    /// The id of the next block
-    pub next_block: BlockId,
+    /// The id of the next block. None if the value is -1 (the end of the block chain)
+    pub next_block: Option<BlockId>,
 
     /// The first substack / nest of this block, gives None if this block doesn't have a substack / nest
     pub sub_stack1: Option<Vec<Block>>,
