@@ -97,10 +97,12 @@ pub mod spec {
 
         /// A field, or basically arguments
         ///
-        /// Examples: `%s`
+        /// Examples:
+        ///  - `%s` - type with no name
+        ///  - `%s.name` - type with a name
         Field {
             field_type: SpecFieldType,
-            name: String,
+            name: Option<String>,
         },
     }
 
@@ -111,13 +113,12 @@ pub mod spec {
             Ok(if s.starts_with("%") {
                 let (stype, name) =
                     s.split_once(".")
-                        .ok_or_else(||SWRSError::ParseError(format!(
-                            "Spec item \"{}\" doesn't contain `.` to be split", i
-                        )))?;
+                        .map(|(stype, name)| (stype, Some(name.to_string())))
+                        .unwrap_or_else(|| (s, None));
 
                 SpecItem::Field {
                     field_type: stype.parse()?,
-                    name: name.to_string(),
+                    name,
                 }
             } else { SpecItem::Text(s.to_string()) })
         }
@@ -128,7 +129,8 @@ pub mod spec {
             match self {
                 SpecItem::Text(content) => content.clone(),
                 SpecItem::Field { field_type, name } =>
-                    format!("%{}.{}", field_type.to_string(), name)
+                    if let Some(name) = name { format!("%{}.{}", field_type.to_string(), name) }
+                    else { format!("%{}", field_type.to_string()) }
             }
         }
     }
