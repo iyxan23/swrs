@@ -99,7 +99,7 @@ impl Parsable for FileItem {
     }
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(u8)]
 pub enum FileType {
     Activity = 0,
@@ -107,7 +107,7 @@ pub enum FileType {
     Drawer = 2,
 }
 
-#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(u8)]
 pub enum KeyboardSetting {
     Unspecified = 0,
@@ -115,7 +115,7 @@ pub enum KeyboardSetting {
     Hidden = 2,
 }
 
-#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Orientation {
     Portrait = 0,
@@ -123,7 +123,7 @@ pub enum Orientation {
     Both = 2,
 }
 
-#[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
 #[repr(i8)]
 pub enum Theme {
     None = -1,
@@ -132,7 +132,7 @@ pub enum Theme {
     Fullscreen = 2,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ActivityOptions {
     pub toolbar_enabled: bool,
     pub fullscreen_enabled: bool,
@@ -162,7 +162,7 @@ impl ActivityOptions {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ActivityOptionMask {
     Toolbar     = 1 << 0,
     Fullscreen  = 1 << 1,

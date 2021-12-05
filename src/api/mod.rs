@@ -5,10 +5,11 @@ pub mod component;
 
 use std::collections::HashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
+use crate::api::screen::Screen;
 use crate::api::view::View;
 use crate::color::Color;
 use crate::error::SWRSError;
-use crate::parser;
+use crate::{parser, SWRSResult};
 use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
@@ -116,6 +117,42 @@ impl TryFrom<RawSketchwareProject> for SketchwareProject {
     }
 }
 
+// turns a view name to a logic name, something like `main` into `MainActivity`,
+// `screen_display` to `ScreenDisplayActivity`
+fn view_name_to_logic(s: &str) -> String {
+    let mut capitalize = true;
+
+    format!(
+        "{}Activity",
+        s.chars()
+            .into_iter()
+            .filter_map(|ch| {
+                Some(if ch == '_' {
+                    capitalize = true;
+                    return None;
+                } else if capitalize {
+                    capitalize = false;
+                    ch.to_ascii_uppercase()
+                } else {
+                    ch
+                })
+            })
+            .collect::<String>()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::api::view_name_to_logic;
+
+    #[test]
+    fn test_view_name_to_logic() {
+        assert_eq!("MainActivity", view_name_to_logic("main"));
+        assert_eq!("DebugScreenActivity", view_name_to_logic("debug_screen"));
+        assert_eq!("VeryLongStringIDontKnowWhyActivity", view_name_to_logic("very_long_string_i_dont_know_why"));
+    }
+}
+
 impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
@@ -141,7 +178,6 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             }}
         }
 
-        // todo: screens, customviews, libraries, resources
         Ok(SketchwareProject {
             metadata: Metadata {
                 local_id: val.project.id,
@@ -160,7 +196,48 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 color_control_normal: val.project.color_palette.color_control_normal,
                 color_control_highlight: val.project.color_palette.color_control_highlight,
             },
-            screens: vec![],
+            screens: val.view.screens
+                .drain(..)
+                .map(|(name, screen)| {
+                    // todo: in the future, wouldn't it be nice to have an option to ignore this and
+                    //       move on?
+                    let logic_name = view_name_to_logic(&name);
+                    let logic =
+                        val.logic
+                            .screens
+                            .remove(&logic_name)
+                            .ok_or_else(||SWRSError::ParseError(format!(
+                                "Failed to retrieve the logic of screen `{}`", name
+                            )))?;
+
+                    let file_entry =
+                        val.file
+                            .activities
+                            .iter()
+                            .find(|i| i.filename == name)
+                            .ok_or_else(||SWRSError::ParseError(format!(
+                                "Failed to retrieve the file entry of screen `{}`", name
+                            )))?;
+
+                    Ok(Screen {
+                        layout_name: name,
+                        java_name: logic_name,
+                        layout: todo!(),
+                        variables: todo!(),
+                        more_blocks: todo!(),
+                        components: todo!(),
+                        events: todo!(),
+                        fullscreen_enabled: file_entry.options.fullscreen_enabled,
+                        toolbar_enabled: file_entry.options.toolbar_enabled,
+                        drawer_enabled: file_entry.options.drawer_enabled,
+                        fab_enabled: file_entry.options.fab_enabled,
+                        orientation: file_entry.orientation,
+                        theme: file_entry.theme,
+                        keyboard_setting: file_entry.keyboard_setting
+                    })
+                })
+                .collect::<SWRSResult<Vec<Screen>>>()?,
+
             custom_views: vec![],
             libraries: Libraries {
                 app_compat_enabled: val.library.compat.use_yn == "Y",
