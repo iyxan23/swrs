@@ -214,30 +214,22 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                         val.file
                             .activities
                             .iter()
-                            .find(|i| i.filename == name)
+                            .enumerate()
+                            .find(|(idx, i)| i.filename == name)
+                            .map(|(idx, _)| val.file.activities.remove(idx))
                             .ok_or_else(||SWRSError::ParseError(format!(
                                 "Failed to retrieve the file entry of screen `{}`", name
                             )))?;
 
-                    Ok(Screen {
-                        layout_name: name,
-                        java_name: logic_name,
-                        layout: todo!(),
-                        variables: todo!(),
-                        more_blocks: todo!(),
-                        components: todo!(),
-                        events: todo!(),
-                        fullscreen_enabled: file_entry.options.fullscreen_enabled,
-                        toolbar_enabled: file_entry.options.toolbar_enabled,
-                        drawer_enabled: file_entry.options.drawer_enabled,
-                        fab_enabled: file_entry.options.fab_enabled,
-                        orientation: file_entry.orientation,
-                        theme: file_entry.theme,
-                        keyboard_setting: file_entry.keyboard_setting
-                    })
+                    Screen::from_parsed(
+                        name,
+                        logic_name,
+                        file_entry,
+                        screen,
+                        logic,
+                    )
                 })
                 .collect::<SWRSResult<Vec<Screen>>>()?,
-
             custom_views: vec![],
             libraries: Libraries {
                 app_compat_enabled: val.library.compat.use_yn == "Y",

@@ -3,8 +3,11 @@ use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
 use crate::api::view::View;
-use crate::parser::file::{KeyboardSetting, Orientation, Theme};
+use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
+use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::VariableType;
+use crate::parser::view::Screen as ViewScreen;
+use crate::SWRSResult;
 
 /// A model that represents a screen / activity in a project
 #[derive(Debug, Clone, PartialEq)]
@@ -73,4 +76,31 @@ pub enum EventType {
         component_type: u8,
     },
     ActivityEvent,
+}
+
+impl Screen {
+    pub fn from_parsed(
+        layout_name: String,
+        logic_name: String,
+        file_entry: FileItem,
+        view_entry: ViewScreen,
+        logic_entry: ScreenLogic,
+    ) -> SWRSResult<Self> {
+        Ok(Screen {
+            layout_name,
+            java_name: logic_name,
+            layout: todo!(),
+            variables: todo!(),
+            more_blocks: todo!(),
+            components: todo!(),
+            events: todo!(),
+            fullscreen_enabled: file_entry.options.fullscreen_enabled,
+            toolbar_enabled: file_entry.options.toolbar_enabled,
+            drawer_enabled: file_entry.options.drawer_enabled,
+            fab_enabled: file_entry.options.fab_enabled,
+            orientation: file_entry.orientation,
+            theme: file_entry.theme,
+            keyboard_setting: file_entry.keyboard_setting
+        })
+    }
 }
