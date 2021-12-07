@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{Error, Visitor};
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Color {
     /// The RGB color is represented as: 0xffRRGGBB
     value: u32

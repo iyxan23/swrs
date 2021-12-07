@@ -387,7 +387,7 @@ pub mod models {
             pub const TOP               : u8 = 48;
             pub const BOTTOM            : u8 = 80;
 
-            #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+            #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
             pub struct Gravity(pub u8);
 
             impl Gravity {

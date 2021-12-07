@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+use std::fmt::format;
 use crate::color::Color;
-use crate::parser::view::models::{image, layout, SpinnerMode, text};
-use crate::parser::view::View as RawView;
+use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
+use crate::parser::view::Screen as ParsedScreen;
+use crate::api::screen::Screen;
+use crate::{SWRSError, SWRSResult};
 
 /// A model that represents a single view
 ///
@@ -48,7 +52,63 @@ pub struct View {
     /// The raw view of this View. This may be used to access every fields of this view in its raw
     /// form. Changes made to this are NOT going to be accounted in the reconstruction of this view
     /// unfortunately.
-    pub raw: RawView,
+    pub raw: AndroidView,
+}
+
+impl View {
+    pub fn find_id(&self, id: &str) -> Option<&View> {
+        if self.id == id {
+            Some(self)
+        } else {
+            // recurse on children
+            self.children
+                .iter()
+                .find_map(|i| i.find_id(id))
+        }
+    }
+
+    pub fn find_id_mut(&mut self, id: &str) -> Option<&mut View> {
+        if self.id == id {
+            Some(self)
+        } else {
+            // recurse on children
+            self.children
+                .iter_mut()
+                .find_map(|i| i.find_id_mut(id))
+        }
+    }
+}
+
+impl TryFrom<AndroidView> for View {
+    type Error = SWRSError;
+
+    fn try_from(value: AndroidView) -> Result<Self, Self::Error> {
+        Ok(View {
+            id: value.id.clone(),
+            background_color: value.layout.background_color,
+            height: value.layout.height,
+            width: value.layout.width,
+            padding: SidesValue {
+                top: value.layout.padding_top,
+                right: value.layout.padding_right,
+                bottom: value.layout.padding_bottom,
+                left: value.layout.padding_left,
+            },
+            margin: SidesValue {
+                top: value.layout.margin_top,
+                right: value.layout.margin_right,
+                bottom: value.layout.margin_bottom,
+                left: value.layout.margin_left,
+            },
+            weight: value.layout.weight,
+            weight_sum: value.layout.weight_sum,
+            layout_gravity: value.layout.layout_gravity,
+            // ignore the Err because the function only Err-s when the view type is unknown
+            view: if let Ok(res) = ViewType::from_view(&value) { Some(res) } else { None },
+            children: vec![],
+            raw: value.clone()
+        })
+    }
 }
 
 /// A struct that stores 4 `u32` values (top, right, bottom, and left). Used as a model of
@@ -152,4 +212,49 @@ pub enum ViewType {
         adview_size: u32,
     },
     MapView
+}
+
+impl ViewType {
+    /// Converts an [`&AndroidView`] into [`ViewType`]
+    pub fn from_view(android_view: &AndroidView) -> SWRSResult<Self> {
+        todo!("this");
+
+        match android_view.r#type {
+            _ => Err(SWRSError::ParseError(format!(
+                "Unknown view type: {}",
+                android_view.r#type
+            )))
+        }
+    }
+}
+
+/// Converts a parser's parsed [`ParsedScreen`] into [`View`]
+pub fn screen_to_view(screen_view: ParsedScreen) -> SWRSResult<View> {
+    let mut root_view = Option::<View>::None;
+
+    for view in screen_view.0 {
+        if let Some(r) = &mut root_view {
+            // get the parent id, find the parent on root view, and append the view to the parent
+            let parent_id =
+                view.parent.as_ref().ok_or_else(||SWRSError::ParseError(format!(
+                    "View `{}` doesn't have a parent field",
+                    r.id
+                )))?;
+
+            let parent = r.find_id_mut(&parent_id)
+                .ok_or_else(||SWRSError::ParseError(format!(
+                    "Couldn't find the parent of view `{}` - Parent id: `{}`",
+                    view.id, parent_id
+                )))?;
+
+            parent.children.push(view.try_into()?);
+        } else {
+            // set the first view to be the root view
+            root_view = Some(view.try_into()?);
+            continue;
+        }
+    }
+
+    root_view
+        .ok_or_else(||SWRSError::ParseError("View pool is empty, and it shouldn't be".to_string()))
 }
