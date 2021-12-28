@@ -23,9 +23,9 @@ Stuff:
  - [x] Reconstructing `view`
  - [x] Reconstructing `logic`
  - [ ] APIs
-   - [ ] Project metadata retrival
+   - [x] Project metadata retrival
    - [ ] Screens
-     - [ ] Screen metadata retrival
+     - [x] Screen metadata retrival
      - [ ] Layout
      - [ ] Blocks / Logic
        - [ ] Events
