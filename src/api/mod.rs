@@ -211,16 +211,19 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                                 "Failed to retrieve the logic of screen `{}`", name
                             )))?;
 
-                    let file_entry =
-                        val.file
-                            .activities
-                            .iter()
-                            .enumerate()
-                            .find(|(idx, i)| i.filename == name)
-                            .map(|(idx, _)| val.file.activities.remove(idx))
-                            .ok_or_else(||SWRSError::ParseError(format!(
+                    let file_entry = {
+                        if let Some((idx, _)) =
+                                val.file.activities
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(idx, i)| i.filename == name) {
+                            Ok(val.file.activities.remove(idx))
+                        } else {
+                            Err(SWRSError::ParseError(format!(
                                 "Failed to retrieve the file entry of screen `{}`", name
-                            )))?;
+                            )))
+                        }
+                    }?;
 
                     Screen::from_parsed(
                         name,
