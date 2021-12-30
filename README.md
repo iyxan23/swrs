@@ -1,4 +1,6 @@
 # SWRS
+[![Hits-of-Code](https://hitsofcode.com/github/iyxan23/swrs?branch=main)](https://hitsofcode.com/github/iyxan23/swrs/view?branch=main)
+
 A rusty library that reads, parses and re-constructs sketchware projects.
 
 This might look dumb to use rust, but I'm currently planning to do something bigger with this.
