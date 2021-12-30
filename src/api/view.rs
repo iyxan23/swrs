@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::format;
 use crate::color::Color;
 use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
@@ -257,11 +256,11 @@ impl ViewType {
                 input_type: android_view.text.input_type,
             },
             6 => ViewType::ImageView {
-                image_res_name: android_view.image.res_name
+                image_res_name: android_view.image.res_name.as_ref()
                     .ok_or_else(||SWRSError::ParseError(format!(
                         "res_name is not present in the view id {} while the type is an ImageView",
                         android_view.id
-                    )))?,
+                    )))?.clone(),
                 image_scale_type: android_view.image.scale_type,
             },
             7 => ViewType::WebView,
@@ -304,11 +303,11 @@ impl ViewType {
             },
             15 => ViewType::CalendarView { first_day_of_week: android_view.first_day_of_week },
             16 => ViewType::Fab {
-                image_res_name: android_view.image.res_name
+                image_res_name: android_view.image.res_name.as_ref()
                     .ok_or_else(||SWRSError::ParseError(format!(
                         "res_name is not present in the view id {} while the type is a FAB",
                         android_view.id
-                    )))?
+                    )))?.clone(),
             },
             17 => ViewType::AdView { adview_size: android_view.ad_size.clone() },
             18 => ViewType::MapView,
