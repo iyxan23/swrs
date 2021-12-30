@@ -4,6 +4,10 @@ pub mod color;
 
 pub mod api;
 
+/// We use [`ritelinked::LinkedHashMap`] to preserve insertion order while having a key-value pair
+/// storage mechanism
+pub use ritelinked::LinkedHashMap;
+
 use crate::error::{SWRSResult, SWRSError};
 use std::path::Path;
 use block_modes::{Cbc, BlockMode};

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
@@ -22,13 +23,13 @@ pub struct Screen {
     pub layout: View,
 
     /// All the global variables in this screen
-    pub variables: HashMap<String, Variable>,
+    pub variables: LinkedHashMap<String, Variable>,
 
     /// All the moreblocks in this screen
-    pub more_blocks: HashMap<String, MoreBlock>,
+    pub more_blocks: LinkedHashMap<String, MoreBlock>,
 
     /// All the components in this screen
-    pub components: HashMap<String, Component>,
+    pub components: LinkedHashMap<String, Component>,
 
     /// All the events in this screen
     pub events: Vec<Event>,

@@ -4,6 +4,7 @@ pub mod block;
 pub mod component;
 
 use std::collections::HashMap;
+use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::Screen;
 use crate::api::view::View;
@@ -88,14 +89,14 @@ pub struct CustomView {
 
 /// A model that stores data of resources
 ///
-/// Each `HashMap`s are a map of resource name (the name defined in the res folder) and resource
-/// full name (the actual filename)
+/// Each `LinkedHashMap`s are a map of resource name (the name defined in the res folder) and
+/// resource full name (the actual filename)
 // todo: actually implement a resource system
 #[derive(Debug, Clone, PartialEq)]
 pub struct Resources {
-    pub images: HashMap<String, String>,
-    pub sounds: HashMap<String, String>,
-    pub fonts: HashMap<String, String>,
+    pub images: LinkedHashMap<String, String>,
+    pub sounds: LinkedHashMap<String, String>,
+    pub fonts: LinkedHashMap<String, String>,
 }
 
 /// A sketchware project

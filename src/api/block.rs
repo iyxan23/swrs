@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use crate::LinkedHashMap;
 use crate::color::Color;
 
 /// A struct that basically stores blocks with its starting id
 #[derive(Debug, Clone, PartialEq)]
 pub struct Blocks {
     pub starting_id: BlockId,
-    pub blocks: HashMap<BlockId, Block>
+    pub blocks: LinkedHashMap<BlockId, Block>
 }
 
 impl IntoIterator for Blocks {
