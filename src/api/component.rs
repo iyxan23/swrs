@@ -1,3 +1,5 @@
+use crate::SWRSError;
+
 // todo: add more params
 /// An enum that contains all types of components with its parameters
 #[derive(Debug, Clone, PartialEq)]
@@ -25,4 +27,12 @@ pub enum Component {
     SpeechToText,
     BluetoothConnect,
     LocationManager,
+}
+
+impl TryFrom<crate::parser::logic::component::Component> for Component {
+    type Error = SWRSError;
+
+    fn try_from(value: crate::parser::logic::component::Component) -> Result<Self, Self::Error> {
+        todo!()
+    }
 }

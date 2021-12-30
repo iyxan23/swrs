@@ -289,7 +289,7 @@ pub mod variable {
         }
     }
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct Variable {
         pub name: String,
         pub r#type: VariableType,
@@ -399,7 +399,7 @@ pub mod list_variable {
         }
     }
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct ListVariable {
         pub name: String,
         pub r#type: super::variable::VariableType
@@ -475,7 +475,7 @@ pub mod component {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
     pub struct Component {
         #[serde(rename = "componentId")]
         pub id: String,
@@ -634,7 +634,7 @@ pub mod event {
         }
     }
 
-    #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Event {
         pub event_name: String,

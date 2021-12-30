@@ -1,12 +1,17 @@
 use std::collections::HashMap;
+use std::convert::Infallible;
 use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
-use crate::api::view::View;
+use crate::api::view::{screen_to_view, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
+use crate::parser::file::Theme::Default;
+use crate::parser::logic::component::ComponentPool;
+use crate::parser::logic::event::EventPool;
+use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
-use crate::parser::logic::variable::VariableType;
+use crate::parser::logic::variable::{Variable, VariablePool, VariableType};
 use crate::parser::view::Screen as ViewScreen;
 use crate::SWRSResult;
 
@@ -42,13 +47,6 @@ pub struct Screen {
     pub orientation: Orientation,
     pub theme: Theme,
     pub keyboard_setting: KeyboardSetting,
-}
-
-/// A model that represents a global variable
-#[derive(Debug, Clone, PartialEq)]
-pub struct Variable {
-    pub name: String,
-    pub variable_type: VariableType,
 }
 
 /// A model that represents a moreblock
@@ -90,11 +88,32 @@ impl Screen {
         Ok(Screen {
             layout_name,
             java_name: logic_name,
-            layout: todo!(),
-            variables: todo!(),
-            more_blocks: todo!(),
-            components: todo!(),
-            events: todo!(),
+            layout: screen_to_view(view_entry)?,
+            variables: logic_entry.variables.unwrap_or_default().0,
+
+            // basically just converts these parser's list of moreblocks/components/events into our
+            // type defined in this module
+            more_blocks: logic_entry.more_blocks.unwrap_or_default().0
+                .into_iter()
+                .map(|(mb_id, mb)|
+                    todo!("implement converting parser's moreblock struct into our moreblock (that contains Blocks)"))
+                .collect::<SWRSResult<LinkedHashMap<String, MoreBlock>>>()?,
+
+            components: logic_entry.components.unwrap_or_default().0
+                .into_iter()
+                .map(|cmp| {
+                    let id = cmp.id.clone();
+                    Component::try_from(cmp)
+                        .map(|conv_cmp| (id, conv_cmp))
+                })
+                .collect::<SWRSResult<LinkedHashMap<String, Component>>>()?,
+
+            events: logic_entry.events.unwrap_or_default().0
+                .into_iter()
+                .map(|event|
+                    todo!("implement converting parser's event struct into our event (that contains Blocks)"))
+                .collect::<SWRSResult<Vec<Event>>>()?,
+
             fullscreen_enabled: file_entry.options.fullscreen_enabled,
             toolbar_enabled: file_entry.options.toolbar_enabled,
             drawer_enabled: file_entry.options.drawer_enabled,
