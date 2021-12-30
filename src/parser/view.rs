@@ -139,7 +139,7 @@ pub mod models {
         pub custom_view: String, // ""
 
         /// Divider height of a listview (in dp)
-        pub divider_height: u16, // 0
+        pub divider_height: u32, // 0
 
         #[serde(with = "bool_to_one_zero")]
         pub enabled: bool, // (int) 0
@@ -367,7 +367,7 @@ pub mod models {
             }
         }
 
-        #[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(i8)]
         pub enum Orientation {
             Vertical = 1,
@@ -472,7 +472,7 @@ pub mod models {
             Text = 1,
         }
 
-        #[derive(Debug, Clone, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
+        #[derive(Debug, Clone, Copy, Serialize_repr, Deserialize_repr, Eq, PartialEq)]
         #[repr(u8)]
         pub enum TextType {
             Normal = 0,

@@ -5,6 +5,7 @@ use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text}
 use crate::parser::view::Screen as ParsedScreen;
 use crate::api::screen::Screen;
 use crate::{SWRSError, SWRSResult};
+use crate::parser::view::models::layout::Orientation;
 
 /// A model that represents a single view
 ///
@@ -203,13 +204,13 @@ pub enum ViewType {
         progress: u32,
     },
     CalendarView {
-        first_day_of_week: u32,
+        first_day_of_week: u8,
     },
     Fab {
         image_res_name: String,
     },
     AdView {
-        adview_size: u32,
+        adview_size: String,
     },
     MapView
 }
@@ -217,14 +218,105 @@ pub enum ViewType {
 impl ViewType {
     /// Converts an [`&AndroidView`] into [`ViewType`]
     pub fn from_view(android_view: &AndroidView) -> SWRSResult<Self> {
-        todo!("this");
-
-        match android_view.r#type {
+        // https://github.com/Iyxan23/sketchware-data/blob/main/data/view-types.md
+        Ok(match android_view.r#type {
+            0 => ViewType::LinearLayout {
+                orientation: android_view.layout.orientation,
+                gravity: android_view.layout.gravity,
+            },
+            2 => ViewType::ScrollView {
+                orientation: Orientation::Horizontal,
+                gravity: android_view.layout.gravity,
+            },
+            3 => ViewType::Button {
+                text: android_view.text.text.clone(),
+                text_color: android_view.text.text_color,
+                text_size: android_view.text.text_size,
+                text_style: android_view.text.text_type,
+            },
+            4 => ViewType::TextView {
+                text: android_view.text.text.clone(),
+                text_color: android_view.text.text_color,
+                text_size: android_view.text.text_size,
+                single_line: android_view.text.single_line,
+                text_font: android_view.text.text_font.clone(),
+                text_style: android_view.text.text_type,
+                lines: android_view.text.line,
+            },
+            5 => ViewType::EditText {
+                text: android_view.text.text.clone(),
+                text_color: android_view.text.text_color,
+                text_size: android_view.text.text_size,
+                single_line: android_view.text.single_line,
+                text_font: android_view.text.text_font.clone(),
+                text_style: android_view.text.text_type,
+                lines: android_view.text.line,
+                hint: android_view.text.hint.clone(),
+                hint_color: android_view.text.hint_color,
+                ime_option: android_view.text.ime_option,
+                input_type: android_view.text.input_type,
+            },
+            6 => ViewType::ImageView {
+                image_res_name: android_view.image.res_name
+                    .ok_or_else(||SWRSError::ParseError(format!(
+                        "res_name is not present in the view id {} while the type is an ImageView",
+                        android_view.id
+                    )))?,
+                image_scale_type: android_view.image.scale_type,
+            },
+            7 => ViewType::WebView,
+            8 => ViewType::ProgressBar {
+                max_progress: android_view.max,
+                progress: android_view.progress,
+                indeterminate: android_view.indeterminate,
+                progress_style: android_view.progress_style.clone(),
+            },
+            9 => ViewType::ListView {
+                divider_height: android_view.divider_height,
+                custom_view: android_view.custom_view.clone(),
+            },
+            10 => ViewType::Spinner {
+                spinner_mode: android_view.spinner_mode,
+            },
+            11 => ViewType::CheckBox {
+                checked: android_view.checked,
+                text: android_view.text.text.clone(),
+                text_color: android_view.text.text_color,
+                text_size: android_view.text.text_size,
+                text_font: android_view.text.text_font.clone(),
+                text_style: android_view.text.text_type,
+            },
+            12 => ViewType::ScrollView {
+                orientation: Orientation::Vertical,
+                gravity: android_view.layout.gravity,
+            },
+            13 => ViewType::Switch {
+                checked: android_view.checked,
+                text: android_view.text.text.clone(),
+                text_color: android_view.text.text_color,
+                text_size: android_view.text.text_size,
+                text_font: android_view.text.text_font.clone(),
+                text_style: android_view.text.text_type,
+            },
+            14 => ViewType::SeekBar {
+                max_progress: android_view.max,
+                progress: android_view.progress,
+            },
+            15 => ViewType::CalendarView { first_day_of_week: android_view.first_day_of_week },
+            16 => ViewType::Fab {
+                image_res_name: android_view.image.res_name
+                    .ok_or_else(||SWRSError::ParseError(format!(
+                        "res_name is not present in the view id {} while the type is a FAB",
+                        android_view.id
+                    )))?
+            },
+            17 => ViewType::AdView { adview_size: android_view.ad_size.clone() },
+            18 => ViewType::MapView,
             _ => Err(SWRSError::ParseError(format!(
                 "Unknown view type: {}",
                 android_view.r#type
-            )))
-        }
+            )))?
+        })
     }
 }
 
