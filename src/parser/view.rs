@@ -159,17 +159,17 @@ pub mod models {
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)] // <- this value is not present in fab views
         pub parent: Option<String>, // "something1"
-        pub parent_type: i8, // 0 - note: can be -1 for some reason
+        pub parent_type: i8, // 0 - note: can be -1 for some reason ¯\_(ツ)_/¯
 
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)] // <- this value is not present in fab views
         pub pre_id: Option<String>, // ""
-        pub pre_index: u32, // 0
+        pub pre_index: i32, // 0 - note: can be -1 for some reason ¯\_(ツ)_/¯
 
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)]
         pub pre_parent: Option<String>,
-        pub pre_parent_type: u8, // 0
+        pub pre_parent_type: i8, // 0 - note: can be -1 for some reason ¯\_(ツ)_/¯
         pub progress: u32, // 0
         pub progress_style: String, // "?android:progressBarStyle", Enum?
         pub scale_x: f32, // 1.0
