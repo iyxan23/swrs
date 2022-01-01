@@ -1,17 +1,11 @@
-use std::collections::HashMap;
-use std::convert::Infallible;
-use crate::{LinkedHashMap, SWRSError};
+use crate::LinkedHashMap;
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
 use crate::api::view::{screen_to_view, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
-use crate::parser::file::Theme::Default;
-use crate::parser::logic::component::ComponentPool;
-use crate::parser::logic::event::EventPool;
-use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
-use crate::parser::logic::variable::{Variable, VariablePool, VariableType};
+use crate::parser::logic::variable::Variable;
 use crate::parser::view::Screen as ViewScreen;
 use crate::SWRSResult;
 

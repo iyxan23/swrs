@@ -1,8 +1,6 @@
-use std::fmt::format;
 use crate::color::Color;
 use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
 use crate::parser::view::Screen as ParsedScreen;
-use crate::api::screen::Screen;
 use crate::{SWRSError, SWRSResult};
 use crate::parser::view::models::layout::Orientation;
 

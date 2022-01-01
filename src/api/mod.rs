@@ -3,7 +3,6 @@ pub mod view;
 pub mod block;
 pub mod component;
 
-use std::collections::HashMap;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::Screen;
