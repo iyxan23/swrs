@@ -34,7 +34,9 @@ impl Parsable for File {
                 cur_section = FileSection::CustomView;
 
             } else if cur_section != FileSection::None {
-                // parse the file item
+                // parse the file item if the line isn't empty
+                if line.is_empty() { break; }
+
                 let file_item = FileItem::parse(line)?;
 
                 // push the file item to the appropriate section
