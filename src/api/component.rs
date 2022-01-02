@@ -66,3 +66,5 @@ impl TryFrom<crate::parser::logic::component::Component> for Component {
         })
     }
 }
+
+// todo: implement TryInto<parser component> for Component
