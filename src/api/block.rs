@@ -234,9 +234,16 @@ impl TryFrom<Color> for BlockCategory {
     type Error = SWRSError;
 
     fn try_from(value: Color) -> Result<Self, Self::Error> {
-        todo!("add the colors");
-
-        Ok(match value.argb() {
+        Ok(match value.rgb() {
+            (0xee, 0x7d, 0x16) => BlockCategory::Variable,
+            (0xcc, 0x5b, 0x22) => BlockCategory::List,
+            (0xe1, 0xa9, 0x2a) => BlockCategory::Control,
+            (0x5c, 0xb7, 0x22) => BlockCategory::Operator,
+            (0x23, 0xb9, 0xa9) => BlockCategory::Math,
+            (0xa1, 0x88, 0x7f) => BlockCategory::File,
+            (0x4a, 0x6c, 0xd4) => BlockCategory::ViewFunc,
+            (0xfc, 0xa5, 0xe2) => BlockCategory::ComponentFunc,
+            (0x8a, 0x55, 0xd7) => BlockCategory::MoreBlock,
             (_, _, _) => Err(SWRSError::ParseError(format!(
                 "Color {} does not correlate to any block category", value
             )))?
