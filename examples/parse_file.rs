@@ -1,30 +1,25 @@
 extern crate swrs;
 
-use swrs::parser::file::{ActivityOptions, File, FileItem, FileType, KeyboardSetting, Orientation, Theme};
+use std::fs;
+use swrs::parser::file::File;
 use swrs::parser::Parsable;
 
 fn main() {
-    let file = r#"
-@activity
-{"fileName":"main","fileType":0,"keyboardSetting":0,"options":1,"orientation":0,"theme":-1}
-@customview"#;
+    let mut args = std::env::args();
+    args.next();
 
-    let expected = File {
-        activities: vec![
-            FileItem {
-                filename: "main".to_string(),
-                file_type: FileType::Activity,
-                keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions::from_num(1),
-                orientation: Orientation::Portrait,
-                theme: Theme::None
-            }
-        ],
-        custom_views: vec![]
-    };
+    let filename = args.next().expect("File path of a file to parse");
+    let parsed = File::parse(
+        &*fs::read_to_string(filename).expect("Invalid path given"))
+        .expect("Corrupted file file");
 
-    let parsed_file = File::parse(file).unwrap();
+    println!("Activities:");
+    for activity in parsed.activities {
+        println!(" - {}: {:?}", activity.filename, activity);
+    }
 
-    assert_eq!(expected, parsed_file);
-    println!("{:?}", parsed_file);
+    println!("\nCustom views:");
+    for custom_view in parsed.custom_views {
+        println!(" - {}: {:?}", custom_view.filename, custom_view);
+    }
 }

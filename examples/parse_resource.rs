@@ -1,43 +1,30 @@
 extern crate swrs;
 
+use std::fs;
 use swrs::parser::Parsable;
-use swrs::parser::resource::{Resource, ResourceItem};
+use swrs::parser::resource::Resource;
 
 fn main() {
-    let resource = r#"
-@images
-{"resFullName":"very_cool_image.png","resName":"my_cool_image","resType":1}
-@sounds
-{"resFullName":"very_cool_sound.mp3","resName":"my_cool_sound","resType":1}
-@fonts
-{"resFullName":"very_cool_font.ttf","resName":"my_cool_font","resType":1}"#;
+    let mut args = std::env::args();
+    args.next();
 
-    let expected = Resource {
-        images: vec![
-            ResourceItem {
-                full_name: "very_cool_image.png".to_string(),
-                name: "my_cool_image".to_string(),
-                r#type: 1
-            }
-        ],
-        sounds: vec![
-            ResourceItem {
-                full_name: "very_cool_sound.mp3".to_string(),
-                name: "my_cool_sound".to_string(),
-                r#type: 1
-            }
-        ],
-        fonts: vec![
-            ResourceItem {
-                full_name: "very_cool_font.ttf".to_string(),
-                name: "my_cool_font".to_string(),
-                r#type: 1
-            }
-        ]
-    };
+    let filename = args.next().expect("File path of a resource to parse");
+    let parsed = Resource::parse(
+        &*fs::read_to_string(filename).expect("Invalid path given"))
+        .expect("Corrupted resource file");
 
-    let parsed_file = Resource::parse(resource).unwrap();
+    println!("\nFonts:");
+    for font in parsed.fonts {
+        println!(" - {} - {}", font.name, font.full_name);
+    }
 
-    assert_eq!(expected, parsed_file);
-    println!("{:?}", parsed_file);
+    println!("\nImages:");
+    for image in parsed.images {
+        println!(" - {} - {}", image.name, image.full_name);
+    }
+
+    println!("\nSounds:");
+    for sound in parsed.sounds {
+        println!(" - {} - {}", sound.name, sound.full_name);
+    }
 }

@@ -9,14 +9,21 @@ fn main() {
     args.next();
 
     let filename = args.next().expect("File path of a logic to parse");
-    let do_print: bool = args.next()
-                             .map(|v|v.parse::<bool>().expect("Boolean on whether to print or not"))
-                             .unwrap_or_else(||false);
+    let parsed = Logic::parse(
+        &*fs::read_to_string(filename).expect("Invalid path given"))
+        .expect("Corrupted project file");
 
-    if do_print {
-        println!("{:?}", Logic::parse(fs::read_to_string(filename).expect("Valid path").as_str()).unwrap());
-    } else {
-        Logic::parse(fs::read_to_string(filename).expect("Valid path").as_str())
-            .unwrap();
+    println!("Screens:");
+    for (name, screen) in parsed.screens {
+        println!(
+            " - {}: has {} variables, {} list variables, {} components, {} block containers, {} events, {} moreblocks",
+            name,
+            screen.variables.unwrap_or_default().0.len(),
+            screen.list_variables.unwrap_or_default().0.len(),
+            screen.components.unwrap_or_default().0.len(),
+            screen.block_containers.len(),
+            screen.events.unwrap_or_default().0.len(),
+            screen.more_blocks.unwrap_or_default().0.len(),
+        );
     }
 }
