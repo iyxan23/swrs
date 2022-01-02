@@ -133,7 +133,7 @@ impl Parsable for Logic {
                     .entry(header.screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(header.screen_name.to_owned()))
                     .block_containers
-                    .insert(header, blocks);
+                    .insert(header.screen_name, blocks);
             }
 
             line_counter += 1;
@@ -192,8 +192,8 @@ impl Parsable for Logic {
                     screen
                         .block_containers
                         .iter()
-                        .try_fold(String::new(), |acc, (header, blocks)|
-                            Ok(format!("{}{}\n{}\n\n", acc, header.reconstruct()?, blocks.reconstruct()?))
+                        .try_fold(String::new(), |acc, (container_id, blocks)|
+                            Ok(format!("{}@{}.java_{}\n{}\n\n", acc, screen.name, container_id, blocks.reconstruct()?))
                         )?
                 );
         }
@@ -216,7 +216,7 @@ impl Parsable for Logic {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ScreenLogic {
     pub name: String,
-    pub block_containers: LinkedHashMap<BlockContainerHeader, BlockContainer>,
+    pub block_containers: LinkedHashMap<String, BlockContainer>,
     pub variables: Option<variable::VariablePool>,
     pub list_variables: Option<list_variable::ListVariablePool>,
     pub components: Option<component::ComponentPool>,
@@ -667,6 +667,11 @@ pub struct BlockContainerHeader {
     pub screen_name: String,
     pub container_name: String,
 }
+
+// fixme: should i remove the parsable implementation? this struct doesn't get used anymore because
+//        it's dumb to store screen_name in a ScreenLogic struct where they already have the name
+//        stored inside the struct. or maybe even remove this struct entirely because it is
+//        practically worthless
 
 impl Parsable for BlockContainerHeader {
     /// Parses the header of a block container
