@@ -1,10 +1,11 @@
-use crate::LinkedHashMap;
+use std::str::FromStr;
+use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
 use crate::api::view::{screen_to_view, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
-use crate::parser::logic::ScreenLogic;
+use crate::parser::logic::{BlockContainer, ScreenLogic};
 use crate::parser::logic::variable::Variable;
 use crate::parser::view::Screen as ViewScreen;
 use crate::SWRSResult;
@@ -71,13 +72,27 @@ pub enum EventType {
     ActivityEvent,
 }
 
+fn associate_blocks_with_more_block(
+    blocks: BlockContainer,
+    more_block: crate::parser::logic::more_block::MoreBlock,
+) -> SWRSResult<MoreBlock> {
+    Ok(MoreBlock {
+        name: more_block.id.to_owned(),
+        spec: Spec::from_str(&*more_block.spec)?,
+        code: Blocks::try_from(blocks)
+            .map_err(|err|SWRSError::ParseError(format!(
+                "Unable to associate the blocks of more block {}", more_block.id
+            )))?
+    })
+}
+
 impl Screen {
     pub fn from_parsed(
         layout_name: String,
         logic_name: String,
         file_entry: FileItem,
         view_entry: ViewScreen,
-        logic_entry: ScreenLogic,
+        mut logic_entry: ScreenLogic,
     ) -> SWRSResult<Self> {
         Ok(Screen {
             layout_name,
@@ -90,7 +105,15 @@ impl Screen {
             more_blocks: logic_entry.more_blocks.unwrap_or_default().0
                 .into_iter()
                 .map(|(mb_id, mb)|
-                    todo!("implement converting parser's moreblock struct into our moreblock (that contains Blocks)"))
+                    Ok((mb_id.to_owned(), associate_blocks_with_more_block(
+                        logic_entry.block_containers
+                            .remove(mb_id.as_str())
+                            .ok_or_else(||SWRSError::ParseError(format!(
+                                "Unable to find the blocks for more block {}", mb_id
+                            )))?,
+                        mb
+                    )?))
+                )
                 .collect::<SWRSResult<LinkedHashMap<String, MoreBlock>>>()?,
 
             components: logic_entry.components.unwrap_or_default().0
