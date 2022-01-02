@@ -17,7 +17,7 @@ impl Color {
         Color { value: ((alpha as u32) << 24 | (red as u32) << 16 | (green as u32) << 8 | (blue as u32) << 0) as u32 }
     }
 
-    pub fn argb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
+    pub fn rgb(&self) -> (u8, u8, u8) { (self.red(), self.green(), self.blue()) }
 
     pub fn alpha(&self) -> u8 { (self.value >> 24 & 0b111111111) as u8 }
     pub fn red(&self) -> u8 { (self.value >> 16 & 0b111111111) as u8 }
