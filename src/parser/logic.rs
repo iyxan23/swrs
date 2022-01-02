@@ -44,7 +44,7 @@ impl Parsable for Logic {
             } else if line.ends_with("java_list") {
                 // list variable pool
                 // get the screen name
-                let screen_name = (&line[1..9]).to_string(); // 9 -> length of "java_list"
+                let screen_name = (&line[1..line.len() - 10]).to_string(); // 9 -> length of "java_list" + 1 (the dot)
 
                 // then parse it
                 let list_variable_pool = list_variable::ListVariablePool::parse_iter(&mut lines)
