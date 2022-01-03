@@ -114,7 +114,7 @@ fn associate_blocks_with_more_block(
         spec: Spec::from_str(&*more_block.spec)?,
         code: Blocks::try_from(blocks)
             .map_err(|err|SWRSError::ParseError(format!(
-                "Unable to associate the blocks of more block {}", more_block.id
+                "Unable to associate the blocks of more block {}:\n{}", more_block.id, err
             )))?
     })
 }
