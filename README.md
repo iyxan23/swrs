@@ -12,26 +12,17 @@ This project is **Partly finished** (and its not stabilised yet). The part that'
 
 Stuff:
  - [x] Encrypting & Decrypting a sketchware project
- - [x] Parsing `project`
- - [x] Parsing `file`
- - [x] Parsing `library`
- - [x] Parsing `resource`
- - [x] Parsing `view`
- - [x] Parsing `logic`
- - [x] Reconstructing `project`
- - [x] Reconstructing `file`
- - [x] Reconstructing `library`
- - [x] Reconstructing `resource`
- - [x] Reconstructing `view`
- - [x] Reconstructing `logic`
+ - [x] Parsing of all data files
+ - [x] Reconstruction of all data files
  - [ ] APIs
    - [x] Project metadata retrival
-   - [ ] Screens
+   - [x] Screens
      - [x] Screen metadata retrival
-     - [ ] Layout
-     - [ ] Blocks / Logic
-       - [ ] Events
+     - [x] Layout
+     - [x] Blocks / Logic
+       - [x] Events
    - [ ] Resources
+   - [ ] **TESTING**
  - [ ] Resources implementation
 
 ## Cool, I want to help!
