@@ -60,6 +60,19 @@ pub struct Event {
     pub code: Blocks,
 }
 
+impl TryFrom<crate::parser::logic::event::Event> for Event {
+    type Error = SWRSError;
+
+    /// Creates an api::event from a parser::event, note that the returned event has no code
+    fn try_from(value: crate::parser::logic::event::Event) -> Result<Self, Self::Error> {
+        Ok(Event {
+            event_type: EventType::from_parser_event(&value)?,
+            name: value.event_name,
+            code: Default::default()
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventType {
     ViewEvent {
@@ -70,6 +83,26 @@ pub enum EventType {
         component_type: u8,
     },
     ActivityEvent,
+}
+
+impl EventType {
+    pub fn from_parser_event(event: &crate::parser::logic::event::Event) -> SWRSResult<EventType> {
+        Ok(match event.event_type {
+            1 => EventType::ViewEvent { id: event.target_id.to_owned() },
+            2 => EventType::ComponentEvent {
+                id: event.target_id.to_owned(),
+                component_type: event.target_type,
+            },
+            3 => EventType::ActivityEvent,
+                // if you asked, no ActivityEvent doesn't have its activity event name written
+                // on target_type, its already on the event name
+
+            _ => Err(SWRSError::ParseError(format!(
+                "Unknown event_type of event {}; should be either 1, 2, or 3",
+                event.event_name.to_owned()
+            )))?
+        })
+    }
 }
 
 fn associate_blocks_with_more_block(
@@ -84,6 +117,16 @@ fn associate_blocks_with_more_block(
                 "Unable to associate the blocks of more block {}", more_block.id
             )))?
     })
+}
+
+fn associate_blocks_with_event(
+    blocks: BlockContainer,
+    event: crate::parser::logic::event::Event,
+) -> SWRSResult<Event> {
+    let mut empty_converted_event = Event::try_from(event)?;
+    empty_converted_event.code = Blocks::try_from(blocks)?;
+
+    Ok(empty_converted_event)
 }
 
 impl Screen {
@@ -128,7 +171,15 @@ impl Screen {
             events: logic_entry.events.unwrap_or_default().0
                 .into_iter()
                 .map(|event|
-                    todo!("implement converting parser's event struct into our event (that contains Blocks)"))
+                    associate_blocks_with_event(
+                        logic_entry.block_containers
+                            .remove(event.event_name.as_str())
+                            .ok_or_else(||SWRSError::ParseError(format!(
+                                "Unable to find blocks for event {}", event.event_name
+                            )))?,
+                        event
+                    )
+                )
                 .collect::<SWRSResult<Vec<Event>>>()?,
 
             fullscreen_enabled: file_entry.options.fullscreen_enabled,
