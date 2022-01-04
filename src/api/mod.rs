@@ -6,7 +6,7 @@ pub mod component;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::Screen;
-use crate::api::view::View;
+use crate::api::view::{raw_layout_to_view, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
@@ -181,6 +181,26 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             })
             .collect::<SWRSResult<Vec<Screen>>>()?;
 
+        // and get the custom views
+        let custom_views = val.file.custom_views.into_iter()
+            .map(|file_entry| {
+                // retrieve the layout of this custom view
+                let layout = val.view.layouts
+                    .remove(file_entry.filename.as_str())
+                    .ok_or_else(||SWRSError::ParseError(format!(
+                        "Unable to find layout of custom view {}", file_entry.filename
+                    )))?;
+
+                Ok(CustomView {
+                    res_name: file_entry.filename.to_owned(),
+                    view: raw_layout_to_view(layout)
+                        .map_err(|err|SWRSError::ParseError(format!(
+                            "Failed to convert raw layout into a single view of customview {}:\n{}",
+                            file_entry.filename, err
+                        )))?
+                })
+            })
+            .collect::<SWRSResult<Vec<CustomView>>>()?;
 
         Ok(SketchwareProject {
             metadata: Metadata {
