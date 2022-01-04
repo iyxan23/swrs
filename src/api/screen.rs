@@ -34,6 +34,9 @@ pub struct Screen {
     /// All the events in this screen
     pub events: Vec<Event>,
 
+    /// The fab of this view (if exists)
+    pub fab: Option<View>,
+
     pub fullscreen_enabled: bool,
     pub toolbar_enabled: bool,
     pub drawer_enabled: bool,
@@ -136,6 +139,7 @@ impl Screen {
         file_entry: FileItem,
         view_entry: ViewScreen,
         mut logic_entry: ScreenLogic,
+        fab: Option<View>,
     ) -> SWRSResult<Self> {
         Ok(Screen {
             layout_name,
@@ -182,6 +186,7 @@ impl Screen {
                 )
                 .collect::<SWRSResult<Vec<Event>>>()?,
 
+            fab,
             fullscreen_enabled: file_entry.options.fullscreen_enabled,
             toolbar_enabled: file_entry.options.toolbar_enabled,
             drawer_enabled: file_entry.options.drawer_enabled,

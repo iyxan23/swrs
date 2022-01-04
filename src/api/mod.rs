@@ -10,6 +10,7 @@ use crate::api::view::View;
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
+use crate::parser::logic::ScreenLogic;
 use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
@@ -117,42 +118,6 @@ impl TryFrom<RawSketchwareProject> for SketchwareProject {
     }
 }
 
-// turns a view name to a logic name, something like `main` into `MainActivity`,
-// `screen_display` to `ScreenDisplayActivity`
-fn view_name_to_logic(s: &str) -> String {
-    let mut capitalize = true;
-
-    format!(
-        "{}Activity",
-        s.chars()
-            .into_iter()
-            .filter_map(|ch| {
-                Some(if ch == '_' {
-                    capitalize = true;
-                    return None;
-                } else if capitalize {
-                    capitalize = false;
-                    ch.to_ascii_uppercase()
-                } else {
-                    ch
-                })
-            })
-            .collect::<String>()
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::api::view_name_to_logic;
-
-    #[test]
-    fn test_view_name_to_logic() {
-        assert_eq!("MainActivity", view_name_to_logic("main"));
-        assert_eq!("DebugScreenActivity", view_name_to_logic("debug_screen"));
-        assert_eq!("VeryLongStringIDontKnowWhyActivity", view_name_to_logic("very_long_string_i_dont_know_why"));
-    }
-}
-
 impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
@@ -178,6 +143,45 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             }}
         }
 
+        // get the activities
+        let activities = val.file.activities.into_iter()
+            .map(|file_entry| {
+                let name = file_entry.filename.to_owned();
+
+                // get the activity layout and logic
+                let layout = val.view.layouts
+                    .remove(name.as_str())
+                    .ok_or_else(||SWRSError::ParseError(format!(
+                        "Unable to find layout of activity {}", file_entry.filename
+                    )))?; // layout is mandatory
+
+                // if it can't find any logic then create an empty ScreenLogic
+                let logic = val.logic.screens
+                    .remove(name.as_str())
+                    .unwrap_or_else(||ScreenLogic::new_empty(file_entry.filename.clone()));
+
+                // get our fab (if we have one)
+                let fab = val.view.fabs
+                    .remove(name.as_str())
+                    .map(|view| View::try_from(view))
+
+                    // flip from Option<Result<>> to Result<Option<>>
+                    .map_or(Ok(None), |v| v.map(Some))?;
+
+                Screen::from_parsed(
+                    file_entry.filename.to_owned(),
+                    logic.name.to_owned(),
+                    file_entry,
+                    layout,
+                    logic,
+                    fab
+                ).map_err(|err|SWRSError::ParseError(format!(
+                    "Failed to convert a raw screen of {} to screen:\n{}", name, err
+                )))
+            })
+            .collect::<SWRSResult<Vec<Screen>>>()?;
+
+
         Ok(SketchwareProject {
             metadata: Metadata {
                 local_id: val.project.id,
@@ -196,44 +200,8 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 color_control_normal: val.project.color_palette.color_control_normal,
                 color_control_highlight: val.project.color_palette.color_control_highlight,
             },
-            screens: val.view.screens
-                .drain(..)
-                .map(|(name, screen)| {
-                    // todo: in the future, wouldn't it be nice to have an option to ignore this and
-                    //       move on?
-                    let logic_name = view_name_to_logic(&name);
-                    let logic =
-                        val.logic
-                            .screens
-                            .remove(&logic_name)
-                            .ok_or_else(||SWRSError::ParseError(format!(
-                                "Failed to retrieve the logic of screen `{}`", name
-                            )))?;
-
-                    let file_entry = {
-                        if let Some((idx, _)) =
-                                val.file.activities
-                                    .iter()
-                                    .enumerate()
-                                    .find(|(idx, i)| i.filename == name) {
-                            Ok(val.file.activities.remove(idx))
-                        } else {
-                            Err(SWRSError::ParseError(format!(
-                                "Failed to retrieve the file entry of screen `{}`", name
-                            )))
-                        }
-                    }?;
-
-                    Screen::from_parsed(
-                        name,
-                        logic_name,
-                        file_entry,
-                        screen,
-                        logic,
-                    )
-                })
-                .collect::<SWRSResult<Vec<Screen>>>()?,
-            custom_views: vec![],
+            screens: activities,
+            custom_views,
             libraries: Libraries {
                 app_compat_enabled: val.library.compat.use_yn == "Y",
                 firebase: library_conv!("firebase", firebase_db, Firebase {
@@ -383,7 +351,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 sounds: resource_conv!(sounds),
                 fonts: resource_conv!(fonts)
             },
-            view: parser::view::View { screens: Default::default(), fabs: Default::default() },
+            view: parser::view::View { layouts: Default::default(), fabs: Default::default() },
             logic: parser::logic::Logic { screens: Default::default() },
         })
     }
