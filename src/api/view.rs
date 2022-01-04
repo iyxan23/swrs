@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
-use crate::parser::view::Screen as ParsedScreen;
+use crate::parser::view::Layout;
 use crate::{SWRSError, SWRSResult};
 use crate::parser::view::models::layout::Orientation;
 
@@ -317,8 +317,8 @@ impl ViewType {
     }
 }
 
-/// Converts a parser's parsed [`ParsedScreen`] into [`View`]
-pub fn screen_to_view(screen_view: ParsedScreen) -> SWRSResult<View> {
+/// Converts a parser's raw [`Layout`] into [`View`]
+pub fn raw_layout_to_view(screen_view: Layout) -> SWRSResult<View> {
     let mut root_view = Option::<View>::None;
 
     for view in screen_view.0 {

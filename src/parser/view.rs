@@ -1,26 +1,24 @@
+use crate::LinkedHashMap;
 use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
-    /// All the screens contained in this View file
-    ///
-    /// `.0` is the screen name, `.1` is the screen content
-    pub screens: Vec<(String, Screen)>,
+    /// All the layouts contained in this View file, it can be either a screen layout or a
+    /// customview
+    pub layouts: LinkedHashMap<String, Layout>,
 
     /// All the FABs contained in this view file
-    ///
-    /// `.0` is the screen name, `.1` is the fab view
-    pub fabs: Vec<(String, AndroidView)>
+    pub fabs: LinkedHashMap<String, AndroidView>,
 }
 
 impl Parsable for View {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
         let mut lines = decrypted_content.split("\n");
 
-        let mut screens = Vec::<(String, Screen)>::new();
-        let mut fabs = Vec::<(String, AndroidView)>::new();
+        let mut layouts = LinkedHashMap::<String, Layout>::new();
+        let mut fabs = LinkedHashMap::<String, AndroidView>::new();
 
         while let Some(line) = lines.next() {
             if !line.starts_with("@") { break; }
@@ -34,13 +32,13 @@ impl Parsable for View {
                     ))?;
 
             if *container_type == "xml" {
-                let screen = Screen::parse_iter(&mut lines)
+                let screen = Layout::parse_iter(&mut lines)
                     .map_err(|e|SWRSError::ParseError(format!(
                         "Error whilst trying to parse screen named {}: {}",
                         screen_name, e
                     )))?;
 
-                screens.push((screen_name.to_string(), screen));
+                layouts.insert(screen_name.to_string(), screen);
 
             } else if *container_type == "xml_fab" {
                 let fab_view =
@@ -52,17 +50,17 @@ impl Parsable for View {
                             )))?
                     )?;
 
-                fabs.push((screen_name.to_string(), fab_view));
+                fabs.insert(screen_name.to_string(), fab_view);
             }
         }
 
-        Ok(View { screens, fabs })
+        Ok(View { layouts, fabs })
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {
         Ok(format!(
             "{}\n\n{}",
-            self.screens
+            self.layouts
                 .iter()
                 .try_fold(String::new(), |acc, i| {
                     Ok(format!("{}@{}.xml\n{}\n\n", acc, i.0, i.1.reconstruct()?))
@@ -79,14 +77,14 @@ impl Parsable for View {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Screen(pub Vec<AndroidView>);
+pub struct Layout(pub Vec<AndroidView>);
 
-impl Screen {
+impl Layout {
     /// Parses an iterator that iterates over newlines
     ///
     /// Must skip the header part
     pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-        Ok(Screen(
+        Ok(Layout(
             newline_iter
                 .by_ref()
                 .take_while(|i|*i != "")
@@ -96,9 +94,9 @@ impl Screen {
     }
 }
 
-impl Parsable for Screen {
+impl Parsable for Layout {
     fn parse(decrypted_content: &str) -> SWRSResult<Self> {
-        Screen::parse_iter(&mut decrypted_content.split("\n"))
+        Layout::parse_iter(&mut decrypted_content.split("\n"))
     }
 
     fn reconstruct(&self) -> SWRSResult<String> {

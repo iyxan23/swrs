@@ -15,9 +15,9 @@ fn main() {
 
     println!("Screens ==");
 
-    for (name, screen) in parsed.screens {
-        println!(" Views of screen {}:", name);
-        for (index, view )in screen.0.into_iter().enumerate() {
+    for (name, layout) in parsed.layouts {
+        println!(" Views of layout {}:", name);
+        for (index, view )in layout.0.into_iter().enumerate() {
             println!("  {}. id: {}, type: {}", index, view.id, view.r#type);
         }
 

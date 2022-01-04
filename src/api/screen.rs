@@ -3,11 +3,11 @@ use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
-use crate::api::view::{screen_to_view, View};
+use crate::api::view::{raw_layout_to_view, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::{BlockContainer, ScreenLogic};
 use crate::parser::logic::variable::Variable;
-use crate::parser::view::Screen as ViewScreen;
+use crate::parser::view::Layout as ViewScreen;
 use crate::SWRSResult;
 
 /// A model that represents a screen / activity in a project
@@ -140,7 +140,7 @@ impl Screen {
         Ok(Screen {
             layout_name,
             java_name: logic_name,
-            layout: screen_to_view(view_entry)?,
+            layout: raw_layout_to_view(view_entry)?,
             variables: logic_entry.variables.unwrap_or_default().0,
 
             // basically just converts these parser's list of moreblocks/components/events into our
