@@ -54,18 +54,20 @@ fn main() {
                     println!("{}Block #{} opcode {}: {}", " ".repeat(indentation as usize), block.id.0, block.op_code, block.spec.to_string());
 
                     if let Some(blocks_ss1) = block.sub_stack1 {
-                        println!("\n{}substack1: ", " ".repeat(indentation as usize));
+                        println!("{}substack1: ", " ".repeat(indentation as usize));
                         print_blocks(indentation + 2, blocks_ss1);
                     }
 
                     if let Some(blocks_ss2) = block.sub_stack2 {
-                        println!("\n{}substack2: ", " ".repeat(indentation as usize));
+                        println!("{}substack2: ", " ".repeat(indentation as usize));
                         print_blocks(indentation + 2, blocks_ss2);
                     }
                 }
+
+                println!();
             }
 
-            print_blocks(6, event.code);
+            print_blocks(8, event.code);
         }
     }
 }
