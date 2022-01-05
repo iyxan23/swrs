@@ -133,7 +133,7 @@ impl Parsable for Logic {
                     .entry(header.screen_name.to_owned())
                     .or_insert_with(||ScreenLogic::new_empty(header.screen_name.to_owned()))
                     .block_containers
-                    .insert(header.screen_name, blocks);
+                    .insert(header.container_name, blocks);
             }
 
             line_counter += 1;
