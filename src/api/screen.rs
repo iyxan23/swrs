@@ -156,10 +156,8 @@ impl Screen {
                 .map(|(mb_id, mb)|
                     Ok((mb_id.to_owned(), associate_blocks_with_more_block(
                         logic_entry.block_containers
-                            .remove(mb_id.as_str())
-                            .ok_or_else(||SWRSError::ParseError(format!(
-                                "Unable to find the blocks for more block {}", mb_id
-                            )))?,
+                            .remove(&*format!("{}_moreBlock", mb_id))
+                            .unwrap_or_else(||BlockContainer(vec![])),
                         mb
                     )?))
                 )
