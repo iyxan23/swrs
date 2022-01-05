@@ -81,12 +81,35 @@ impl SketchwareProject {
     /// Parses a [`RawSketchwareProject`] into [`SketchwareProject`]
     pub fn parse_from(raw_swproj: RawSketchwareProject) -> SWRSResult<Self> {
         Ok(SketchwareProject {
-            project: project::Project::parse(raw_swproj.project.as_str())?,
-            file: file::File::parse(raw_swproj.file.as_str())?,
-            library: library::Library::parse(raw_swproj.library.as_str())?,
-            resource: resource::Resource::parse(raw_swproj.resource.as_str())?,
-            view: view::View::parse(raw_swproj.view.as_str())?,
-            logic: logic::Logic::parse(raw_swproj.logic.as_str())?
+            project: project::Project::parse(raw_swproj.project.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing project: {}", err
+                )))?,
+
+            file: file::File::parse(raw_swproj.file.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing file: {}", err
+                )))?,
+
+            library: library::Library::parse(raw_swproj.library.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing library: {}", err
+                )))?,
+
+            resource: resource::Resource::parse(raw_swproj.resource.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing resource: {}", err
+                )))?,
+
+            view: view::View::parse(raw_swproj.view.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing view: {}", err
+                )))?,
+
+            logic: logic::Logic::parse(raw_swproj.logic.as_str())
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while parsing logic: {}", err
+                )))?,
         })
     }
 
