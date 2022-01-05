@@ -70,7 +70,10 @@ impl Event {
         match &self.event_type {
             EventType::ViewEvent { id } => format!("{}_{}", id, self.name),
             EventType::ComponentEvent { id, .. } => format!("{}_{}", id, self.name),
-            EventType::ActivityEvent => format!("{}_initializeLogic", self.name)
+            EventType::ActivityEvent => match self.name.as_str() {
+                "onCreate" => format!("{}_initializeLogic", self.name),
+                _ => format!("{}_{}", self.name, self.name)
+            }
         }
     }
 }
