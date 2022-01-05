@@ -6,7 +6,7 @@ pub mod component;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::Screen;
-use crate::api::view::{raw_layout_to_view, View};
+use crate::api::view::{parse_raw_layout, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
@@ -84,7 +84,7 @@ mod library {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomView {
     pub res_name: String,
-    pub view: View,
+    pub layout: Vec<View>,
 }
 
 /// A model that stores data of resources
@@ -193,7 +193,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
 
                 Ok(CustomView {
                     res_name: file_entry.filename.to_owned(),
-                    view: raw_layout_to_view(layout)
+                    layout: parse_raw_layout(layout)
                         .map_err(|err|SWRSError::ParseError(format!(
                             "Failed to convert raw layout into a single view of customview {}:\n{}",
                             file_entry.filename, err

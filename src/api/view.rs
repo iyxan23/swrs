@@ -317,33 +317,43 @@ impl ViewType {
     }
 }
 
-/// Converts a parser's raw [`Layout`] into [`View`]
-pub fn raw_layout_to_view(screen_view: Layout) -> SWRSResult<View> {
-    let mut root_view = Option::<View>::None;
+/// Converts a parser's raw [`Layout`] into a tree of views, the returned vector of views is the
+/// children of the root view.
+///
+/// You might expect this function to return a single view because a layout only has one single
+/// root view, but no, sketchware hardcodes the root view and it only stores its children.
+pub fn parse_raw_layout(screen_view: Layout) -> SWRSResult<Vec<View>> {
+    let mut result = Vec::<View>::new();
 
     for view in screen_view.0 {
-        if let Some(r) = &mut root_view {
-            // get the parent id, find the parent on root view, and append the view to the parent
-            let parent_id =
-                view.parent.as_ref().ok_or_else(||SWRSError::ParseError(format!(
-                    "View `{}` doesn't have a parent field",
-                    r.id
-                )))?;
+        let parent_id =
+            view.parent.as_ref().ok_or_else(||SWRSError::ParseError(format!(
+                "View `{}` doesn't have a parent field",
+                view.id
+            )))?;
 
-            let parent = r.find_id_mut(&parent_id)
-                .ok_or_else(||SWRSError::ParseError(format!(
+        if parent_id == "root" {
+            result.push(
+                view.try_into()
+                    .map_err(|err|SWRSError::ParseError(format!(
+                        "Failed to convert view parser model to view api model:\n{}", err
+                    )))?
+            );
+        } else {
+            let parent = result.iter_mut().find_map(|i|i.find_id_mut(&parent_id))
+                .ok_or_else(|| SWRSError::ParseError(format!(
                     "Couldn't find the parent of view `{}` - Parent id: `{}`",
                     view.id, parent_id
                 )))?;
 
-            parent.children.push(view.try_into()?);
-        } else {
-            // set the first view to be the root view
-            root_view = Some(view.try_into()?);
-            continue;
+            parent.children.push(
+                view.try_into()
+                    .map_err(|err|SWRSError::ParseError(format!(
+                        "Failed to convert view parser model to view api model:\n{}", err
+                    )))?
+            );
         }
     }
 
-    root_view
-        .ok_or_else(||SWRSError::ParseError("View pool is empty, and it shouldn't be".to_string()))
+    Ok(result)
 }

@@ -3,7 +3,7 @@ use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
 use crate::api::component::Component;
-use crate::api::view::{raw_layout_to_view, View};
+use crate::api::view::{parse_raw_layout, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::{BlockContainer, ScreenLogic};
 use crate::parser::logic::variable::Variable;
@@ -20,7 +20,7 @@ pub struct Screen {
     pub java_name: String,
 
     /// The root view of layout of the screen
-    pub layout: View,
+    pub layout: Vec<View>,
 
     /// All the global variables in this screen
     pub variables: LinkedHashMap<String, Variable>,
@@ -144,7 +144,7 @@ impl Screen {
         Ok(Screen {
             layout_name,
             java_name: logic_name,
-            layout: raw_layout_to_view(view_entry)?,
+            layout: parse_raw_layout(view_entry)?,
             variables: logic_entry.variables.unwrap_or_default().0,
 
             // basically just converts these parser's list of moreblocks/components/events into our
