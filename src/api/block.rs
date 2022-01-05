@@ -363,12 +363,12 @@ pub mod spec {
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(match s {
-                "s" => SpecFieldType::String,
-                "b" => SpecFieldType::Boolean,
-                "d" => SpecFieldType::Number,
-                "m" => SpecFieldType::Menu,
+                "%s" => SpecFieldType::String,
+                "%b" => SpecFieldType::Boolean,
+                "%d" => SpecFieldType::Number,
+                "%m" => SpecFieldType::Menu,
                 &_ => Err(SWRSError::ParseError(format!(
-                    "Unknown spec field type \"{}\", expected s, b, d, or m", s
+                    "Unknown spec field type \"{}\", expected %s, %b, %d, or %m", s
                 )))?
             })
         }
