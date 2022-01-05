@@ -8,7 +8,7 @@ This might look dumb to use rust, but I'm currently planning to do something big
 This might also look dumb to even make this library because sketchware is practically dead by now. But I had this dream of making something _rather interesting_ with sketchware, so I would say this project is for _learning-purposes_. I hope I'll be able to adapt this library to sketchware 2 when/if it got released, and probably create support to sketchware mod versions aswell.
 
 ## Development state
-This project is **Almost finished**. `api` and `parser` are working as expected (on multiple tests from public project off of Sketchub), I just need to do more and more tests, write a lot of documentation and implement resource management.
+This project is **Almost finished**. `api` and `parser` are working as expected (on multiple tests from public project off of Sketchub), I just need to do more and more tests, write a lot of documentation, implement conversion from `api` to `parser` models and implement resource management.
 
 Stuff:
  - [x] Encrypting & Decrypting a sketchware project
@@ -21,6 +21,7 @@ Stuff:
      - [x] Layout
      - [x] Blocks / Logic
        - [x] Events
+   - [ ] Conversion back to parser models
    - [ ] Resources
    - [ ] **TESTING**
  - [ ] Resources implementation
