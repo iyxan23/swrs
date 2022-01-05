@@ -111,6 +111,42 @@ pub struct SketchwareProject {
     pub resources: Resources,
 }
 
+// turns a view name to a logic name, something like `main` into `MainActivity`,
+// `screen_display` to `ScreenDisplayActivity`
+fn view_name_to_logic(s: &str) -> String {
+    let mut capitalize = true;
+
+    format!(
+        "{}Activity",
+        s.chars()
+            .into_iter()
+            .filter_map(|ch| {
+                Some(if ch == '_' {
+                    capitalize = true;
+                    return None;
+                } else if capitalize {
+                    capitalize = false;
+                    ch.to_ascii_uppercase()
+                } else {
+                    ch
+                })
+            })
+            .collect::<String>()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::api::view_name_to_logic;
+
+    #[test]
+    fn test_view_name_to_logic() {
+        assert_eq!("MainActivity", view_name_to_logic("main"));
+        assert_eq!("DebugScreenActivity", view_name_to_logic("debug_screen"));
+        assert_eq!("VeryLongStringIDontKnowWhyActivity", view_name_to_logic("very_long_string_i_dont_know_why"));
+    }
+}
+
 impl TryFrom<RawSketchwareProject> for SketchwareProject {
     type Error = SWRSError;
 
@@ -157,7 +193,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
 
                 // if it can't find any logic then create an empty ScreenLogic
                 let logic = val.logic.screens
-                    .remove(name.as_str())
+                    .remove(view_name_to_logic(name.as_str()).as_str())
                     .unwrap_or_else(||ScreenLogic::new_empty(file_entry.filename.clone()));
 
                 // get our fab (if we have one)
