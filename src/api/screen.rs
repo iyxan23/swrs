@@ -63,6 +63,18 @@ pub struct Event {
     pub code: Blocks,
 }
 
+impl Event {
+    /// Generates the block container id from the event name and type
+    pub fn get_block_container_id(&self) -> String {
+        // todo: check component event and other activity events
+        match &self.event_type {
+            EventType::ViewEvent { id } => format!("{}_{}", id, self.name),
+            EventType::ComponentEvent { id, .. } => format!("{}_{}", id, self.name),
+            EventType::ActivityEvent => format!("{}_initializeLogic", self.name)
+        }
+    }
+}
+
 impl TryFrom<crate::parser::logic::event::Event> for Event {
     type Error = SWRSError;
 
@@ -122,16 +134,6 @@ fn associate_blocks_with_more_block(
     })
 }
 
-fn associate_blocks_with_event(
-    blocks: BlockContainer,
-    event: crate::parser::logic::event::Event,
-) -> SWRSResult<Event> {
-    let mut empty_converted_event = Event::try_from(event)?;
-    empty_converted_event.code = Blocks::try_from(blocks)?;
-
-    Ok(empty_converted_event)
-}
-
 impl Screen {
     pub fn from_parsed(
         layout_name: String,
@@ -174,16 +176,17 @@ impl Screen {
 
             events: logic_entry.events.unwrap_or_default().0
                 .into_iter()
-                .map(|event|
-                    associate_blocks_with_event(
-                        logic_entry.block_containers
-                            .remove(event.event_name.as_str())
-                            .ok_or_else(||SWRSError::ParseError(format!(
-                                "Unable to find blocks for event {}", event.event_name
-                            )))?,
-                        event
-                    )
-                )
+                .map(|event| {
+                    let mut event = Event::try_from(event)?;
+                    let code = logic_entry.block_containers
+                        .remove(event.get_block_container_id().as_str())
+                        .ok_or_else(||SWRSError::ParseError(format!(
+                            "Unable to find blocks for event {}", event.name
+                        )))?;
+
+                    event.code = Blocks::try_from(code)?;
+                    Ok(event)
+                })
                 .collect::<SWRSResult<Vec<Event>>>()?,
 
             fab,
