@@ -37,7 +37,9 @@ impl Parsable for Resource {
                 cur_section = ResourceSection::Fonts
 
             } else if cur_section != ResourceSection::None {
-                // parse the resource item
+                // parse the resource item if the line isn't empty
+                if line.is_empty() { break; }
+
                 let resource_item = ResourceItem::parse(line)?;
 
                 // push the resource item to the appropriate section
