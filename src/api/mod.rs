@@ -14,6 +14,7 @@ use crate::parser::logic::ScreenLogic;
 use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
+use crate::parser::view::Layout;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
 #[derive(Debug, Clone, PartialEq)]
@@ -151,9 +152,8 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 // get the activity layout and logic
                 let layout = val.view.layouts
                     .remove(name.as_str())
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "Unable to find layout of activity {}", file_entry.filename
-                    )))?; // layout is mandatory
+                    .unwrap_or_else(||Layout(vec![]));
+                    // return an empty layout if there is no layout definition for it
 
                 // if it can't find any logic then create an empty ScreenLogic
                 let logic = val.logic.screens
