@@ -72,7 +72,7 @@ impl TryFrom<BlockContainer> for Blocks {
                         .map_err(|err| SWRSError::ParseError(format!(
                             "Unable to parse spec of block with id {} due to: \n{}",
                             current_id.0, err
-                        )))?,
+                        )))?.set_args(p_block.parameters.to_owned())?,
                     ret_type: p_block.r#type.to_owned(),
                     type_name: p_block.type_name.to_owned(),
                 };
@@ -253,29 +253,52 @@ impl TryFrom<Color> for BlockCategory {
 
 pub mod spec {
     use std::str::FromStr;
+    use ritelinked::LinkedHashMap;
     use crate::{SWRSError, SWRSResult};
 
     /// A model that represents the spec of a block
     #[derive(Debug, Clone, PartialEq)]
     pub struct Spec {
-        pub items: Vec<SpecItem>
+        pub items: Vec<SpecItem>,
+        args: Option<LinkedHashMap<SpecItem, String>>,
     }
 
     impl Spec {
-        /// Retrieves all fields / args of this spec
-        pub fn get_all_args(&self) -> Vec<&SpecItem> {
+        /// Retrieves all the fields of this spec
+        pub fn get_all_fields(&self) -> Vec<&SpecItem> {
             self.items
                 .iter()
                 .filter_map(|i| if let SpecItem::Field { .. } = i { Some(i) } else { None })
                 .collect()
         }
 
-        /// Retrieves a specific index on all of the fields / args of this spec
-        pub fn get_arg(&self, index: usize) -> Option<&SpecItem> {
-            self.get_all_args()
+        /// Retrieves a specific index on all of the fields of this spec
+        pub fn get_field(&self, index: usize) -> Option<&SpecItem> {
+            self.get_all_fields()
                 .get(index)
                 .map(|i| *i)
         }
+
+        /// Sets the arguments for this [`Spec`]
+        pub fn set_args(mut self, args: Vec<String>) -> SWRSResult<Self> {
+            let params = self.get_all_fields();
+
+            // do a check if it has the same length as our spec total arguments
+            if params.len() != args.len() {
+                Err(SWRSError::ParseError(format!(
+                    "The provided list of arguments does not have the same length ({}) as the parameters in the spec ({})",
+                    args.len(), params.len()
+                )))?
+            }
+
+            // cool let's zip them together
+            self.args = Some(params.into_iter().cloned().zip(args).collect());
+
+            Ok(self)
+        }
+
+        /// Retrieves the arguments of the block attached to this spec
+        pub fn get_args(&self) -> &Option<LinkedHashMap<SpecItem, String>> { &self.args }
     }
 
     impl FromStr for Spec {
@@ -285,7 +308,8 @@ pub mod spec {
             Ok(Spec {
                 items: s.split(" ")
                         .map(SpecItem::from_str)
-                        .collect::<SWRSResult<Vec<SpecItem>>>()?
+                        .collect::<SWRSResult<Vec<SpecItem>>>()?,
+                args: None,
             })
         }
     }
@@ -302,7 +326,7 @@ pub mod spec {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, Hash, Eq, PartialEq)]
     pub enum SpecItem {
         Text(String),
 
@@ -347,7 +371,7 @@ pub mod spec {
     }
 
     /// Types of a field
-    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
     pub enum SpecFieldType {
         String,
         Boolean,
