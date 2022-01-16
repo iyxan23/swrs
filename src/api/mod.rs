@@ -10,6 +10,7 @@ use crate::api::view::{parse_raw_layout, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
+use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::ScreenLogic;
 use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
@@ -304,6 +305,40 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             }}
         }
 
+        let (activities, custom_views): (Vec<FileItem>, Vec<FileItem>) = {
+            (val.screens
+                .iter()
+                .map(|screen| FileItem {
+                    filename: screen.layout_name.to_owned(),
+                    file_type: FileType::Activity,
+                    keyboard_setting: screen.keyboard_setting,
+                    options: ActivityOptions {
+                        toolbar_enabled: screen.toolbar_enabled,
+                        fullscreen_enabled: screen.fullscreen_enabled,
+                        drawer_enabled: screen.drawer_enabled,
+                        fab_enabled: screen.fab_enabled
+                    },
+                    orientation: screen.orientation,
+                    theme: screen.theme
+                }).collect(),
+                val.screens
+                    .iter()
+                    .map(|custom_view| FileItem {
+                        filename: custom_view.layout_name.to_owned(),
+                        file_type: FileType::CustomView,
+                        keyboard_setting: KeyboardSetting::Unspecified,
+                        options: ActivityOptions {
+                            toolbar_enabled: false,
+                            fullscreen_enabled: false,
+                            drawer_enabled: false,
+                            fab_enabled: false
+                        },
+                        orientation: Orientation::Both,
+                        theme: Theme::None
+                    }).collect()
+            )
+        };
+
         Ok(ParsedSketchwareProject {
             project: parser::project::Project {
                 id: val.metadata.local_id,
@@ -323,7 +358,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 },
                 sketchware_version: val.metadata.sketchware_version,
             },
-            file: parser::file::File { activities: vec![todo!()], custom_views: vec![todo!()] },
+            file: parser::file::File { activities, custom_views },
             library: parser::library::Library {
                 firebase_db: match val.libraries.firebase {
                     Some(val) => parser::library::LibraryItem {
