@@ -48,9 +48,13 @@ pub struct View {
     pub children: Vec<View>,
 
     /// The raw view of this View. This may be used to access every fields of this view in its raw
-    /// form. Changes made to this are NOT going to be accounted in the reconstruction of this view
-    /// unfortunately.
+    /// form. Changes made on fields that are already exposed on the API (such as a specific view
+    /// type field, or for example, padding and margin (stuff that are already exposed in this
+    /// struct)) are NOT going to be accounted in the reconstruction of this view.
     pub raw: AndroidView,
+
+    /// The type of this view in its id form
+    view_type: u8,
 }
 
 impl View {
@@ -104,7 +108,8 @@ impl TryFrom<AndroidView> for View {
             // ignore the Err because the function only Err-s when the view type is unknown
             view: if let Ok(res) = ViewType::from_view(&value) { Some(res) } else { None },
             children: vec![],
-            raw: value.clone()
+            raw: value.clone(),
+            view_type: value.r#type
         })
     }
 }
@@ -468,4 +473,62 @@ pub fn parse_raw_layout(screen_view: Layout) -> SWRSResult<Vec<View>> {
     }
 
     Ok(result)
+}
+
+/// Flattens a list of API [`View`] models into a single list of parser models
+pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: Option<u8>) -> Vec<AndroidView> {
+    // default parent is the root view
+    let parent_id = parent_id.unwrap_or_else(|| "root".to_string());
+    let parent_type = parent_type.unwrap_or_else(|| 0);
+
+    let mut result = Vec::<AndroidView>::new();
+
+    for view in views {
+        // get the raw view old
+        let mut result_view = view.raw;
+
+        // set our id, type and parent just to make sure those cheeky hackers tries to change it
+        result_view.id = view.id;
+        result_view.r#type = view.view_type;
+        result_view.parent = Some(parent_id.clone());
+        result_view.parent_type = parent_type as i8;
+
+        // then apply the view type
+        if let Some(view_type) = view.view {
+            view_type.apply_values_to_view(&mut result_view)
+        }
+
+        // and then just map the variables
+        result_view.layout.height = view.height;
+        result_view.layout.width = view.width;
+
+        result_view.layout.padding_bottom = view.padding.bottom;
+        result_view.layout.padding_left = view.padding.left;
+        result_view.layout.padding_right = view.padding.right;
+        result_view.layout.padding_top = view.padding.top;
+
+        result_view.layout.margin_bottom = view.margin.bottom;
+        result_view.layout.margin_left = view.margin.left;
+        result_view.layout.margin_right = view.margin.right;
+        result_view.layout.margin_top = view.margin.top;
+
+        result_view.layout.background_color = view.background_color;
+        result_view.layout.layout_gravity = view.layout_gravity;
+        result_view.layout.weight = view.weight;
+        result_view.layout.weight_sum = view.weight_sum;
+
+        // done, push it to the result
+        result.push(result_view);
+
+        // and also recursively flatten the children
+        result.append(
+            &mut flatten_views(
+                view.children,
+                Some(view.id.to_owned()),
+                Some(view.view_type)
+            )
+        )
+    }
+
+    result
 }
