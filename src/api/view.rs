@@ -315,6 +315,118 @@ impl ViewType {
             )))?
         })
     }
+
+    /// Applies the specific values of a ViewType to the given view
+    pub fn apply_values_to_view(self, view: &mut AndroidView) {
+        match self {
+            ViewType::LinearLayout { orientation, gravity } => {
+                view.layout.orientation = orientation;
+                view.layout.gravity = gravity;
+            }
+
+            ViewType::ScrollView { orientation, gravity } => {
+                view.layout.orientation = orientation;
+                view.layout.gravity = gravity;
+            }
+
+            ViewType::Button { text, text_color, text_size, text_style } => {
+                view.text.text = text;
+                view.text.text_color = text_color;
+                view.text.text_size = text_size;
+                view.text.text_type = text_style;
+            }
+
+            ViewType::TextView {
+                text, text_color, text_size, single_line,
+                text_font, text_style, lines
+            } => {
+                view.text.text = text;
+                view.text.text_color = text_color;
+                view.text.text_size = text_size;
+                view.text.single_line = single_line;
+                view.text.text_font = text_font;
+                view.text.text_type = text_style;
+                view.text.line = lines;
+            }
+
+            ViewType::EditText {
+                text, text_color, text_size, single_line, text_font,
+                text_style, lines, hint, hint_color, ime_option,
+                input_type
+            } => {
+                view.text.text = text;
+                view.text.text_color = text_color;
+                view.text.text_size = text_size;
+                view.text.single_line = single_line;
+                view.text.text_font = text_font;
+                view.text.text_type = text_style;
+                view.text.line = lines;
+                view.text.hint = hint;
+                view.text.hint_color = hint_color;
+                view.text.ime_option = ime_option;
+                view.text.input_type = input_type;
+            }
+
+            ViewType::ImageView { image_res_name, image_scale_type } => {
+                view.image.res_name = Some(image_res_name);
+                view.image.scale_type = image_scale_type;
+            }
+
+            ViewType::WebView => {}
+            ViewType::ProgressBar {
+                max_progress, progress, indeterminate, progress_style
+            } => {
+                view.max = max_progress;
+                view.progress = progress;
+                view.indeterminate = indeterminate;
+                view.progress_style = progress_style;
+            }
+
+            ViewType::ListView { divider_height, custom_view } => {
+                view.divider_height = divider_height;
+                view.custom_view = custom_view;
+            }
+
+            ViewType::Spinner { spinner_mode } => { view.spinner_mode = spinner_mode; }
+
+            ViewType::CheckBox {
+                checked, text, text_color, text_size, text_font,
+                text_style
+            } => {
+                view.checked = checked;
+                view.text.text = text;
+                view.text.text_color = text_color;
+                view.text.text_size = text_size;
+                view.text.text_font = text_font;
+                view.text.text_type = text_style;
+            }
+
+            ViewType::Switch {
+                checked, text, text_color, text_size, text_font,
+                text_style
+            } => {
+                view.checked = checked;
+                view.text.text = text;
+                view.text.text_color = text_color;
+                view.text.text_size = text_size;
+                view.text.text_font = text_font;
+                view.text.text_type = text_style;
+            }
+
+            ViewType::SeekBar { max_progress, progress } => {
+                view.max = max_progress;
+                view.progress = progress;
+            }
+
+            ViewType::CalendarView { first_day_of_week } => {
+                view.first_day_of_week = first_day_of_week;
+            }
+
+            ViewType::Fab { image_res_name } => { view.image.res_name = Some(image_res_name); }
+            ViewType::AdView { adview_size } => { view.ad_size = adview_size; }
+            ViewType::MapView => {}
+        }
+    }
 }
 
 /// Converts a parser's raw [`Layout`] into a tree of views, the returned vector of views is the
