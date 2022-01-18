@@ -6,7 +6,7 @@ pub mod component;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::Screen;
-use crate::api::view::{parse_raw_layout, View};
+use crate::api::view::{flatten_views, parse_raw_layout, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
@@ -16,6 +16,7 @@ use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 use crate::parser::view::Layout;
+use crate::parser::view::models::AndroidView;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
 #[derive(Debug, Clone, PartialEq)]
@@ -295,7 +296,7 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
 impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
     type Error = SWRSError;
 
-    fn try_from(val: SketchwareProject) -> Result<Self, Self::Error> {
+    fn try_from(mut val: SketchwareProject) -> Result<Self, Self::Error> {
         macro_rules! resource_conv {
             ($name:ident) => {{
                 val.resources.$name
@@ -336,6 +337,19 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                         orientation: Orientation::Both,
                         theme: Theme::None
                     }).collect()
+            )
+        };
+
+        let (logic_screens, layouts): (LinkedHashMap<String, ScreenLogic>, LinkedHashMap<String, Layout>) = {
+            (val.screens.iter_mut()
+                .map(|screen| todo!())
+                .collect(),
+            val.screens.into_iter()
+                .map(|screen|
+                    (screen.layout_name,
+                     Layout(view::flatten_views(screen.layout, None, None)))
+                )
+                .collect()
             )
         };
 
@@ -442,8 +456,11 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 sounds: resource_conv!(sounds),
                 fonts: resource_conv!(fonts)
             },
-            view: parser::view::View { layouts: Default::default(), fabs: Default::default() },
-            logic: parser::logic::Logic { screens: Default::default() },
+            view: parser::view::View {
+                layouts,
+                fabs: Default::default()
+            },
+            logic: parser::logic::Logic { screens: logic_screens },
         })
     }
 }
