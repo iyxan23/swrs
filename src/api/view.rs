@@ -488,7 +488,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
         let mut result_view = view.raw;
 
         // set our id, type and parent just to make sure those cheeky hackers tries to change it
-        result_view.id = view.id;
+        result_view.id = view.id.to_owned();
         result_view.r#type = view.view_type;
         result_view.parent = Some(parent_id.clone());
         result_view.parent_type = parent_type as i8;
@@ -524,7 +524,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
         result.append(
             &mut flatten_views(
                 view.children,
-                Some(view.id.to_owned()),
+                Some(view.id),
                 Some(view.view_type)
             )
         )
