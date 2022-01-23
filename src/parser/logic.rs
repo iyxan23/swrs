@@ -490,6 +490,28 @@ pub mod component {
         pub r#type: u8,
     }
 
+    impl Component {
+        /// Creates a [`Component`]
+        pub fn new(id: String, param1: String, param2: String, param3: String, r#type: u8) -> Component {
+            Component { id, param1, param2, param3, r#type }
+        }
+
+        /// Creates a [`Component`] without any parameters
+        pub fn new_empty(id: String, r#type: u8) -> Component {
+            Component { id, param1: "".to_string(), param2: "".to_string(), param3: "".to_string(), r#type }
+        }
+
+        /// Creates a [`Component`] with a single parameter
+        pub fn new_1param(id: String, param1: String, r#type: u8) -> Component {
+            Component { id, param1, param2: "".to_string(), param3: "".to_string(), r#type }
+        }
+
+        /// Creates a [`Component`] with two parameters
+        pub fn new_2params(id: String, param1: String, param2: String, r#type: u8) -> Component {
+            Component { id, param1, param2, param3: "".to_string(), r#type }
+        }
+    }
+
     impl Parsable for Component {
         fn parse(s: &str) -> SWRSResult<Component> {
             serde_json::from_str(s)

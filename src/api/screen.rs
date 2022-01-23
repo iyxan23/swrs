@@ -2,7 +2,7 @@ use std::str::FromStr;
 use crate::{LinkedHashMap, SWRSError};
 use crate::api::block::Blocks;
 use crate::api::block::spec::Spec;
-use crate::api::component::Component;
+use crate::api::component::ComponentKind;
 use crate::api::view::{parse_raw_layout, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::{BlockContainer, ScreenLogic};
@@ -35,7 +35,7 @@ pub struct Screen {
     pub more_blocks: LinkedHashMap<String, MoreBlock>,
 
     /// All the components in this screen
-    pub components: LinkedHashMap<String, Component>,
+    pub components: LinkedHashMap<String, ComponentKind>,
 
     /// All the events in this screen
     pub events: Vec<Event>,
@@ -177,10 +177,10 @@ impl Screen {
                 .into_iter()
                 .map(|cmp| {
                     let id = cmp.id.clone();
-                    Component::try_from(cmp)
-                        .map(|conv_cmp| (id, conv_cmp))
+                    ComponentKind::from_parser_component(&cmp)
+                        .map(|cmp| ((id, cmp)))
                 })
-                .collect::<SWRSResult<LinkedHashMap<String, Component>>>()?,
+                .collect::<SWRSResult<LinkedHashMap<String, ComponentKind>>>()?,
 
             events: logic_entry.events.unwrap_or_default().0
                 .into_iter()

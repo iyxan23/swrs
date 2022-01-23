@@ -10,7 +10,7 @@ use crate::api::view::{flatten_views, parse_raw_layout, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
-use crate::api::component::Component;
+use crate::api::component::ComponentKind;
 use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::ScreenLogic;
@@ -348,7 +348,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             variables: LinkedHashMap<String, Variable>,
             list_variables: LinkedHashMap<String, ListVariable>,
             more_blocks: LinkedHashMap<String, MoreBlock>,
-            components: LinkedHashMap<String, Component>,
+            components: LinkedHashMap<String, ComponentKind>,
             events: Vec<Event>,
         ) -> ScreenLogic {
             // todo

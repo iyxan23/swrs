@@ -1,8 +1,9 @@
-use crate::SWRSError;
+use crate::{SWRSError, SWRSResult};
+use crate::parser::logic::component::{Component as ParserComponent};
 
-/// An enum that contains all types of components with its parameters
+/// An enum that contains all kinds of components with its parameters
 #[derive(Debug, Clone, PartialEq)]
-pub enum Component {
+pub enum ComponentKind {
     Intent,
     SharedPreferences {
         path: String, // param1
@@ -34,37 +35,61 @@ pub enum Component {
     LocationManager,
 }
 
-impl TryFrom<crate::parser::logic::component::Component> for Component {
-    type Error = SWRSError;
-
-    fn try_from(value: crate::parser::logic::component::Component) -> Result<Self, Self::Error> {
-        Ok(match value.r#type {
-            1 => Component::Intent,
-            2 => Component::SharedPreferences { path: value.param1 },
-            3 => Component::Calendar,
-            4 => Component::Vibrator,
-            5 => Component::Timer,
-            6 => Component::FirebaseDatabase { path: value.param1 },
-            7 => Component::Dialog,
-            8 => Component::MediaPlayer,
-            9 => Component::SoundPool,
-            10 => Component::ObjectAnimator,
-            11 => Component::Gyroscope,
-            12 => Component::FirebaseAuth,
-            13 => Component::InterstitialAd,
-            14 => Component::FirebaseStorage { path: value.param1 },
-            15 => Component::Camera,
-            16 => Component::FilePicker { mime_type: value.param1 },
-            17 => Component::RequestNetwork,
-            18 => Component::TextToSpeech,
-            19 => Component::SpeechToText,
-            20 => Component::BluetoothConnect,
-            21 => Component::LocationManager,
+impl ComponentKind {
+    /// Constructs a [`ComponentKind`] using [`ParserComponent`]
+    pub fn from_parser_component(component: &ParserComponent) -> SWRSResult<ComponentKind> {
+        Ok(match component.r#type {
+            1 => ComponentKind::Intent,
+            2 => ComponentKind::SharedPreferences { path: component.param1.to_owned() },
+            3 => ComponentKind::Calendar,
+            4 => ComponentKind::Vibrator,
+            5 => ComponentKind::Timer,
+            6 => ComponentKind::FirebaseDatabase { path: component.param1.to_owned() },
+            7 => ComponentKind::Dialog,
+            8 => ComponentKind::MediaPlayer,
+            9 => ComponentKind::SoundPool,
+            10 => ComponentKind::ObjectAnimator,
+            11 => ComponentKind::Gyroscope,
+            12 => ComponentKind::FirebaseAuth,
+            13 => ComponentKind::InterstitialAd,
+            14 => ComponentKind::FirebaseStorage { path: component.param1.to_owned() },
+            15 => ComponentKind::Camera,
+            16 => ComponentKind::FilePicker { mime_type: component.param1.to_owned() },
+            17 => ComponentKind::RequestNetwork,
+            18 => ComponentKind::TextToSpeech,
+            19 => ComponentKind::SpeechToText,
+            20 => ComponentKind::BluetoothConnect,
+            21 => ComponentKind::LocationManager,
             _ => Err(SWRSError::ParseError(format!(
-                "Unknown component type: {}, component id: {}", value.r#type, value.id
+                "Unknown component type: {}, component id: {}", component.r#type, component.id
             )))?
         })
     }
-}
 
-// todo: implement TryInto<parser component> for Component
+    /// Transforms [`ComponentKind`] back to [`ParserComponent`]
+    pub fn into_parser_component(self, id: String) -> ParserComponent {
+        match self {
+            ComponentKind::Intent => ParserComponent::new_empty(id, 1),
+            ComponentKind::SharedPreferences { path } => ParserComponent::new_1param(id, path, 2),
+            ComponentKind::Calendar => ParserComponent::new_empty(id, 3),
+            ComponentKind::Vibrator => ParserComponent::new_empty(id, 4),
+            ComponentKind::Timer => ParserComponent::new_empty(id, 5),
+            ComponentKind::FirebaseDatabase { path } => ParserComponent::new_1param(id, path, 6),
+            ComponentKind::Dialog => ParserComponent::new_empty(id, 7),
+            ComponentKind::MediaPlayer => ParserComponent::new_empty(id, 8),
+            ComponentKind::SoundPool => ParserComponent::new_empty(id, 9),
+            ComponentKind::ObjectAnimator => ParserComponent::new_empty(id, 10),
+            ComponentKind::Gyroscope => ParserComponent::new_empty(id, 11),
+            ComponentKind::FirebaseAuth => ParserComponent::new_empty(id, 12),
+            ComponentKind::InterstitialAd => ParserComponent::new_empty(id, 13),
+            ComponentKind::FirebaseStorage { path } => ParserComponent::new_1param(id, path, 14),
+            ComponentKind::Camera => ParserComponent::new_empty(id, 15),
+            ComponentKind::FilePicker { mime_type } => ParserComponent::new_1param(id, mime_type, 16),
+            ComponentKind::RequestNetwork => ParserComponent::new_empty(id, 17),
+            ComponentKind::TextToSpeech => ParserComponent::new_empty(id, 18),
+            ComponentKind::SpeechToText => ParserComponent::new_empty(id, 19),
+            ComponentKind::BluetoothConnect => ParserComponent::new_empty(id, 20),
+            ComponentKind::LocationManager => ParserComponent::new_empty(id, 21),
+        }
+    }
+}
