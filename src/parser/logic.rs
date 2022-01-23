@@ -6,6 +6,9 @@ use crate::parser::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Logic {
+    /// All the logic of each screens
+    ///
+    /// The key is the java / logic name
     pub screens: LinkedHashMap<String, ScreenLogic>
 }
 

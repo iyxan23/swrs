@@ -5,13 +5,16 @@ pub mod component;
 
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
-use crate::api::screen::Screen;
+use crate::api::screen::{Event, MoreBlock, Screen};
 use crate::api::view::{flatten_views, parse_raw_layout, View};
 use crate::color::Color;
 use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
+use crate::api::component::Component;
 use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
+use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::ScreenLogic;
+use crate::parser::logic::variable::{Variable, VariablePool};
 use crate::parser::RawSketchwareProject;
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
@@ -340,6 +343,26 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             )
         };
 
+        fn to_screen_logic(
+            logic_name: String,
+            variables: LinkedHashMap<String, Variable>,
+            list_variables: LinkedHashMap<String, ListVariable>,
+            more_blocks: LinkedHashMap<String, MoreBlock>,
+            components: LinkedHashMap<String, Component>,
+            events: Vec<Event>,
+        ) -> ScreenLogic {
+            // todo
+            ScreenLogic {
+                name: logic_name,
+                block_containers: Default::default(),
+                variables: Some(VariablePool(variables)),
+                list_variables: Some(ListVariablePool(list_variables)),
+                components: None,
+                events: None,
+                more_blocks: None
+            }
+        }
+
         let (logic_screens, layouts, fabs):
             (LinkedHashMap<String, ScreenLogic>, LinkedHashMap<String, Layout>, LinkedHashMap<String, AndroidView>) = {
 
@@ -356,7 +379,14 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     );
                 }
 
-                todo!("implement screenlogic conversion to regular individual logic parts");
+                logic_screens.insert(screen.java_name.to_owned(), to_screen_logic(
+                    screen.java_name,
+                    screen.variables,
+                    screen.list_variables,
+                    screen.more_blocks,
+                    screen.components,
+                    screen.events,
+                ));
 
                 layouts.insert(
                     screen.layout_name,
