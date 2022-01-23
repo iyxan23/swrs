@@ -340,17 +340,31 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             )
         };
 
-        let (logic_screens, layouts): (LinkedHashMap<String, ScreenLogic>, LinkedHashMap<String, Layout>) = {
-            (val.screens.iter_mut()
-                .map(|screen| todo!())
-                .collect(),
-            val.screens.into_iter()
-                .map(|screen|
-                    (screen.layout_name,
-                     Layout(view::flatten_views(screen.layout, None, None)))
-                )
-                .collect()
-            )
+        let (logic_screens, layouts, fabs):
+            (LinkedHashMap<String, ScreenLogic>, LinkedHashMap<String, Layout>, LinkedHashMap<String, AndroidView>) = {
+
+            let mut logic_screens = LinkedHashMap::new();
+            let mut layouts = LinkedHashMap::new();
+            let mut fabs = LinkedHashMap::new();
+
+            for screen in val.screens {
+                if let Some(fab) = screen.fab {
+                    fabs.insert(
+                        screen.layout_name.to_owned(),
+                        flatten_views(vec![fab], None, None)
+                            .remove(0)
+                    );
+                }
+
+                todo!("implement screenlogic conversion to regular individual logic parts");
+
+                layouts.insert(
+                    screen.layout_name,
+                    Layout(view::flatten_views(screen.layout, None, None))
+                );
+            }
+
+            (logic_screens, layouts, fabs)
         };
 
         Ok(ParsedSketchwareProject {
@@ -458,7 +472,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             },
             view: parser::view::View {
                 layouts,
-                fabs: Default::default()
+                fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
         })
