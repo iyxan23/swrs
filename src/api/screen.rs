@@ -6,6 +6,7 @@ use crate::api::component::Component;
 use crate::api::view::{parse_raw_layout, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::{BlockContainer, ScreenLogic};
+use crate::parser::logic::list_variable::ListVariable;
 use crate::parser::logic::variable::Variable;
 use crate::parser::view::Layout as ViewScreen;
 use crate::SWRSResult;
@@ -24,6 +25,11 @@ pub struct Screen {
 
     /// All the global variables in this screen
     pub variables: LinkedHashMap<String, Variable>,
+
+    /// ALl the global list variables in this screen
+    ///
+    /// Planned to be merged with variables
+    pub list_variables: LinkedHashMap<String, ListVariable>,
 
     /// All the moreblocks in this screen
     pub more_blocks: LinkedHashMap<String, MoreBlock>,
@@ -151,6 +157,7 @@ impl Screen {
             java_name: logic_name,
             layout: parse_raw_layout(view_entry)?,
             variables: logic_entry.variables.unwrap_or_default().0,
+            list_variables: logic_entry.list_variables.unwrap_or_default().0,
 
             // basically just converts these parser's list of moreblocks/components/events into our
             // type defined in this module
