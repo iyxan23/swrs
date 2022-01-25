@@ -12,6 +12,7 @@ use crate::error::SWRSError;
 use crate::{parser, SWRSResult};
 use crate::api::component::ComponentKind;
 use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
+use crate::parser::logic::component::ComponentPool;
 use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
@@ -347,8 +348,8 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             logic_name: String,
             variables: LinkedHashMap<String, Variable>,
             list_variables: LinkedHashMap<String, ListVariable>,
-            more_blocks: LinkedHashMap<String, MoreBlock>,
             components: LinkedHashMap<String, ComponentKind>,
+            more_blocks: LinkedHashMap<String, MoreBlock>,
             events: Vec<Event>,
         ) -> ScreenLogic {
             // todo
@@ -357,7 +358,10 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 block_containers: Default::default(),
                 variables: Some(VariablePool(variables)),
                 list_variables: Some(ListVariablePool(list_variables)),
-                components: None,
+                components: Some(ComponentPool(components
+                    .into_iter()
+                    .map(|(id, kind)| kind.into_parser_component(id))
+                    .collect())),
                 events: None,
                 more_blocks: None
             }
@@ -383,8 +387,8 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     screen.java_name,
                     screen.variables,
                     screen.list_variables,
-                    screen.more_blocks,
                     screen.components,
+                    screen.more_blocks,
                     screen.events,
                 ));
 
