@@ -82,13 +82,30 @@ impl Event {
             }
         }
     }
+
+    /// Turns this into a [`crate::parser::logic::event::Event`], returns its converted struct and
+    /// its blocks ([`Blocks`])
+    pub fn into_parser_event(self) -> (ParserEvent, Blocks) {
+        let mut event = ParserEvent {
+            event_name: self.name,
+            event_type: 0,
+            target_id: "".to_string(),
+            target_type: 0
+        };
+
+        self.event_type.apply_to_parser_event(&mut event);
+
+        (event, self.code)
+    }
 }
 
-impl TryFrom<crate::parser::logic::event::Event> for Event {
+type ParserEvent = crate::parser::logic::event::Event;
+
+impl TryFrom<ParserEvent> for Event {
     type Error = SWRSError;
 
     /// Creates an api::event from a parser::event, note that the returned event has no code
-    fn try_from(value: crate::parser::logic::event::Event) -> Result<Self, Self::Error> {
+    fn try_from(value: ParserEvent) -> Result<Self, Self::Error> {
         Ok(Event {
             event_type: EventType::from_parser_event(&value)?,
             name: value.event_name,
@@ -110,7 +127,7 @@ pub enum EventType {
 }
 
 impl EventType {
-    pub fn from_parser_event(event: &crate::parser::logic::event::Event) -> SWRSResult<EventType> {
+    pub fn from_parser_event(event: &ParserEvent) -> SWRSResult<EventType> {
         Ok(match event.event_type {
             1 => EventType::ViewEvent { id: event.target_id.to_owned() },
             2 => EventType::ComponentEvent {
@@ -126,6 +143,23 @@ impl EventType {
                 event.event_name.to_owned()
             )))?
         })
+    }
+
+    pub fn apply_to_parser_event(self, event: &mut ParserEvent) {
+        match self {
+            EventType::ViewEvent { id } => {
+                event.event_type = 1;
+                event.target_id = id;
+            }
+
+            EventType::ComponentEvent { id, component_type } => {
+                event.event_type = 2;
+                event.target_id = id;
+                event.target_type = component_type;
+            }
+
+            EventType::ActivityEvent => event.event_type = 3
+        }
     }
 }
 
