@@ -13,7 +13,9 @@ use crate::{parser, SWRSResult};
 use crate::api::component::ComponentKind;
 use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::component::ComponentPool;
+use crate::parser::logic::event::EventPool;
 use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
+use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
 use crate::parser::RawSketchwareProject;
@@ -351,20 +353,49 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             components: LinkedHashMap<String, ComponentKind>,
             more_blocks: LinkedHashMap<String, MoreBlock>,
             events: Vec<Event>,
-        ) -> ScreenLogic {
-            // todo
-            ScreenLogic {
+        ) -> SWRSResult<ScreenLogic> {
+            let mut block_containers = LinkedHashMap::new();
+
+            // separate events to parser event and its blocks
+            let parser_events =
+                events
+                    .into_iter()
+                    .map(|event| {
+                        let (event, blocks) = event.into_parser_event();
+
+                        let block_container = blocks.try_into()?;
+                        block_containers.insert(event.event_name.to_owned(), block_container);
+
+                        Ok(event)
+                    })
+                    .collect::<SWRSResult<Vec<_>>>()?;
+
+            // separate moreblocks to parser moreblock and its blocks
+            let parser_more_blocks =
+                more_blocks
+                    .into_iter()
+                    .map(|(id, more_block)| {
+                        let (more_block, blocks) = more_block.into_parser_more_block();
+
+                        let block_container = blocks.try_into()?;
+                        block_containers.insert(id.to_owned(), block_container);
+
+                        Ok((id, more_block))
+                    })
+                    .collect::<SWRSResult<LinkedHashMap<_, _>>>()?;
+
+            Ok(ScreenLogic {
                 name: logic_name,
-                block_containers: Default::default(),
+                block_containers,
                 variables: Some(VariablePool(variables)),
                 list_variables: Some(ListVariablePool(list_variables)),
                 components: Some(ComponentPool(components
                     .into_iter()
                     .map(|(id, kind)| kind.into_parser_component(id))
                     .collect())),
-                events: None,
-                more_blocks: None
-            }
+                events: Some(EventPool(parser_events)),
+                more_blocks: Some(MoreBlockPool(parser_more_blocks))
+            })
         }
 
         let (logic_screens, layouts, fabs):
@@ -390,7 +421,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     screen.components,
                     screen.more_blocks,
                     screen.events,
-                ));
+                )?);
 
                 layouts.insert(
                     screen.layout_name,
