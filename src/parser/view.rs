@@ -143,7 +143,7 @@ pub mod models {
         pub enabled: bool, // (int) 0
 
         /// Sets the first day of a week for a calendar
-        /// (https://developer.android.com/reference/android/widget/CalendarView#setFirstDayOfWeek(int))
+        /// (<https://developer.android.com/reference/android/widget/CalendarView#setFirstDayOfWeek(int)>)
         pub first_day_of_week: u8, // 1
         pub id: String, // "something1"
         pub image: ImageConfig,

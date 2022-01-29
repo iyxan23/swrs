@@ -218,7 +218,7 @@ pub enum ViewType {
 }
 
 impl ViewType {
-    /// Converts an [`&AndroidView`] into [`ViewType`]
+    /// Converts an [`AndroidView`] into [`ViewType`]
     pub fn from_view(android_view: &AndroidView) -> SWRSResult<Self> {
         // https://github.com/Iyxan23/sketchware-data/blob/main/data/view-types.md
         Ok(match android_view.r#type {
