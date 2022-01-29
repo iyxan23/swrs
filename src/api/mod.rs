@@ -441,7 +441,9 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 version_code: val.metadata.version_code,
                 version_name: val.metadata.version_name,
                 date_created: val.metadata.time_created,
-                custom_icon: todo!("figure out where the custom icon is, and provide a field that stores the custom icon"),
+                custom_icon: false,
+                // todo: this is temporarily hardcoded, we'll do the actual
+                //       thing once we get resource management implemented
                 color_palette: parser::project::ProjectColorPalette {
                     color_primary: val.colors.color_primary,
                     color_primary_dark: val.colors.color_primary_dark,
