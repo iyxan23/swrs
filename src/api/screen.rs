@@ -61,6 +61,16 @@ pub struct MoreBlock {
     pub code: Blocks,
 }
 
+type ParserMoreBlock = crate::parser::logic::more_block::MoreBlock;
+
+impl MoreBlock {
+    /// Turns this into a [`crate::parser::logic::more_block::MoreBlock`], returns its converted
+    /// struct and its blocks ([`Blocks`])
+    pub fn into_parser_more_block(self) -> (ParserMoreBlock, Blocks) {
+        (ParserMoreBlock { id: self.name, spec: self.spec.to_string() }, self.code)
+    }
+}
+
 /// A model that represents an event
 #[derive(Debug, Clone, PartialEq)]
 pub struct Event {
