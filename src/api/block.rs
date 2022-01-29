@@ -109,6 +109,57 @@ impl TryFrom<BlockContainer> for Blocks {
     }
 }
 
+impl TryInto<BlockContainer> for Blocks {
+    type Error = SWRSError;
+
+    fn try_into(self) -> Result<BlockContainer, Self::Error> {
+        let mut block_container = BlockContainer(vec![]);
+
+        fn flatten(blocks: Blocks, result: &mut BlockContainer) {
+            for block in blocks {
+                // flatten its children first
+                let mut ss_1_container = BlockContainer(vec![]);
+                let mut ss_1_id = -1i32;
+
+                if let Some(blocks) = block.sub_stack1 {
+                    ss_1_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
+                    flatten(blocks, &mut ss_1_container);
+                }
+
+                let mut ss_2_container = BlockContainer(vec![]);
+                let mut ss_2_id = -1i32;
+
+                if let Some(blocks) = block.sub_stack2 {
+                    ss_2_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
+                    flatten(blocks, &mut ss_2_container);
+                }
+
+                // do the actual block conversion
+                result.0.push(ParserBlock {
+                    color: block.color,
+                    id: block.id.0.to_string(),
+                    next_block: block.next_block.map(|n|n.0 as i32).unwrap_or(-1),
+                    op_code: block.op_code,
+                    spec: block.spec.to_string(),
+                    parameters: block.spec.items.into_iter().map(|i|i.to_string()).collect(),
+                    sub_stack1: ss_1_id,
+                    sub_stack2: ss_2_id,
+                    r#type: block.ret_type,
+                    type_name: block.type_name
+                });
+
+                // then push its children
+                result.0.append(&mut ss_1_container.0);
+                result.0.append(&mut ss_2_container.0);
+            }
+        }
+
+        flatten(self, &mut block_container);
+
+        Ok(block_container)
+    }
+}
+
 impl IntoIterator for Blocks {
     type Item = Block;
     type IntoIter = BlocksIterator;
