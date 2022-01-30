@@ -459,4 +459,42 @@ pub mod spec {
             }.to_string()
         }
     }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use super::SpecItem::*;
+        use super::SpecFieldType::*;
+
+        #[test]
+        fn spec_parse() {
+            let spec = Spec::from_str("custom_block %s.name number %d true %b %m.thing")
+                .unwrap();
+
+            let expected = Spec {
+                items: vec![
+                    Text("custom_block".to_string()),
+                    Field { field_type: String, name: Some("name".to_string()) },
+                    Text("number".to_string()),
+                    Field { field_type: Number, name: None },
+                    Text("true".to_string()),
+                    Field { field_type: Boolean, name: None },
+                    Field { field_type: Menu, name: Some("thing".to_string()) }
+                ],
+                args: None
+            };
+
+            assert_eq!(spec, expected);
+        }
+
+        #[test]
+        fn spec_reconstruction() {
+            let raw_spec = "hello world %s.something %d.num %m.oke %b yeet".to_string();
+
+            assert_eq!(
+                Spec::from_str(raw_spec.as_str()).unwrap().to_string(),
+                raw_spec
+            );
+        }
+    }
 }
