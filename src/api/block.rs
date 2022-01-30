@@ -12,6 +12,97 @@ pub struct Blocks {
     pub blocks: LinkedHashMap<BlockId, Block>
 }
 
+impl Blocks {
+    /// Inserts a block at the end of the blockchain, returns its id
+    pub fn add_block(&mut self, block: Block) -> BlockId {
+        let last_id = self.blocks
+            .back()
+            .map(|i|i.0.clone())
+            .unwrap_or(BlockId(0));
+
+        // get next id
+        let new_id = BlockId(last_id.0 + 1);
+
+        // set next_block of the last block to our new id, if it exists
+        if let Some(last_block) = self.blocks.get_mut(&last_id) {
+            last_block.next_block = Some(new_id);
+        }
+
+        // then insert our new shiny block
+        self.blocks.insert(new_id, block);
+
+        // then return our new shiny block id
+        new_id
+    }
+
+    /// Removes a block in the block chain, rewires the block before it to the block
+    /// after it. Returns false when it failed to do so, can be either the block doesn't exist, or
+    /// it couldn't find the block before it.
+    pub fn remove_block(&mut self, id: BlockId) -> bool {
+        if let Some(to_be_removed_block) = self.blocks.get(&id) {
+            // check if we're the start of the block chain
+            if self.starting_id == id {
+                // we need to set the starting id to the next block
+                if let Some(next_block) = to_be_removed_block.next_block {
+                    self.starting_id = Some(next_block);
+                } else {
+                    // else then the block chain is empty, there is no block after us and we're the
+                    // start of this block chain
+                    self.starting_id = None;
+                }
+
+                return true;
+            }
+
+            // there is a block before us, find the block that has next_block referenced to us
+            //
+            // we can't just loop back and check if its a block, because it can be that the block
+            // before us has a substack and those children are put after that block
+            //
+            // [ block we wanted ]
+            //   [ substack ]
+            //   [ substack ]
+            // [ us ]
+
+            // loop back until we reach Some() and that block contains next_block that references us
+            let mut block_before: &mut Block = self.blocks.get_mut(&id).unwrap();
+            loop {
+                // check if it's next_block matches our id
+                if block.next_block == id {
+                    // nice we got it!
+                    break;
+                }
+
+                // find the block before it
+                let mut block_id_before = BlockId(block_before.id.0 - 1);
+                while !self.blocks.contains_key(&block_id_before) {
+                    // check if we've reached the bottom
+                    if block_id_before.0 == 0 {
+                        // meh, there isn't any block before us that references us, that's weird
+                        // todo: Result
+                        return false;
+                    }
+
+                    block_id_before.0 -= 1;
+                }
+
+                block_before = self.blocks.get_mut(&block_id_before).unwrap();
+            }
+
+            // we then modify that block to reference the next block (relative to the removed block)
+            if let Some(next_block) = to_be_removed_block.next_block {
+                block_before.next_block = Some(next_block);
+            }
+
+            // we are done!
+
+            true
+        } else {
+            false
+        }
+    }
+}
+
 // converts a block container into an API struct Blocks
 impl TryFrom<BlockContainer> for Blocks {
     type Error = SWRSError;
@@ -157,6 +248,20 @@ impl TryInto<BlockContainer> for Blocks {
         flatten(self, &mut block_container);
 
         Ok(block_container)
+    }
+}
+
+impl FromIterator<Block> for Blocks {
+    fn from_iter<T: IntoIterator<Item=Block>>(iter: T) -> Self {
+        let blocks = iter
+            .into_iter()
+            .map(|b: Block| (b.id, b))
+            .collect::<LinkedHashMap<BlockId, Block>>();
+
+        Blocks {
+            starting_id: blocks.front().map(|i| i.0.clone()),
+            blocks
+        }
     }
 }
 
