@@ -14,7 +14,7 @@ pub struct Blocks {
 
 impl Blocks {
     /// Inserts a block at the end of the blockchain, returns its id
-    pub fn add_block(&mut self, block: Block) -> BlockId {
+    pub fn push_block(&mut self, mut block: Block) -> BlockId {
         let last_id = self.blocks
             .back()
             .map(|i|i.0.clone())
@@ -27,6 +27,9 @@ impl Blocks {
         if let Some(last_block) = self.blocks.get_mut(&last_id) {
             last_block.next_block = Some(new_id);
         }
+
+        // set the new id
+        block.id = new_id;
 
         // then insert our new shiny block
         self.blocks.insert(new_id, block);
