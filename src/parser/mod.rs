@@ -1,3 +1,5 @@
+use std::error::Error;
+use std::path::PathBuf;
 use crate::error::SWRSError;
 use super::error::SWRSResult;
 
@@ -29,12 +31,27 @@ pub struct RawSketchwareProject {
     pub resource: String,
     pub view: String,
     pub logic: String,
+
+    /// A list of resource files that belongs to this project; yes you need to do some work to get
+    /// the files
+    ///
+    /// These files must match `.sketchware/resources/(fonts|icons|images|sounds)/{project_id}/*`
+    /// and must exist
+    pub resources: Vec<PathBuf>
 }
 
 impl RawSketchwareProject {
     /// Creates a RawSketchwareProject with the specified fields
-    pub fn new(project: String, file: String, library: String, resource: String, view: String, logic: String) -> Self {
-        RawSketchwareProject { project, file, library, resource, view, logic }
+    pub fn new(
+        project: String,
+        file: String,
+        library: String,
+        resource: String,
+        view: String,
+        logic: String,
+        resources: Vec<PathBuf>
+    ) -> Self {
+        RawSketchwareProject { project, file, library, resource, view, logic, resources }
     }
 
     pub fn from_encrypted(
@@ -43,7 +60,8 @@ impl RawSketchwareProject {
         library: Vec<u8>,
         resource: Vec<u8>,
         view: Vec<u8>,
-        logic: Vec<u8>
+        logic: Vec<u8>,
+        resources: Vec<PathBuf>
     ) -> SWRSResult<Self> {
         macro_rules! decrypt {
             ($name_ident:ident, $name:expr) => {
@@ -61,6 +79,7 @@ impl RawSketchwareProject {
             resource: decrypt!(resource, "resource"),
             view: decrypt!(view, "view"),
             logic: decrypt!(logic, "logic"),
+            resources
         })
     }
 }
@@ -75,6 +94,7 @@ pub struct SketchwareProject {
     pub resource: resource::Resource,
     pub view: view::View,
     pub logic: logic::Logic,
+    pub resources: ResourceFiles,
 }
 
 impl SketchwareProject {
@@ -110,6 +130,11 @@ impl SketchwareProject {
                 .map_err(|err|SWRSError::ParseError(format!(
                     "Err while parsing logic: {}", err
                 )))?,
+
+            resources: raw_swproj.resources.try_into()
+                .map_err(|err|SWRSError::ParseError(format!(
+                    "Err while retrieving resource files" // todo: show the err once we got thiserror
+                )))?,
         })
     }
 
@@ -121,7 +146,8 @@ impl SketchwareProject {
             library: library::Library::parse(library)?,
             resource: resource::Resource::parse(resource)?,
             view: view::View::parse(view)?,
-            logic: logic::Logic::parse(logic)?
+            logic: logic::Logic::parse(logic)?,
+            resources: Default::default()
         })
     }
 }
@@ -136,7 +162,68 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
             library: self.library.reconstruct()?,
             resource: self.resource.reconstruct()?,
             view: self.view.reconstruct()?,
-            logic: self.logic.reconstruct()?
+            logic: self.logic.reconstruct()?,
+            resources: self.resources.into()
         })
+    }
+}
+
+/// A struct that stores all the resources of a sketchware project its attached to
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceFiles {
+    pub custom_icon: Option<PathBuf>,
+    pub images: Vec<PathBuf>,
+    pub sounds: Vec<PathBuf>,
+    pub fonts: Vec<PathBuf>,
+}
+
+impl TryFrom<Vec<PathBuf>> for ResourceFiles {
+    type Error = ResourceFilesParseError;
+
+    fn try_from(value: Vec<PathBuf>) -> Result<Self, Self::Error> {
+        // check if those files exists
+        value.iter()
+            .try_fold((), |_, path| {
+                if path.exists() { Ok(()) } else {
+                    Err(ResourceFilesParseError::FileDoesntExist { path: path.clone() })
+                }
+            })?;
+
+
+        todo!()
+    }
+}
+
+// todo: use thiserror
+pub enum ResourceFilesParseError {
+    FileDoesntExist {
+        path: PathBuf
+    }
+}
+
+impl Into<Vec<PathBuf>> for ResourceFiles {
+    fn into(mut self) -> Vec<PathBuf> {
+        let mut result = Vec::new();
+
+        if Some(custom_icon) = self.custom_icon {
+            result.push(custom_icon);
+        }
+
+        result.append(&mut self.images);
+        result.append(&mut self.sounds);
+        result.append(&mut self.fonts);
+
+        result
+    }
+}
+
+impl Default for ResourceFiles {
+    fn default() -> Self {
+        ResourceFiles {
+            custom_icon: None,
+            images: vec![],
+            sounds: vec![],
+            fonts: vec![]
+        }
     }
 }
