@@ -1,5 +1,5 @@
-use std::error::Error;
 use std::path::PathBuf;
+use thiserror::Error;
 use crate::error::SWRSError;
 use super::error::SWRSResult;
 
@@ -181,22 +181,50 @@ impl TryFrom<Vec<PathBuf>> for ResourceFiles {
     type Error = ResourceFilesParseError;
 
     fn try_from(value: Vec<PathBuf>) -> Result<Self, Self::Error> {
-        // check if those files exists
-        value.iter()
-            .try_fold((), |_, path| {
-                if path.exists() { Ok(()) } else {
-                    Err(ResourceFilesParseError::FileDoesntExist { path: path.clone() })
-                }
-            })?;
+        let mut images = vec![];
+        let mut sounds = vec![];
+        let mut fonts = vec![];
+        let mut custom_icon = None;
 
+        for path in value {
+            // check if it exists
+            if !path.exists() {
+                return Err(ResourceFilesParseError::FileDoesntExist { path });
+            }
 
-        todo!()
+            // put it on different lists based on its category.
+            // its path should be
+            //
+            // xxx/.sketchware/resources/(images|sounds|fonts|icons)/{project id}/file.extension
+            //
+            // the subfolder after /resources/ determines what type of resource it is
+            match path
+                .parent().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: path.clone()})?
+                .parent().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: path.clone() })?
+                .file_name().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: path.clone() })?
+                .to_str().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: path.clone() })? {
+
+                "images" => images.push(path),
+                "sounds" => sounds.push(path),
+                "fonts" => fonts.push(path),
+                "icons" => custom_icon = Some(path),
+
+                &_ => Err(ResourceFilesParseError::InvalidPath { path })?
+            }
+        }
+
+        Ok(ResourceFiles { custom_icon, images, sounds, fonts })
     }
 }
 
-// todo: use thiserror
+#[derive(Error, Debug)]
 pub enum ResourceFilesParseError {
+    #[error("file `{path:?}` does not exist")]
     FileDoesntExist {
+        path: PathBuf
+    },
+    #[error("path given `{path:?}` is invalid (are you sure its pointing to a sketchware's resources folder?)")]
+    InvalidPath {
         path: PathBuf
     }
 }
@@ -205,7 +233,7 @@ impl Into<Vec<PathBuf>> for ResourceFiles {
     fn into(mut self) -> Vec<PathBuf> {
         let mut result = Vec::new();
 
-        if Some(custom_icon) = self.custom_icon {
+        if let Some(custom_icon) = self.custom_icon {
             result.push(custom_icon);
         }
 
