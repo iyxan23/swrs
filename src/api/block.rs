@@ -42,11 +42,17 @@ impl Blocks {
     /// after it. Returns false when it failed to do so, can be either the block doesn't exist, or
     /// it couldn't find the block before it.
     pub fn remove_block(&mut self, id: BlockId) -> bool {
-        if let Some(to_be_removed_block) = self.blocks.get(&id) {
-            // check if we're the start of the block chain
-            if self.starting_id == id {
+        let next_block = if let Some(to_be_removed_block) = self.blocks.get(&id) {
+            to_be_removed_block.next_block
+        } else {
+            return false;
+        };
+
+        // check if we're the start of the block chain
+        if let Some(starting_id) = self.starting_id {
+            if starting_id == id {
                 // we need to set the starting id to the next block
-                if let Some(next_block) = to_be_removed_block.next_block {
+                if let Some(next_block) = next_block {
                     self.starting_id = Some(next_block);
                 } else {
                     // else then the block chain is empty, there is no block after us and we're the
@@ -56,53 +62,53 @@ impl Blocks {
 
                 return true;
             }
+        }
 
-            // there is a block before us, find the block that has next_block referenced to us
-            //
-            // we can't just loop back and check if its a block, because it can be that the block
-            // before us has a substack and those children are put after that block
-            //
-            // [ block we wanted ]
-            //   [ substack ]
-            //   [ substack ]
-            // [ us ]
+        // there is a block before us, find the block that has next_block referenced to us
+        //
+        // we can't just loop back and check if its a block, because it can be that the block
+        // before us has a substack and those children are put after that block
+        //
+        // [ block we wanted ]
+        //   [ substack ]
+        //   [ substack ]
+        // [ us ]
 
-            // loop back until we reach Some() and that block contains next_block that references us
-            let mut block_before: &mut Block = self.blocks.get_mut(&id).unwrap();
-            loop {
-                // check if it's next_block matches our id
-                if block.next_block == id {
+        // loop back until we reach Some() and that block contains next_block that references us
+        let mut block_before: &mut Block = self.blocks.get_mut(&id).unwrap();
+        loop {
+            // check if it's next_block matches our id
+            if let Some(next_block) = block_before.next_block {
+                if next_block == id {
                     // nice we got it!
                     break;
                 }
+            }
 
-                // find the block before it
-                let mut block_id_before = BlockId(block_before.id.0 - 1);
-                while !self.blocks.contains_key(&block_id_before) {
-                    // check if we've reached the bottom
-                    if block_id_before.0 == 0 {
-                        // meh, there isn't any block before us that references us, that's weird
-                        // todo: Result
-                        return false;
-                    }
-
-                    block_id_before.0 -= 1;
+            // find the block before it
+            let mut block_id_before = BlockId(block_before.id.0 - 1);
+            while !self.blocks.contains_key(&block_id_before) {
+                // check if we've reached the bottom
+                if block_id_before.0 == 0 {
+                    // meh, there isn't any block before us that references us, that's weird
+                    // todo: Result
+                    return false;
                 }
 
-                block_before = self.blocks.get_mut(&block_id_before).unwrap();
+                block_id_before.0 -= 1;
             }
 
-            // we then modify that block to reference the next block (relative to the removed block)
-            if let Some(next_block) = to_be_removed_block.next_block {
-                block_before.next_block = Some(next_block);
-            }
-
-            // we are done!
-
-            true
-        } else {
-            false
+            block_before = self.blocks.get_mut(&block_id_before).unwrap();
         }
+
+        // we then modify that block to reference the next block (relative to the removed block)
+        if let Some(next_block) = next_block {
+            block_before.next_block = Some(next_block);
+        }
+
+        // we are done!
+
+        true
     }
 }
 
