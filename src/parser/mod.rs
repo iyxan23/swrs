@@ -12,13 +12,17 @@ pub mod logic;
 pub(crate) mod serde_util;
 
 /// Represents a parsable (and possibly re-construct-able) object
-pub trait Parsable {
-    /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`SWRSResult`]
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized;
+pub trait Parsable
+where Self: Sized {
+    type ParseError;
+    type ReconstructionError;
 
-    /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
+    /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`Result`]
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError>;
+
+    /// Reconstructs itself into a string form wrapped around a [`Result`]
     /// by default, if not implemented, this will panic ([`unimplemented!()`])
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         unimplemented!()
     }
 }
