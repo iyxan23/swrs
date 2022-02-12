@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use serde_repr::{Serialize_repr, Deserialize_repr};
-use crate::error::{SWRSError, SWRSResult};
+use thiserror::Error;
 use super::Parsable;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -10,7 +10,10 @@ pub struct File {
 }
 
 impl Parsable for File {
-    fn parse(file: &str) -> SWRSResult<File> {
+    type ParseError = FileParseError;
+    type ReconstructionError = FileReconstructionError;
+
+    fn parse(file: &str) -> Result<File, Self::ParseError> {
         let mut iterator = file.split("\n");
 
         #[derive(Eq, PartialEq)]
@@ -22,11 +25,14 @@ impl Parsable for File {
 
         let mut cur_section = FileSection::None;
         let mut result = File { activities: vec![], custom_views: vec![] };
+        let mut line_number: u32 = 0;
 
         loop {
             let line = iterator.next();
             if line.is_none() { break; }
             let line = line.unwrap();
+
+            line_number += 1;
 
             if line == "@activity" {
                 cur_section = FileSection::Activity;
@@ -37,7 +43,12 @@ impl Parsable for File {
                 // parse the file item if the line isn't empty
                 if line.is_empty() { break; }
 
-                let file_item = FileItem::parse(line)?;
+                let file_item = FileItem::parse(line)
+                    .map_err(|err| FileParseError::FileItemParseError {
+                        source: err,
+                        line: line_number,
+                        content: line.to_string()
+                    })?;
 
                 // push the file item to the appropriate section
                 if cur_section == FileSection::Activity {
@@ -52,27 +63,54 @@ impl Parsable for File {
         Ok(result)
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         Ok(format!(
             "@activity\n{}\n@customview\n{}",
             self.activities
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                    Ok(format!("{}\n{}", acc, i.reconstruct()
+                        .map_err(|err| FileReconstructionError::FileItemReconstructionError {
+                            source: err,
+                            item: i.to_owned()
+                        })?))
                 })?
                 .trim(),
 
             self.custom_views
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
+                    Ok(format!("{}\n{}", acc, i.reconstruct()
+                        .map_err(|err| FileReconstructionError::FileItemReconstructionError {
+                            source: err,
+                            item: i.to_owned()
+                        })?))
                 })?
                 .trim(),
         ))
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Error, Debug)]
+pub enum FileParseError {
+    #[error("failed to parse a file item at line {line} with the content {content}")]
+    FileItemParseError {
+        source: serde_json::Error,
+        line: u32,
+        content: String,
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum FileReconstructionError {
+    #[error("failed to reconstruct file item: {item:?}")]
+    FileItemReconstructionError {
+        source: serde_json::Error,
+        item: FileItem,
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct FileItem {
     #[serde(rename = "fileName")]
     pub filename: String,
@@ -90,14 +128,15 @@ pub struct FileItem {
 }
 
 impl Parsable for FileItem {
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+    type ParseError = serde_json::Error;
+    type ReconstructionError = serde_json::Error;
+
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
         serde_json::from_str(decrypted_content)
-            .map_err(|e|SWRSError::ParseError(e.to_string()))
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         serde_json::to_string(self)
-            .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
     }
 }
 
