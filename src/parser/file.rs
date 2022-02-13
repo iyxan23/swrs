@@ -25,14 +25,12 @@ impl Parsable for File {
 
         let mut cur_section = FileSection::None;
         let mut result = File { activities: vec![], custom_views: vec![] };
-        let mut line_number: u32 = 0;
+        let mut line_count: u32 = 0;
 
         loop {
             let line = iterator.next();
             if line.is_none() { break; }
             let line = line.unwrap();
-
-            line_number += 1;
 
             if line == "@activity" {
                 cur_section = FileSection::Activity;
@@ -46,7 +44,7 @@ impl Parsable for File {
                 let file_item = FileItem::parse(line)
                     .map_err(|err| FileParseError::FileItemParseError {
                         source: err,
-                        line: line_number,
+                        line: line_count,
                         content: line.to_string()
                     })?;
 
@@ -58,6 +56,8 @@ impl Parsable for File {
                 } else { break }
                     .push(file_item)
             }
+
+            line_count += 1;
         }
 
         Ok(result)
