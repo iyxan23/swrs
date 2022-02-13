@@ -3,6 +3,7 @@ pub mod error;
 pub mod color;
 
 pub mod api;
+pub(crate) mod util;
 
 /// We use [`ritelinked::LinkedHashMap`] to preserve insertion order while having a key-value pair
 /// storage mechanism
