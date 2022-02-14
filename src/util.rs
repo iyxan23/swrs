@@ -1,8 +1,3 @@
-use std::cmp::Ordering;
-use std::convert::Infallible;
-use std::iter::{Chain, Cloned, Copied, Cycle, Enumerate, Filter, FilterMap, FlatMap, Flatten, Fuse, Inspect, Intersperse, IntersperseWith, Map, MapWhile, Peekable, Product, Rev, Scan, Skip, SkipWhile, StepBy, Sum, Take, TakeWhile, TrustedRandomAccessNoCoerce, Zip};
-use std::ops::Try;
-
 /// Simply contains utilities for the library to function
 
 /// A struct that counts every `next`
@@ -29,7 +24,7 @@ where
     type Item = <I as Iterator>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        count += 1;
+        self.count += 1;
         self.iter.next()
     }
 }
