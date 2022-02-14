@@ -1,5 +1,4 @@
 use crate::LinkedHashMap;
-use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
 use thiserror::Error;
@@ -17,7 +16,7 @@ pub struct View {
 
 impl Parsable for View {
     type ParseError = ViewParseError;
-    type ReconstructionError = ();
+    type ReconstructionError = ViewReconstructionError;
 
     fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
         let mut lines = CountingIterator::new(decrypted_content.split("\n"));
@@ -54,33 +53,63 @@ impl Parsable for View {
                                 screen_name: screen_name.to_string(),
                                 line: lines.get_count()
                             })?
-                    )?;
+                    ).map_err(|err| ViewParseError::FabParseError {
+                        screen_name: screen_name.to_string(),
+                        line: lines.get_count(),
+                        content: line.to_string(),
+                        source: err
+                    })?;
 
                 fabs.insert(screen_name.to_string(), fab_view);
             }
-
-            line_count += 1;
         }
 
         Ok(View { layouts, fabs })
     }
 
     fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-        Ok(format!(
-            "{}\n\n{}",
-            self.layouts
-                .iter()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml\n{}\n\n", acc, i.0, i.1.reconstruct()?))
-                })?
-                .trim(),
-            self.fabs
-                .iter()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml_fab\n{}\n\n", acc, i.0, i.1.reconstruct()?))
-                })?
-                .trim()
-        ))
+        let mut result = String::new();
+
+        for (name, layout) in self.layouts {
+            match layout.reconstruct() {
+                Ok(reconstructed_layout) => {
+                    result.push_str(format!("@{}.xml\n", name).as_str());
+                    result.push_str(reconstructed_layout.as_str());
+                    result.push('\n');
+                }
+
+                Err(err) => {
+                    Err(ViewReconstructionError::LayoutReconstructionError {
+                        source: err,
+                        screen_name: name,
+                        layout
+                    })?
+                }
+            }
+        }
+
+        // separate between the fabs and layouts
+        result.push('\n');
+
+        for (name, view) in self.fabs {
+            match view.reconstruct() {
+                Ok(reconstructed_view) => {
+                    result.push_str(format!("@{}.xml\n", name).as_str());
+                    result.push_str(reconstructed_view.as_str());
+                    result.push('\n');
+                }
+
+                Err(err) => {
+                    Err(ViewReconstructionError::FabReconstructionError {
+                        source: err,
+                        screen_name: name,
+                        view
+                    })?
+                }
+            }
+        }
+
+        Ok(result)
     }
 }
 
@@ -99,10 +128,37 @@ pub enum ViewParseError {
         #[source]
         source: LayoutParseError
     },
+    #[error("error while parsing a fab of screen {screen_name}")]
+    FabParseError {
+        screen_name: String,
+        line: u32,
+        content: String,
+
+        #[source]
+        source: serde_json::Error,
+    },
     #[error("EOF after the fab header of screen {screen_name} at line {line}")]
     EOFAfterFabHeader {
         screen_name: String,
         line: u32
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ViewReconstructionError {
+    #[error("error while reconstructing the layout named {screen_name}")]
+    LayoutReconstructionError {
+        #[source]
+        source: LayoutReconstructionError,
+        screen_name: String,
+        layout: Layout
+    },
+    #[error("error while reconstructing the fab of screen {screen_name}")]
+    FabReconstructionError {
+        #[source]
+        source: serde_json::Error,
+        screen_name: String,
+        view: AndroidView
     }
 }
 
@@ -190,7 +246,6 @@ pub mod models {
     use serde_repr::{Deserialize_repr, Serialize_repr};
     use serde::{Deserialize, Serialize};
     use crate::color::Color;
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
     use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
     use crate::parser::view::models::layout::gravity::Gravity;
