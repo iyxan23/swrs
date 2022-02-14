@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::error::{SWRSError, SWRSResult};
 use crate::parser::Parsable;
+use thiserror::Error;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Logic {
@@ -13,7 +14,10 @@ pub struct Logic {
 }
 
 impl Parsable for Logic {
-    fn parse(logic: &str) -> SWRSResult<Logic> {
+    type ParseError = ();
+    type ReconstructionError = ();
+
+    fn parse(logic: &str) -> Result<Logic, Self::ParseError> {
         let mut lines = logic.split("\n");
         let mut screens = LinkedHashMap::<String, ScreenLogic>::new();
         let mut line_counter = 0u32;
@@ -145,7 +149,7 @@ impl Parsable for Logic {
         Ok(Logic { screens })
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         // first we are going to append each screens' containers in different variables
         let mut variable_containers = Vec::<String>::new();
         let mut list_variable_containers = Vec::<String>::new();
@@ -513,18 +517,15 @@ pub mod component {
     }
 
     impl Parsable for Component {
-        fn parse(s: &str) -> SWRSResult<Component> {
+        type ParseError = serde_json::Error;
+        type ReconstructionError = serde_json::Error;
+
+        fn parse(s: &str) -> Result<Component, Self::ParseError> {
             serde_json::from_str(s)
-                .map_err(|e|SWRSError::ParseError(format!(
-                    "Failed to parse component: {}", e
-                )))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             serde_json::to_string(self)
-                .map_err(|e|SWRSError::ReconstructionError(format!(
-                    "Failed to reconstruct component: {}", e
-                )))
         }
     }
 }
@@ -626,19 +627,37 @@ pub mod event {
 
     impl EventPool {
         /// Parses an event pool from a newline iterator
-        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-            Ok(EventPool(
-                newline_iter
-                    .by_ref()
-                    .take_while(|i|*i != "")
-                    .map(Event::parse)
-                    .collect::<SWRSResult<Vec<Event>>>()?
-            ))
+        pub fn parse_iter<'a>(
+            newline_iter: &mut impl Iterator<Item=&'a str>
+        ) -> Result<Self, EventPoolParseError> {
+
+            let mut result = Vec::new();
+
+            // iter until empty string
+            for (index, line) in newline_iter
+                .by_ref()
+                .take_while(|i| *i != "")
+                .enumerate() {
+
+                result.push(
+                    Event::parse(line)
+                        .map_err(|err| EventPoolParseError {
+                            content: line.to_string(),
+                            count: index as u32,
+                            source: err
+                        })?
+                );
+            }
+
+            Ok(EventPool(result))
         }
     }
 
     impl Parsable for EventPool {
-        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        type ParseError = EventPoolParseError;
+        type ReconstructionError = ();
+
+        fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
             EventPool::parse_iter(&mut decrypted_content.split("\n"))
         }
 
@@ -651,6 +670,16 @@ pub mod event {
                 .trim()
                 .to_string())
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while parsing an event after {count} lines, content: {content}")]
+    pub struct EventPoolParseError {
+        pub content: String,
+        pub count: u32,
+
+        #[source]
+        pub source: serde_json::Error,
     }
 
     impl Default for EventPool {
@@ -669,18 +698,15 @@ pub mod event {
     }
 
     impl Parsable for Event {
-        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        type ParseError = serde_json::Error;
+        type ReconstructionError = serde_json::Error;
+
+        fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
             serde_json::from_str(decrypted_content)
-                .map_err(|e|SWRSError::ParseError(format!(
-                    "Failed to parse event: {}", e
-                )))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ParseError> {
             serde_json::to_string(self)
-                .map_err(|e|SWRSError::ParseError(format!(
-                    "Failed to reconstruct event: {}", e
-                )))
         }
     }
 }
@@ -728,39 +754,76 @@ impl Parsable for BlockContainerHeader {
 }
 
 /// Basically a list of blocks
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BlockContainer(pub Vec<Block>);
 
 impl BlockContainer {
     /// Parses a block container from an iterator of newlines
-    fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-        Ok(BlockContainer(newline_iter
-            .by_ref()
-            .take_while(|i|*i != "")
-            .map(Block::parse)
-            .collect::<SWRSResult<Vec<Block>>>()?
-        ))
+    fn parse_iter<'a>(
+        newline_iter: &mut impl Iterator<Item=&'a str>
+    ) -> Result<Self, BlockContainerParseError> {
+        let mut result = Vec::<Block>::new();
+
+        for (index, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
+            result.push(
+                Block::parse(line)
+                    .map_err(|err| BlockContainerParseError {
+                        block_count: index as u32,
+                        source: err
+                    })?);
+        }
+
+        Ok(BlockContainer(result))
     }
 }
 
 impl Parsable for BlockContainer {
+    type ParseError = BlockContainerParseError;
+    type ReconstructionError = ();
+
     /// This just parses a list of blocks, do not include the header
-    fn parse(s: &str) -> SWRSResult<BlockContainer> {
+    fn parse(s: &str) -> Result<BlockContainer, Self::ParseError> {
         BlockContainer::parse_iter(&mut s.split("\n"))
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
-        Ok(self.0
-            .iter()
-            .try_fold(String::new(), |acc, i| {
-                Ok(format!("{}\n{}", acc, i.reconstruct()?))
-            })?
-            .trim()
-            .to_string())
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
+        let mut result = String::new();
+
+        for (index, block) in self.0.iter().enumerate() {
+            result.push_str(
+                block.reconstruct()
+                    .map_err(|err| BlockContainerReconstructionError {
+                        block_count: index as u32,
+                        block: block.clone(),
+                        source: err
+                    })?
+                    .as_str())
+        }
+
+        Ok(result)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Error, Debug)]
+#[error("error while parsing a block of a block container")]
+pub struct BlockContainerParseError {
+    pub block_count: u32,
+
+    #[source]
+    pub source: serde_json::Error,
+}
+
+#[derive(Error, Debug)]
+#[error("error while reconstructing block {block:?}")]
+pub struct BlockContainerReconstructionError {
+    pub block_count: u32,
+    pub block: Block,
+
+    #[source]
+    pub source: serde_json::Error
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub color: Color,
@@ -776,17 +839,14 @@ pub struct Block {
 }
 
 impl Parsable for Block {
-    fn parse(s: &str) -> SWRSResult<Block> {
+    type ParseError = serde_json::Error;
+    type ReconstructionError = serde_json::Error;
+
+    fn parse(s: &str) -> Result<Block, Self::ParseError> {
         serde_json::from_str(s)
-            .map_err(|e|SWRSError::ParseError(format!(
-                "Failed to parse the JSON of a block: {}", e
-            )))
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         serde_json::to_string(self)
-            .map_err(|e|SWRSError::ReconstructionError(format!(
-                "Failed to reconstruct block: {}", e
-            )))
     }
 }
