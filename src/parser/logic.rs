@@ -14,9 +14,6 @@ pub struct Logic {
 }
 
 impl Parsable for Logic {
-    type ParseError = ();
-    type ReconstructionError = ();
-
     fn parse(logic: &str) -> Result<Logic, Self::ParseError> {
         let mut lines = logic.split("\n");
         let mut screens = LinkedHashMap::<String, ScreenLogic>::new();
@@ -247,47 +244,65 @@ impl ScreenLogic {
 
 pub mod variable {
     use std::convert::TryFrom;
+    use std::num::ParseIntError;
     use ritelinked::LinkedHashMap;
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
+    use thiserror::Error;
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct VariablePool(pub LinkedHashMap<String, Variable>);
 
     impl VariablePool {
         /// Parses a variable pool from an iterator of newline string
-        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
+        pub fn parse_iter<'a>(
+            newline_iter: &mut impl Iterator<Item=&'a str>
+        ) -> Result<Self, VariablePoolParseError> {
+
             let mut result_map = LinkedHashMap::new();
 
-            newline_iter
-                .by_ref()
-                .take_while(|i|*i != "")
-                .map(Variable::parse)
-                .collect::<SWRSResult<Vec<Variable>>>()?
-                .drain(..)
-                .for_each(|variable| {
-                    result_map.insert(variable.name.to_owned(), variable);
-                });
+            for (count, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
+                let variable = Variable::parse(line)
+                    .map_err(|err| VariablePoolParseError {
+                        count: count as u32,
+                        content: line.to_string(),
+                        source: err
+                    })?;
+
+                result_map.insert(variable.name.to_owned(), variable);
+            }
 
             Ok(VariablePool(result_map))
         }
     }
 
     impl Parsable for VariablePool {
+        type ParseError = VariablePoolParseError;
+        type ReconstructionError = ();
+
         /// Parses a variable pool, do not include the header in the input
-        fn parse(s: &str) -> SWRSResult<VariablePool> {
+        fn parse(s: &str) -> Result<VariablePool, Self::ParseError> {
             VariablePool::parse_iter(&mut s.split("\n"))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(self.0
                 .values()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
-                })?
+                .fold(String::new(), |acc, i|
+                    format!("{}\n{}", acc, i.reconstruct().unwrap() /* this never fails */ )
+                )
                 .trim()
                 .to_string())
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while parsing a variable at count {count}")]
+    pub struct VariablePoolParseError {
+        pub count: u32,
+        pub content: String,
+
+        #[source]
+        pub source: VariableParseError
     }
 
     impl Default for VariablePool {
@@ -303,26 +318,47 @@ pub mod variable {
     }
 
     impl Parsable for Variable {
-        fn parse(s: &str) -> SWRSResult<Variable> {
+        type ParseError = VariableParseError;
+        type ReconstructionError = ();
+
+        fn parse(s: &str) -> Result<Variable, Self::ParseError> {
             let (var_type, var_name) =
                 s.split_once(":")
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "Couldn't get the variable type / name"
-                    )))?;
+                    .ok_or_else(||VariableParseError::MalformedVariable {
+                        content: s.to_string()
+                    })?;
 
             Ok(Variable {
                 name: var_name.to_string(),
                 r#type: VariableType::try_from(
                     var_type
                         .parse::<u8>()
-                        .map_err(|e| SWRSError::ParseError(e.to_string()))?
-                )?
+                        .map_err(|err| VariableParseError::MalformedVariableType {
+                            content: var_type.to_string(),
+                            source: err
+                        })?
+                ).map_err(VariableParseError::InvalidVariableType)?
             })
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(format!("{}:{}", self.r#type as u8, self.name))
         }
+    }
+
+    #[derive(Error, Debug)]
+    pub enum VariableParseError {
+        #[error("malformed variable, couldn't find `:` to separate")]
+        MalformedVariable {
+            content: String
+        },
+        #[error("variable type `{content}` is not an int")]
+        MalformedVariableType{
+            content: String,
+            source: ParseIntError
+        },
+        #[error("variable type {} is not mapped to any value", .0.value)]
+        InvalidVariableType(#[source] InvalidVariableTypeError)
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -335,7 +371,7 @@ pub mod variable {
     }
 
     impl TryFrom<u8> for VariableType {
-        type Error = SWRSError;
+        type Error = InvalidVariableTypeError;
 
         fn try_from(value: u8) -> Result<Self, Self::Error> {
             match value {
@@ -343,20 +379,24 @@ pub mod variable {
                 1 => Ok(VariableType::Integer),
                 2 => Ok(VariableType::String),
                 3 => Ok(VariableType::HashMap),
-                _ => Err(
-                    SWRSError::ParseError(
-                        "The value given is not mapped to any variable type".to_string()
-                    )
-                )
+                _ => Err(InvalidVariableTypeError { value })
             }
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("the value given ({value}) is not mapped to any variable type")]
+    pub struct InvalidVariableTypeError {
+        pub value: u8
     }
 }
 
 pub mod list_variable {
+    use std::num::ParseIntError;
     use ritelinked::LinkedHashMap;
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
+    use crate::parser::logic::variable::InvalidVariableTypeError;
+    use thiserror::Error;
 
     /// Represents a list variable pool
     ///
@@ -366,38 +406,60 @@ pub mod list_variable {
 
     impl ListVariablePool {
         /// Parses an iterator of newlines (should be taken from `.split("\n")`) into a [`ListVariablePool`]
-        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-            newline_iter
-                .by_ref()
-                .take_while(|i|*i != "")
-                .map(ListVariable::parse)
-                .try_fold(ListVariablePool(LinkedHashMap::new()), |mut acc, i| {
-                    let i = i
-                        .map_err(|e|SWRSError::ParseError(format!(
-                            "Failed to parse a list variable item at line {}: {}", acc.0.len(), e
-                        )))?;
+        pub fn parse_iter<'a>(
+            newline_iter: &mut impl Iterator<Item=&'a str>
+        ) -> Result<Self, ListVariablePoolParseError> {
 
-                    acc.0.insert(i.name.to_owned(), i);
+            let mut result = LinkedHashMap::new();
 
-                    Ok(acc)
-                })
+            for (count, line) in
+                newline_iter
+                    .by_ref()
+                    .take_while(|i| *i != "")
+                    .enumerate() {
+
+                let list_variable =
+                    ListVariable::parse(line)
+                        .map_err(|err| ListVariablePoolParseError {
+                            count: count as u32,
+                            content: line.to_string(),
+                            source: err
+                        })?;
+
+                result.insert(list_variable.name.to_owned(), list_variable);
+            }
+
+            Ok(ListVariablePool(result))
         }
     }
 
     impl Parsable for ListVariablePool {
-        fn parse(s: &str) -> SWRSResult<Self> {
+        type ParseError = ListVariablePoolParseError;
+        type ReconstructionError = ();
+
+        fn parse(s: &str) -> Result<Self, Self::ParseError> {
             ListVariablePool::parse_iter(&mut s.split("\n"))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(self.0
                 .values()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
-                })?
+                .fold(String::new(), |acc, i|
+                    format!("{}\n{}", acc, i.reconstruct().unwrap() /* this never fails */ )
+                )
                 .trim()
                 .to_string())
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while parsing list variable at count {count}")]
+    pub struct ListVariablePoolParseError {
+        pub count: u32,
+        pub content: String,
+
+        #[source]
+        pub source: ListVariableParseError
     }
 
     impl Default for ListVariablePool {
@@ -413,67 +475,127 @@ pub mod list_variable {
     }
 
     impl Parsable for ListVariable {
-        fn parse(s: &str) -> SWRSResult<Self> {
+        type ParseError = ListVariableParseError;
+        type ReconstructionError = ();
+
+        fn parse(s: &str) -> Result<Self, Self::ParseError> {
             let (lvar_type, name) = {
                 Ok(s.split_once(":")
-                    .ok_or_else(||SWRSError::ParseError("Failed to split list variable by \":\"".to_string()))?)
+                    .ok_or_else(||ListVariableParseError::MissingColon)?)
             }?;
 
             Ok(ListVariable {
                 name: name.to_string(),
                 r#type: <super::variable::VariableType as TryFrom<u8>>
                     ::try_from(
-                    lvar_type
-                        .parse()
-                        .map_err(|_|SWRSError::ParseError(
-                            "Couldn't turn the list's variable type into integer".to_string()
-                        ))?
+                        lvar_type
+                            .parse()
+                            .map_err(|err|ListVariableParseError::VariableTypeIsNotInt(err))?
                     )
-                    .map_err(|e|
-                        SWRSError::ParseError(e.to_string())
-                    )?,
+                    .map_err(ListVariableParseError::InvalidVariableType)?,
             })
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(format!("{}:{}", self.r#type as u8, self.name))
         }
+    }
+
+    #[derive(Error, Debug)]
+    pub enum ListVariableParseError {
+        #[error("couldn't find a colon, is this malformed?")]
+        MissingColon,
+
+        #[error("variable type is not a valid integer")]
+        VariableTypeIsNotInt(#[source] ParseIntError),
+
+        #[error("variable type {} is not a valid type", .0.value)]
+        InvalidVariableType(#[source] InvalidVariableTypeError)
     }
 }
 
 pub mod component {
     use serde::{Serialize, Deserialize};
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
+    use thiserror::Error;
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct ComponentPool(pub Vec<Component>);
 
     impl ComponentPool {
-        pub fn parse_iter<'a>(newlines_iter: impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-            Ok(ComponentPool(
+        pub fn parse_iter<'a>(
+            newlines_iter: impl Iterator<Item=&'a str>
+        ) -> Result<Self, ComponentPoolParseError> {
+            let mut result = Vec::new();
+
+            for (count, line) in
                 newlines_iter
-                    .take_while(|i|*i != "")
-                    .map(Component::parse)
-                    .collect::<SWRSResult<Vec<Component>>>()?
-            ))
+                    .take_while(|i| *i != "")
+                    .enumerate() {
+
+                result.push(
+                    Component::parse(line)
+                        .map_err(|err| ComponentPoolParseError {
+                            count: count as u32,
+                            content: line.to_string(),
+                            source: err
+                        })?
+                )
+            }
+
+            Ok(ComponentPool(result))
         }
     }
 
     impl Parsable for ComponentPool {
-        fn parse(s: &str) -> SWRSResult<ComponentPool> {
+        type ParseError = ComponentPoolParseError;
+        type ReconstructionError = ComponentPoolReconstructionError;
+
+        fn parse(s: &str) -> Result<ComponentPool, Self::ParseError> {
             ComponentPool::parse_iter(s.split("\n"))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
-            Ok(self.0
-                .iter()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
-                })?
-                .trim()
-                .to_string())
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
+            let mut result = String::new();
+
+            for (count, component) in self.0.iter().enumerate() {
+                result.push_str(
+                    component
+                        .reconstruct()
+                        .map_err(|err| ComponentPoolReconstructionError {
+                            count: count as u32,
+                            component: component.to_owned(),
+                            source: err
+                        })?
+                        .as_str()
+                );
+                result.push('\n');
+            }
+
+            result = result.trim_end().to_string();
+
+            Ok(result)
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while parsing component count {count} in a component pool")]
+    pub struct ComponentPoolParseError {
+        pub count: u32,
+        pub content: String,
+
+        #[source]
+        pub source: serde_json::Error
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while reconstructing component count {count}")]
+    pub struct ComponentPoolReconstructionError {
+        pub count: u32,
+        pub component: Component,
+
+        #[source]
+        pub source: serde_json::Error
     }
 
     impl Default for ComponentPool {
@@ -532,20 +654,34 @@ pub mod component {
 
 pub mod more_block {
     use ritelinked::LinkedHashMap;
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
+    use thiserror::Error;
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct MoreBlockPool(pub LinkedHashMap<String, MoreBlock>);
 
     impl MoreBlockPool {
         /// Parses a moreblock pool using an iterator of newlines
-        pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-            let mut more_blocks = newline_iter
-                .by_ref()
-                .take_while(|i|*i != "")
-                .map(MoreBlock::parse)
-                .collect::<SWRSResult<Vec<MoreBlock>>>()?;
+        pub fn parse_iter<'a>(
+            newline_iter: &mut impl Iterator<Item=&'a str>
+        ) -> Result<Self, MoreBlockPoolParseError> {
+
+            let mut more_blocks = Vec::new();
+
+            for (line_count, line) in
+                newline_iter
+                    .by_ref()
+                    .take_while(|i| *i != "")
+                    .enumerate() {
+
+                more_blocks.push(
+                    MoreBlock::parse(line)
+                        .map_err(|err| MoreBlockPoolParseError {
+                            count: line_count as u32,
+                            content: line.to_string(),
+                            source: err
+                        })?)
+            }
 
             let mut result = LinkedHashMap::<String, MoreBlock>::new();
 
@@ -561,23 +697,35 @@ pub mod more_block {
     }
 
     impl Parsable for MoreBlockPool {
+        type ParseError = MoreBlockPoolParseError;
+        type ReconstructionError = ();
+
         /// Parses a moreblock pool (list of moreblock declarations), make sure to not include its
         /// header into the input
-        fn parse(s: &str) -> SWRSResult<MoreBlockPool> {
+        fn parse(s: &str) -> Result<MoreBlockPool, Self::ParseError> {
             MoreBlockPool::parse_iter(&mut s.split("\n"))
         }
 
         /// Reconstructs a moreblock pool to its string form
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(self.0
                 .values()
-                .map(MoreBlock::reconstruct)
                 .try_fold(String::new(), |ac, i| {
-                    Ok(format!("{}\n{}", ac, i?))
+                    Ok(format!("{}\n{}", ac, i.reconstruct().unwrap() /* this will never error */))
                 })?
                 .trim()
                 .to_string())
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("error while parsing moreblock at count {count}")]
+    pub struct MoreBlockPoolParseError {
+        pub count: u32,
+        pub content: String,
+
+        #[source]
+        pub source: MoreBlockParseError,
     }
 
     impl Default for MoreBlockPool {
@@ -594,15 +742,18 @@ pub mod more_block {
     }
 
     impl Parsable for MoreBlock {
+        type ParseError = MoreBlockParseError;
+        type ReconstructionError = ();
+
         /// Parses a moreblock item, example:
         /// ```
         /// execute_shell:execute_shell %s.command
         /// ```
-        fn parse(s: &str) -> SWRSResult<MoreBlock> {
+        fn parse(s: &str) -> Result<MoreBlock, Self::ParseError> {
             let (id, spec) = s.split_once(':')
-                .ok_or_else(||SWRSError::ParseError(
-                    format!("Failed to parse a moreblock, couldn't split `:`")
-                ))?;
+                .ok_or_else(||MoreBlockParseError::MalformedMoreBlock {
+                    content: s.to_string()
+                })?;
 
             Ok(MoreBlock {
                 id: id.to_string(),
@@ -611,16 +762,24 @@ pub mod more_block {
         }
 
         /// Reconstructs a moreblock into its original form
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(format!("{}:{}", self.id, self.spec))
+        }
+    }
+
+    #[derive(Error, Debug)]
+    pub enum MoreBlockParseError {
+        #[error("moreblock is malformed, content: {content}")]
+        MalformedMoreBlock {
+            content: String,
         }
     }
 }
 
 pub mod event {
     use serde::{Serialize, Deserialize};
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
+    use thiserror::Error;
 
     #[derive(Debug, Eq, PartialEq)]
     pub struct EventPool(pub Vec<Event>);
@@ -661,7 +820,7 @@ pub mod event {
             EventPool::parse_iter(&mut decrypted_content.split("\n"))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(self.0
                 .iter()
                 .try_fold(String::new(), |acc, event| {
