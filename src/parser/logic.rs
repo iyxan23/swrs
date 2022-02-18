@@ -1,9 +1,13 @@
 use ritelinked::LinkedHashMap;
 use serde::{Serialize, Deserialize};
 use crate::color::Color;
-use crate::error::{SWRSError, SWRSResult};
 use crate::parser::Parsable;
 use thiserror::Error;
+use crate::parser::logic::component::ComponentPoolParseError;
+use crate::parser::logic::event::EventPoolParseError;
+use crate::parser::logic::list_variable::ListVariablePoolParseError;
+use crate::parser::logic::more_block::MoreBlockPoolParseError;
+use crate::parser::logic::variable::VariablePoolParseError;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Logic {
@@ -14,6 +18,9 @@ pub struct Logic {
 }
 
 impl Parsable for Logic {
+    type ParseError = LogicParseError;
+    type ReconstructionError = LogicReconstructionError;
+
     fn parse(logic: &str) -> Result<Logic, Self::ParseError> {
         let mut lines = logic.split("\n");
         let mut screens = LinkedHashMap::<String, ScreenLogic>::new();
@@ -36,9 +43,11 @@ impl Parsable for Logic {
 
                 // parse variables
                 let variable_pool = variable::VariablePool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing variable pool of {}: {}", screen_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::VariablePoolParseError {
+                        screen_name,
+                        line: line_counter,
+                        source: err
+                    })?;
 
                 screens
                     .entry(screen_name.to_owned())
@@ -52,15 +61,16 @@ impl Parsable for Logic {
 
                 // then parse it
                 let list_variable_pool = list_variable::ListVariablePool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing list variable pool of {}: {}",
-                        screen_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::ListVariablePoolParseError {
+                        screen_name,
+                        line: line_counter,
+                        source: err,
+                    })?;
 
                 // then put it on the screens list with the screen_name above
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .list_variables = Some(list_variable_pool);
 
             } else if line.ends_with("java_components") {
@@ -70,15 +80,16 @@ impl Parsable for Logic {
 
                 // then parse it
                 let component_pool = component::ComponentPool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing component pool of {}: {}",
-                        screen_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::ComponentPoolParseError {
+                        screen_name,
+                        line: line_counter,
+                        source: err
+                    })?;
 
                 // then put it on the screens list with the screen_name above
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .components = Some(component_pool);
 
             } else if line.ends_with("java_events") {
@@ -88,15 +99,16 @@ impl Parsable for Logic {
 
                 // then parse it
                 let event_pool = event::EventPool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing event pool of {}: {}",
-                        screen_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::EventPoolParseError {
+                        screen_name,
+                        line: line_counter,
+                        source: err
+                    })?;
 
                 // then put it on the screen it belongs to
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .events = Some(event_pool);
 
             } else if line.ends_with("java_func") {
@@ -105,39 +117,43 @@ impl Parsable for Logic {
 
                 // then parse it
                 let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing moreblock pool of {}: {}",
-                        screen_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::MoreBlockPoolParseError {
+                        screen_name,
+                        line: line_counter,
+                        source: err,
+                    })?;
 
                 // then put it on the screen i guess
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name))
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .more_blocks = Some(more_block_pool);
 
             } else {
                 // some kind of event that will contain blocks
                 // parse the header
-                let header = BlockContainerHeader::parse(line)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst reading a blocks container header at line {}: {}",
-                        line_counter, e
-                    )))?;
+                let BlockContainerHeader { screen_name, container_name } =
+                    BlockContainerHeader::parse(line)
+                        .map_err(|err| LogicParseError::BlockContainerHeaderParseError {
+                            line: line_counter,
+                            source: err
+                        })?;
 
                 // parse the blocks
                 let blocks = BlockContainer::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst parsing blocks for the screen {} on event name {}: {}",
-                        header.screen_name, header.container_name, e
-                    )))?;
+                    .map_err(|err| LogicParseError::BlockContainerParseError {
+                        screen_name,
+                        container_name,
+                        line: line_counter,
+                        source: err
+                    })?;
 
                 // then add this to the block container pool
                 screens
-                    .entry(header.screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(header.screen_name.to_owned()))
+                    .entry(screen_name.to_owned())
+                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
                     .block_containers
-                    .insert(header.container_name, blocks);
+                    .insert(container_name.to_owned(), blocks);
             }
 
             line_counter += 1;
@@ -215,6 +231,63 @@ impl Parsable for Logic {
             .to_string()
         )
     }
+}
+
+#[derive(Error, Debug)]
+pub enum LogicParseError {
+    #[error("error while parsing variable pool of screen {screen_name} at line {line}")]
+    VariablePoolParseError {
+        screen_name: String,
+        line: u32,
+        source: VariablePoolParseError
+    },
+
+    #[error("error while parsing list variable pool of screen {screen_name} at line {line}")]
+    ListVariablePoolParseError {
+        screen_name: String,
+        line: u32,
+        source: ListVariablePoolParseError
+    },
+
+    #[error("error while parsing component pool of screen {screen_name} at line {line}")]
+    ComponentPoolParseError {
+        screen_name: String,
+        line: u32,
+        source: ComponentPoolParseError
+    },
+
+    #[error("error while parsing event pool of screen {screen_name} at line {line}")]
+    EventPoolParseError {
+        screen_name: String,
+        line: u32,
+        source: EventPoolParseError
+    },
+
+    #[error("error while parsing more block pool of screen {screen_name} at line {line}")]
+    MoreBlockPoolParseError {
+        screen_name: String,
+        line: u32,
+        source: MoreBlockPoolParseError
+    },
+
+    #[error("error while parsing a block container header at line {line}")]
+    BlockContainerHeaderParseError {
+        line: u32,
+        source: BlockContainerHeaderParseError
+    },
+
+    #[error("error while parsing a block container of screen {screen_name} container {container_name} at line {line}")]
+    BlockContainerParseError {
+        screen_name: String,
+        container_name: String,
+        line: u32,
+        source: BlockContainerParseError
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum LogicReconstructionError {
+
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -878,28 +951,22 @@ pub struct BlockContainerHeader {
     pub container_name: String,
 }
 
-// fixme: should i remove the parsable implementation? this struct doesn't get used anymore because
-//        it's dumb to store screen_name in a ScreenLogic struct where they already have the name
-//        stored inside the struct. or maybe even remove this struct entirely because it is
-//        practically worthless
-
 impl Parsable for BlockContainerHeader {
+    type ParseError = BlockContainerHeaderParseError;
+    type ReconstructionError = ();
+
     /// Parses the header of a block container
-    fn parse(s: &str) -> SWRSResult<BlockContainerHeader> {
+    fn parse(s: &str) -> Result<BlockContainerHeader, Self::ParseError> {
         if !s.starts_with("@") {
-            return Err(SWRSError::ParseError("Header does not start with @".to_string()))
+            return Err(BlockContainerHeaderParseError::DoesntStartWithAtSign)
         }
 
         let mut parts = s.split(".java_");
-        let screen_name = parts.next()
-            .ok_or_else(||SWRSError::ParseError(
-                "Cannot get the screen name of a block container header".to_string()
-            ))?[1..].to_string();
+        let screen_name = parts.next()   // [1..] to get rid of the @ at the start
+            .ok_or_else(||BlockContainerHeaderParseError::NoScreenName)?[1..].to_string();
 
         let container_name = parts.next()
-            .ok_or_else(|| SWRSError::ParseError(
-                "Cannot get the container name of a block container header".to_string()
-            ))?.to_string();
+            .ok_or_else(||BlockContainerHeaderParseError::NoContainerName)?.to_string();
 
         Ok(BlockContainerHeader {
             screen_name,
@@ -907,9 +974,21 @@ impl Parsable for BlockContainerHeader {
         })
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         Ok(format!("@{}.java_{}", self.screen_name, self.container_name))
     }
+}
+
+#[derive(Error, Debug)]
+pub enum BlockContainerHeaderParseError {
+    #[error("header does not start with a `@`")]
+    DoesntStartWithAtSign,
+
+    #[error("couldn't get the screen name")]
+    NoScreenName,
+
+    #[error("couldn't get the container name")]
+    NoContainerName,
 }
 
 /// Basically a list of blocks
