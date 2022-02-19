@@ -896,9 +896,9 @@ pub mod event {
         fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             Ok(self.0
                 .iter()
-                .try_fold(String::new(), |acc, event| {
-                    Ok(format!("{}\n{}", acc, event.reconstruct()?))
-                })?
+                .fold(String::new(), |acc, event|
+                    format!("{}\n{}", acc, event.reconstruct().unwrap() /* this never fails */ )
+                )
                 .trim()
                 .to_string())
         }
@@ -1017,7 +1017,7 @@ impl BlockContainer {
 
 impl Parsable for BlockContainer {
     type ParseError = BlockContainerParseError;
-    type ReconstructionError = ();
+    type ReconstructionError = BlockContainerReconstructionError;
 
     /// This just parses a list of blocks, do not include the header
     fn parse(s: &str) -> Result<BlockContainer, Self::ParseError> {
