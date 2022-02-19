@@ -542,7 +542,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
-            resources: Default::default()
+            resource_files: Default::default()
         })
     }
 }
