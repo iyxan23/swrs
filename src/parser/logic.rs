@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::color::Color;
 use crate::parser::Parsable;
 use thiserror::Error;
-use crate::parser::logic::component::ComponentPoolParseError;
+use crate::parser::logic::component::{ComponentPoolParseError, ComponentPoolReconstructionError};
 use crate::parser::logic::event::EventPoolParseError;
 use crate::parser::logic::list_variable::ListVariablePoolParseError;
 use crate::parser::logic::more_block::MoreBlockPoolParseError;
@@ -175,57 +175,75 @@ impl Parsable for Logic {
             if let Some(variables) = &screen.variables {
                 variable_containers
                     .push(format!(
-                        "@{}.java_var\n{}", screen.name, variables.reconstruct()?
+                        "@{}.java_var\n{}", screen.name, variables.reconstruct().unwrap() /* should never fail */
                     ));
             }
 
             if let Some(list_variable) = &screen.list_variables {
                 list_variable_containers
                     .push(format!(
-                        "@{}.java_list\n{}", screen.name, list_variable.reconstruct()?
+                        "@{}.java_list\n{}", screen.name, list_variable.reconstruct().unwrap() /* should never fail */
                     ))
             }
 
             if let Some(more_block) = &screen.more_blocks {
                 more_block_containers
                     .push(format!(
-                        "@{}.java_func\n{}", screen.name, more_block.reconstruct()?
+                        "@{}.java_func\n{}", screen.name, more_block.reconstruct().unwrap() /* should never fail */
                     ));
             }
 
             if let Some(component) = &screen.components {
                 component_containers
                     .push(format!(
-                        "@{}.java_components\n{}", screen.name, component.reconstruct()?
+                        "@{}.java_components\n{}",
+                        screen.name,
+                        component.reconstruct()
+                            .map_err(|err| LogicReconstructionError::ComponentPoolReconstructionError {
+                                screen_name: screen.name.to_owned(),
+                                source: err
+                            })?
                     ));
             }
 
             if let Some(event) = &screen.events {
                 event_containers
                     .push(format!(
-                        "@{}.java_events\n{}", screen.name, event.reconstruct()?
+                        "@{}.java_events\n{}", screen.name, event.reconstruct().unwrap() /* should never fail */
                     ));
             }
 
-            block_containers
-                .push(
-                    screen
-                        .block_containers
-                        .iter()
-                        .try_fold(String::new(), |acc, (container_id, blocks)|
-                            Ok(format!("{}@{}.java_{}\n{}\n\n", acc, screen.name, container_id, blocks.reconstruct()?))
-                        )?
+            let mut result = String::new();
+
+            for (container_id, blocks) in screen.block_containers.iter() {
+                result.push('@');
+                result.push_str(screen.name.as_str());
+                result.push_str(".java_");
+                result.push_str(container_id.as_str());
+                result.push('\n');
+                result.push_str(
+                    blocks.reconstruct()
+                        .map_err(|err| LogicReconstructionError::BlockContainerReconstructionError {
+                            screen_name: screen.name.to_owned(),
+                            container_name: container_id.to_owned(),
+                            source: err
+                        })?
+                        .as_str()
                 );
+                result.push('\n');
+            }
+
+            block_containers.push(result);
         }
 
         // stitch them together and boom!
         Ok(variable_containers
-            .drain(..)
-            .chain(list_variable_containers.drain(..))
-            .chain(component_containers.drain(..))
-            .chain(event_containers.drain(..))
-            .chain(more_block_containers.drain(..))
-            .chain(block_containers.drain(..))
+            .into_iter()
+            .chain(list_variable_containers)
+            .chain(component_containers)
+            .chain(event_containers)
+            .chain(more_block_containers)
+            .chain(block_containers)
             .fold(String::new(), |acc, i| format!("{}\n\n{}", acc, i.trim()))
             .trim()
             .to_string()
@@ -287,7 +305,18 @@ pub enum LogicParseError {
 
 #[derive(Error, Debug)]
 pub enum LogicReconstructionError {
+    #[error("error while reconstructing the component pool of screen {screen_name}")]
+    ComponentPoolReconstructionError {
+        screen_name: String,
+        source: ComponentPoolReconstructionError
+    },
 
+    #[error("error while reconstructing the block container of {container_name} of screen {screen_name}")]
+    BlockContainerReconstructionError {
+        screen_name: String,
+        container_name: String,
+        source: BlockContainerReconstructionError
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
