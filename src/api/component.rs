@@ -1,4 +1,4 @@
-use crate::{SWRSError, SWRSResult};
+use thiserror::Error;
 use crate::parser::logic::component::{Component as ParserComponent};
 
 /// An enum that contains all kinds of components with its parameters
@@ -37,7 +37,7 @@ pub enum ComponentKind {
 
 impl ComponentKind {
     /// Constructs a [`ComponentKind`] using [`ParserComponent`]
-    pub fn from_parser_component(component: &ParserComponent) -> SWRSResult<ComponentKind> {
+    pub fn from_parser_component(component: &ParserComponent) -> Result<ComponentKind, UnknownComponentType> {
         Ok(match component.r#type {
             1 => ComponentKind::Intent,
             2 => ComponentKind::SharedPreferences { path: component.param1.to_owned() },
@@ -60,9 +60,10 @@ impl ComponentKind {
             19 => ComponentKind::SpeechToText,
             20 => ComponentKind::BluetoothConnect,
             21 => ComponentKind::LocationManager,
-            _ => Err(SWRSError::ParseError(format!(
-                "Unknown component type: {}, component id: {}", component.r#type, component.id
-            )))?
+            _ => Err(UnknownComponentType {
+                component_type: component.r#type,
+                component_id: component.id.to_owned()
+            })?
         })
     }
 
@@ -92,4 +93,11 @@ impl ComponentKind {
             ComponentKind::LocationManager => ParserComponent::new_empty(id, 21),
         }
     }
+}
+
+#[derive(Error, Debug)]
+#[error("unknown component type `{component_type}` of component id {component_id}")]
+pub struct UnknownComponentType {
+    pub component_type: u8,
+    pub component_id: String,
 }
