@@ -1,7 +1,9 @@
+use std::num::ParseIntError;
 use std::str::FromStr;
-use crate::{LinkedHashMap, SWRSError, SWRSResult};
+use crate::LinkedHashMap;
 use crate::color::Color;
 use crate::parser::logic::BlockContainer;
+use thiserror::Error;
 
 type ParserBlock = crate::parser::logic::Block;
 
@@ -114,14 +116,24 @@ impl Blocks {
 
 // converts a block container into an API struct Blocks
 impl TryFrom<BlockContainer> for Blocks {
-    type Error = SWRSError;
+    type Error = BlockConversionError;
 
     fn try_from(value: BlockContainer) -> Result<Self, Self::Error> {
         // first we map them into a LinkedHashMap and associate with each blocks' id
         let blocks = value.0
             .into_iter()
-            .map(|block| Ok((BlockId::from_str(block.id.as_str())?, block)))
-            .collect::<SWRSResult<LinkedHashMap<BlockId, ParserBlock>>>()?;
+            .try_fold(LinkedHashMap::<BlockId, ParserBlock>::new(), |mut acc, block| {
+                acc.insert(
+                    BlockId::from_str(block.id.as_str())
+                        .map_err(|err| BlockConversionError::MalformedBlockId {
+                            id: block.id.to_owned(),
+                            source: err
+                        })?,
+                    block
+                );
+
+                Ok(acc)
+            })?;
 
         /// a utility function that simply turns an i32 into u32 or if its negative it will return
         /// None
@@ -132,16 +144,19 @@ impl TryFrom<BlockContainer> for Blocks {
         /// A recursive function that parses blocks given from its id and follows the blocks'
         /// next_block until it stops. This function gets its blocks from the [`blocks`]
         /// variable defined above
-        fn parse_to_blocks(starting_id: BlockId, blocks: &LinkedHashMap<BlockId, ParserBlock>) -> SWRSResult<Blocks> {
+        fn parse_to_blocks(
+            starting_id: BlockId, blocks: &LinkedHashMap<BlockId, ParserBlock>
+        ) -> Result<Blocks, BlockConversionError> {
+
             let mut result = LinkedHashMap::<BlockId, Block>::new();
             let mut current_id = starting_id;
 
             loop {
                 // first we get the block from the current id
                 let p_block = blocks.get(&current_id)
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "Unable to find a block with id {}", starting_id.0
-                    )))?;
+                    .ok_or_else(|| BlockConversionError::BlockNotFound {
+                        id: current_id
+                    })?;
 
                 // then we convert it to our own Block struct
                 let block = Block {
@@ -153,26 +168,36 @@ impl TryFrom<BlockContainer> for Blocks {
                     sub_stack1: if p_block.sub_stack1.is_negative() { Ok(None) } else {
                         parse_to_blocks(BlockId(p_block.sub_stack1 as u32), blocks)
                             .map(|it| Some(it))
-                    }.map_err(|err| SWRSError::ParseError(format!(
-                        "Err while parsing substack1 of block id {}: \n{}", current_id.0, err
-                    )))?,
+                    }.map_err(|error| BlockConversionError::Substack1ParseError {
+                        id: current_id,
+                        sub_stack1_pointer: BlockId(p_block.sub_stack1 as u32),
+                        source: Box::new(error)
+                    })?,
 
                     // if the substack2 is negative, then there is no substack2, else we parse the
                     // blocks starting from that substack2
                     sub_stack2: if p_block.sub_stack2.is_negative() { Ok(None) } else {
                         parse_to_blocks(BlockId(p_block.sub_stack2 as u32), blocks)
                             .map(|it| Some(it))
-                    }.map_err(|err| SWRSError::ParseError(format!(
-                        "Err while parsing substack2 of block id {}: \n{}", current_id.0, err
-                    )))?,
+                    }.map_err(|error| BlockConversionError::Substack2ParseError {
+                        id: current_id,
+                        sub_stack2_pointer: BlockId(p_block.sub_stack2 as u32),
+                        source: Box::new(error)
+                    })?,
 
                     color: p_block.color,
                     op_code: p_block.op_code.to_owned(),
-                    spec: spec::Spec::from_str(p_block.spec.as_str())
-                        .map_err(|err| SWRSError::ParseError(format!(
-                            "Unable to parse spec of block with id {} due to: \n{}",
-                            current_id.0, err
-                        )))?.set_args(p_block.parameters.to_owned())?,
+                    spec: {
+                        let mut spec = spec::Spec::from_str(p_block.spec.as_str())
+                            .map_err(|err| BlockConversionError::MalformedSpec {
+                                id: current_id,
+                                source: err
+                            })?;
+
+                        spec.set_args(p_block.parameters.to_owned());
+
+                        spec
+                    },
                     ret_type: p_block.r#type.to_owned(),
                     type_name: p_block.type_name.to_owned(),
                 };
@@ -209,10 +234,42 @@ impl TryFrom<BlockContainer> for Blocks {
     }
 }
 
-impl TryInto<BlockContainer> for Blocks {
-    type Error = SWRSError;
+#[derive(Error, Debug)]
+pub enum BlockConversionError {
+    #[error("couldn't parse block id as an integer: `{id}`")]
+    MalformedBlockId {
+        id: String,
+        source: ParseIntError
+    },
 
-    fn try_into(self) -> Result<BlockContainer, Self::Error> {
+    #[error("couldn't find the block with id `{}`", .id.0)]
+    BlockNotFound {
+        id: BlockId,
+    },
+
+    #[error("malformed spec on the block with id `{}`", .id.0)]
+    MalformedSpec {
+        id: BlockId,
+        source: spec::SpecParseError
+    },
+
+    #[error("error while parsing substack1 of block with id `{}`", .id.0)]
+    Substack1ParseError {
+        id: BlockId,
+        sub_stack1_pointer: BlockId,
+        source: Box<BlockConversionError>,
+    },
+
+    #[error("error while parsing substack2 of block with id `{}`", .id.0)]
+    Substack2ParseError {
+        id: BlockId,
+        sub_stack2_pointer: BlockId,
+        source: Box<BlockConversionError>,
+    },
+}
+
+impl Into<BlockContainer> for Blocks {
+    fn into(self) -> BlockContainer {
         let mut block_container = BlockContainer(vec![]);
 
         fn flatten(blocks: Blocks, result: &mut BlockContainer) {
@@ -256,7 +313,7 @@ impl TryInto<BlockContainer> for Blocks {
 
         flatten(self, &mut block_container);
 
-        Ok(block_container)
+        block_container
     }
 }
 
@@ -330,15 +387,10 @@ impl Iterator for BlocksIterator {
 pub struct BlockId(pub u32);
 
 impl FromStr for BlockId {
-    type Err = SWRSError;
+    type Err = ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(BlockId(
-            s.parse::<u32>()
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Unable to convert block id {} as an u32, perhaps it's negative? err: {}", s, err
-                )))?
-        ))
+        Ok(BlockId(s.parse::<u32>()?))
     }
 }
 
@@ -376,7 +428,7 @@ pub struct Block {
 impl Block {
     /// Retrieves what category this block is from. Will return an error if the block color doesn't
     /// match to any block category
-    pub fn category(&self) -> SWRSResult<BlockCategory> {
+    pub fn category(&self) -> Result<BlockCategory, UnknownColor> {
         BlockCategory::try_from(self.color)
     }
 }
@@ -396,7 +448,7 @@ pub enum BlockCategory {
 }
 
 impl TryFrom<Color> for BlockCategory {
-    type Error = SWRSError;
+    type Error = UnknownColor;
 
     fn try_from(value: Color) -> Result<Self, Self::Error> {
         Ok(match value.rgb() {
@@ -409,17 +461,21 @@ impl TryFrom<Color> for BlockCategory {
             (0x4a, 0x6c, 0xd4) => BlockCategory::ViewFunc,
             (0xfc, 0xa5, 0xe2) => BlockCategory::ComponentFunc,
             (0x8a, 0x55, 0xd7) => BlockCategory::MoreBlock,
-            (_, _, _) => Err(SWRSError::ParseError(format!(
-                "Color {} does not correlate to any block category", value
-            )))?
+            (_, _, _) => Err(UnknownColor { color: value })?
         })
     }
+}
+
+#[derive(Error, Debug)]
+#[error("color {color} does not correlate to any block category")]
+pub struct UnknownColor {
+    pub color: Color
 }
 
 pub mod spec {
     use std::str::FromStr;
     use ritelinked::LinkedHashMap;
-    use crate::{SWRSError, SWRSResult};
+    use thiserror::Error;
 
     /// A model that represents the spec of a block
     #[derive(Debug, Clone, PartialEq)]
@@ -445,21 +501,21 @@ pub mod spec {
         }
 
         /// Sets the arguments for this [`Spec`]
-        pub fn set_args(mut self, args: Vec<String>) -> SWRSResult<Self> {
+        ///
+        /// Returns a None if the `args` argument provided has a different length than this
+        /// instance's parameter count
+        pub fn set_args(&mut self, args: Vec<String>) -> Option<()> {
             let params = self.get_all_fields();
 
             // do a check if it has the same length as our spec total arguments
             if params.len() != args.len() {
-                Err(SWRSError::ParseError(format!(
-                    "The provided list of arguments does not have the same length ({}) as the parameters in the spec ({})",
-                    args.len(), params.len()
-                )))?
+                return None;
             }
 
             // cool let's zip them together
             self.args = Some(params.into_iter().cloned().zip(args).collect());
 
-            Ok(self)
+            Some(())
         }
 
         /// Retrieves the arguments of the block attached to this spec
@@ -467,15 +523,33 @@ pub mod spec {
     }
 
     impl FromStr for Spec {
-        type Err = SWRSError;
+        type Err = SpecParseError;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Ok(Spec {
-                items: s.split(" ")
-                        .map(SpecItem::from_str)
-                        .collect::<SWRSResult<Vec<SpecItem>>>()?,
-                args: None,
-            })
+            let mut result = Vec::new();
+
+            for (idx, value) in s.split(" ").enumerate() {
+                result.push(
+                    SpecItem::from_str(value)
+                        .map_err(|err| SpecParseError::UnknownSpecFieldType {
+                            index: idx as u32,
+                            source: err
+                        })?
+                )
+            }
+
+            Ok(Spec { items: result, args: None })
+        }
+    }
+
+    #[derive(Error, Debug)]
+    pub enum SpecParseError {
+        #[error("unknown spec field type at index {index}")]
+        UnknownSpecFieldType {
+            index: u32,
+
+            #[source]
+            source: UnknownSpecFieldType
         }
     }
 
@@ -507,7 +581,7 @@ pub mod spec {
     }
 
     impl FromStr for SpecItem {
-        type Err = SWRSError;
+        type Err = UnknownSpecFieldType;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(if s.starts_with("%") {
@@ -548,7 +622,7 @@ pub mod spec {
     }
 
     impl FromStr for SpecFieldType {
-        type Err = SWRSError;
+        type Err = UnknownSpecFieldType;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(match s {
@@ -556,11 +630,17 @@ pub mod spec {
                 "%b" => SpecFieldType::Boolean,
                 "%d" => SpecFieldType::Number,
                 "%m" => SpecFieldType::Menu,
-                &_ => Err(SWRSError::ParseError(format!(
-                    "Unknown spec field type \"{}\", expected %s, %b, %d, or %m", s
-                )))?
+                &_ => Err(UnknownSpecFieldType {
+                    value: s.to_string()
+                })?
             })
         }
+    }
+
+    #[derive(Error, Debug)]
+    #[error("unknown spec field type {value}, expected %s, %b, %d, or %m")]
+    pub struct UnknownSpecFieldType {
+        pub value: String
     }
 
     impl ToString for SpecFieldType {
