@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
-use crate::error::{SWRSError, SWRSResult};
 use super::Parsable;
+use thiserror::Error;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Library {
@@ -11,7 +11,10 @@ pub struct Library {
 }
 
 impl Parsable for Library {
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+    type ParseError = LibraryParseError;
+    type ReconstructionError = LibraryReconstructionError;
+
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
         let mut newline_iter = decrypted_content.split("\n");
 
         let mut firebase_db = Option::<LibraryItem>::None;
@@ -19,59 +22,103 @@ impl Parsable for Library {
         let mut admob       = Option::<LibraryItem>::None;
         let mut google_map  = Option::<LibraryItem>::None;
 
-        loop {
-            let line = newline_iter.next();
-            if line.is_none() { break; }
-            let line = line.unwrap();
+        let mut line_count = 0u32;
 
-            match line {
-                "@firebaseDB" => {
-                    firebase_db = Some(LibraryItem::parse(
+        macro_rules! library_item_set {
+            ($variable:ident, $header:expr) => {
+                {
+                    $variable = Some(LibraryItem::parse(
                         newline_iter.next()
-                            .ok_or_else(||SWRSError::ParseError("Couldn't get firebaseDB's library information".to_string()))?
-                    )?);
+                            .ok_or_else(|| LibraryParseError::EOFAfterHeader {
+                                header: $header.to_string()
+                            })?
+                    ).map_err(|err| LibraryParseError::LibraryItemParseError {
+                        source: err,
+                        header: $header.to_string(),
+                        line: line_count
+                    })?)
                 }
-
-                "@compat" => {
-                    compat = Some(LibraryItem::parse(
-                        newline_iter.next()
-                            .ok_or_else(||SWRSError::ParseError("Couldn't get compat's library information".to_string()))?
-                    )?);
-                }
-
-                "@admob" => {
-                    admob = Some(LibraryItem::parse(
-                        newline_iter.next()
-                            .ok_or_else(||SWRSError::ParseError("Couldn't get admob's library information".to_string()))?
-                    )?);
-                }
-
-                "@googleMap" => {
-                    google_map = Some(LibraryItem::parse(
-                        newline_iter.next()
-                            .ok_or_else(||SWRSError::ParseError("Couldn't get googleMap's library information".to_string()))?
-                    )?);
-                }
-                _ => ()
             }
         }
 
+        loop {
+            let cur_line = newline_iter.next();
+            if cur_line.is_none() { break; }
+            let cur_line = cur_line.unwrap();
+
+            match cur_line {
+                "@firebaseDB" => library_item_set!(firebase_db, "@firebaseDB"),
+                "@compat" => library_item_set!(compat, "@compat"),
+                "@admob" => library_item_set!(admob, "@admob"),
+                "@googleMap" => library_item_set!(google_map, "@googleMap"),
+                _ => ()
+            }
+
+            line_count += 1;
+        }
+
         Ok(Library {
-            firebase_db: firebase_db.ok_or_else(||SWRSError::ParseError("Cannot find firebaseDB's library information".to_string()))?,
-            compat: compat.ok_or_else(||SWRSError::ParseError("Cannot find compat's library information".to_string()))?,
-            admob: admob.ok_or_else(||SWRSError::ParseError("Cannot find admob's library information".to_string()))?,
-            google_map: google_map.ok_or_else(||SWRSError::ParseError("Cannot find googlemap's library information".to_string()))?,
+            firebase_db: firebase_db.ok_or_else(||LibraryParseError::MissingItem { header: "@firebaseDB".to_string() })?,
+            compat: compat.ok_or_else(||LibraryParseError::MissingItem { header: "@compat".to_string() })?,
+            admob: admob.ok_or_else(||LibraryParseError::MissingItem { header: "@admob".to_string() })?,
+            google_map: google_map.ok_or_else(||LibraryParseError::MissingItem { header: "@googleMap".to_string() })?,
         })
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         Ok(format!(
             "@firebaseDB\n{}\n@compat\n{}\n@admob\n{}\n@googleMap\n{}",
-            self.firebase_db.reconstruct()?,
-            self.compat.reconstruct()?,
-            self.admob.reconstruct()?,
-            self.google_map.reconstruct()?,
+            // a bit messy i know, some macros can be handy
+            self.firebase_db.reconstruct()
+                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    source: err,
+                    header: "@firebaseDB".to_string()
+                })?,
+            self.compat.reconstruct()
+                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    source: err,
+                    header: "@compat".to_string()
+                })?,
+            self.admob.reconstruct()
+                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    source: err,
+                    header: "@admob".to_string()
+                })?,
+            self.google_map.reconstruct()
+                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    source: err,
+                    header: "@googleMap".to_string()
+                })?,
         ))
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum LibraryParseError {
+    #[error("end of file after the header {header}")]
+    EOFAfterHeader { header: String },
+
+    #[error("error while parsing a library item of {header} at line {line}")]
+    LibraryItemParseError {
+        #[source]
+        source: serde_json::Error,
+        header: String,
+        line: u32
+    },
+
+    #[error("missing a library item of {header}")]
+    MissingItem {
+        header: String
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum LibraryReconstructionError {
+    #[error("error while reconstructing the library item of {header}")]
+    LibraryItemReconstructionError {
+        #[source]
+        source: serde_json::Error,
+        header: String
     }
 }
 
@@ -89,14 +136,15 @@ pub struct LibraryItem {
 }
 
 impl Parsable for LibraryItem {
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized {
+    type ParseError = serde_json::Error;
+    type ReconstructionError = serde_json::Error;
+
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
         serde_json::from_str(decrypted_content)
-            .map_err(|e|SWRSError::ParseError(e.to_string()))
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         serde_json::to_string(self)
-            .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
     }
 }
 

@@ -5,11 +5,10 @@ pub mod component;
 
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
-use crate::api::screen::{Event, MoreBlock, Screen};
-use crate::api::view::{flatten_views, parse_raw_layout, View};
+use crate::api::screen::{Event, MoreBlock, Screen, ScreenConstructionError};
+use crate::api::view::{flatten_views, parse_raw_layout, ParseLayoutError, View};
 use crate::color::Color;
-use crate::error::SWRSError;
-use crate::{parser, SWRSResult};
+use crate::parser;
 use crate::api::component::ComponentKind;
 use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::component::ComponentPool;
@@ -18,11 +17,12 @@ use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
-use crate::parser::RawSketchwareProject;
+use crate::parser::{RawSketchwareProject, SketchwareProjectReconstructionError};
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 use crate::parser::view::Layout;
 use crate::parser::view::models::AndroidView;
+use thiserror::Error;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
 #[derive(Debug, Clone, PartialEq)]
@@ -155,16 +155,8 @@ mod tests {
     }
 }
 
-impl TryFrom<RawSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
-
-    fn try_from(val: RawSketchwareProject) -> Result<Self, Self::Error> {
-        SketchwareProject::try_from(ParsedSketchwareProject::parse_from(val)?)
-    }
-}
-
 impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
+    type Error = APISketchwareProjectConversionError;
 
     fn try_from(mut val: ParsedSketchwareProject) -> Result<Self, Self::Error> {
         macro_rules! library_conv {
@@ -172,9 +164,10 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 match val.library.$parsed_field_name.use_yn.as_str() {
                     "Y" => Some($result),
                     "N" => None,
-                    _ => return Err(SWRSError::ParseError(format!(
-                        "use_yn of {} library contains an invalid value: {}", $str_name, val.library.firebase_db.use_yn
-                    ))),
+                    _ => return Err(APISketchwareProjectConversionError::InvalidUseYNValue {
+                        library_name: $str_name.to_string(),
+                        value: val.library.$parsed_field_name.use_yn.to_string()
+                    }),
                 }
             }};
         }
@@ -190,7 +183,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
 
         // get the activities
         let activities = val.file.activities.into_iter()
-            .map(|file_entry| {
+            .try_fold(Vec::new(), |mut acc, file_entry| {
                 let name = file_entry.filename.to_owned();
 
                 // get the activity layout and logic
@@ -207,44 +200,45 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 // get our fab (if we have one)
                 let fab = val.view.fabs
                     .remove(name.as_str())
-                    .map(|view| View::try_from(view))
+                    .map(View::from);
 
-                    // flip from Option<Result<>> to Result<Option<>>
-                    .map_or(Ok(None), |v| v.map(Some))?;
-
-                Screen::from_parsed(
+                acc.push(Screen::from_parsed(
                     file_entry.filename.to_owned(),
                     logic.name.to_owned(),
                     file_entry,
                     layout,
                     logic,
                     fab
-                ).map_err(|err|SWRSError::ParseError(format!(
-                    "Failed to convert a raw screen of {} to screen:\n{}", name, err
-                )))
-            })
-            .collect::<SWRSResult<Vec<Screen>>>()?;
+                ).map_err(|err| APISketchwareProjectConversionError::ScreenConstructionError {
+                    java_screen_name: view_name_to_logic(name.as_str()),
+                    layout_screen_name: name,
+                    source: err
+                })?);
+
+                Ok(acc)
+            })?;
 
         // and get the custom views
         let custom_views = val.file.custom_views.into_iter()
-            .map(|file_entry| {
+            .try_fold(Vec::new(), |mut acc, file_entry| {
                 // retrieve the layout of this custom view
                 let layout = val.view.layouts
                     .remove(file_entry.filename.as_str())
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "Unable to find layout of custom view {}", file_entry.filename
-                    )))?;
+                    .ok_or_else(||APISketchwareProjectConversionError::MissingCustomViewLayout {
+                        custom_view_id: file_entry.filename.to_owned(),
+                    })?;
 
-                Ok(CustomView {
+                acc.push(CustomView {
                     res_name: file_entry.filename.to_owned(),
                     layout: parse_raw_layout(layout)
-                        .map_err(|err|SWRSError::ParseError(format!(
-                            "Failed to convert raw layout into a single view of customview {}:\n{}",
-                            file_entry.filename, err
-                        )))?
-                })
-            })
-            .collect::<SWRSResult<Vec<CustomView>>>()?;
+                        .map_err(|err| APISketchwareProjectConversionError::CustomViewParseLayoutError {
+                            custom_view_id: file_entry.filename.to_owned(),
+                            source: err
+                        })?
+                });
+
+                Ok(acc)
+            })?;
 
         Ok(SketchwareProject {
             metadata: Metadata {
@@ -291,18 +285,44 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
     }
 }
 
-impl TryInto<RawSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
+#[derive(Error, Debug)]
+pub enum APISketchwareProjectConversionError {
+    #[error("error while reconstructing screen `{layout_screen_name}`")]
+    ScreenConstructionError {
+        java_screen_name: String,
+        layout_screen_name: String,
 
-    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
-        ParsedSketchwareProject::try_from(self)?.try_into()
+        source: ScreenConstructionError
+    },
+
+    #[error("couldn't find the layout of the custom view `{custom_view_id}`")]
+    MissingCustomViewLayout {
+        custom_view_id: String
+    },
+
+    #[error("error while parsing the layout of custom view `{custom_view_id}`")]
+    CustomViewParseLayoutError {
+        custom_view_id: String,
+        source: ParseLayoutError
+    },
+
+    #[error("use_yn of library `{library_name}` has an invalid value `{value}` (expected `Y` or `N`)")]
+    InvalidUseYNValue {
+        library_name: String,
+        value: String
     }
 }
 
-impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
-    type Error = SWRSError;
+impl TryInto<RawSketchwareProject> for SketchwareProject {
+    type Error = SketchwareProjectReconstructionError;
 
-    fn try_from(mut val: SketchwareProject) -> Result<Self, Self::Error> {
+    fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
+        ParsedSketchwareProject::from(self).try_into()
+    }
+}
+
+impl From<SketchwareProject> for ParsedSketchwareProject {
+    fn from(mut val: SketchwareProject) -> Self {
         macro_rules! resource_conv {
             ($name:ident) => {{
                 val.resources.$name
@@ -353,7 +373,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             components: LinkedHashMap<String, ComponentKind>,
             more_blocks: LinkedHashMap<String, MoreBlock>,
             events: Vec<Event>,
-        ) -> SWRSResult<ScreenLogic> {
+        ) -> ScreenLogic {
             let mut block_containers = LinkedHashMap::new();
 
             // separate events to parser event and its blocks
@@ -363,12 +383,12 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     .map(|event| {
                         let (event, blocks) = event.into_parser_event();
 
-                        let block_container = blocks.try_into()?;
+                        let block_container = blocks.into();
                         block_containers.insert(event.event_name.to_owned(), block_container);
 
-                        Ok(event)
+                        event
                     })
-                    .collect::<SWRSResult<Vec<_>>>()?;
+                    .collect::<Vec<_>>();
 
             // separate moreblocks to parser moreblock and its blocks
             let parser_more_blocks =
@@ -377,14 +397,14 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     .map(|(id, more_block)| {
                         let (more_block, blocks) = more_block.into_parser_more_block();
 
-                        let block_container = blocks.try_into()?;
+                        let block_container = blocks.into();
                         block_containers.insert(id.to_owned(), block_container);
 
-                        Ok((id, more_block))
+                        (id, more_block)
                     })
-                    .collect::<SWRSResult<LinkedHashMap<_, _>>>()?;
+                    .collect::<LinkedHashMap<String, _>>();
 
-            Ok(ScreenLogic {
+            ScreenLogic {
                 name: logic_name,
                 block_containers,
                 variables: Some(VariablePool(variables)),
@@ -395,7 +415,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     .collect())),
                 events: Some(EventPool(parser_events)),
                 more_blocks: Some(MoreBlockPool(parser_more_blocks))
-            })
+            }
         }
 
         let (logic_screens, layouts, fabs):
@@ -421,7 +441,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                     screen.components,
                     screen.more_blocks,
                     screen.events,
-                )?);
+                ));
 
                 layouts.insert(
                     screen.layout_name,
@@ -432,7 +452,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
             (logic_screens, layouts, fabs)
         };
 
-        Ok(ParsedSketchwareProject {
+        ParsedSketchwareProject {
             project: parser::project::Project {
                 id: val.metadata.local_id,
                 app_name: val.metadata.name,
@@ -542,7 +562,7 @@ impl TryFrom<SketchwareProject> for ParsedSketchwareProject {
                 fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
-            resources: Default::default()
-        })
+            resource_files: Default::default()
+        }
     }
 }

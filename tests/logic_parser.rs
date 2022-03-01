@@ -16,7 +16,7 @@ fn parse_variable_0() {
 
     let result = match Variable::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variable: {}", err)
+        Err(err) => panic!("Failed to parse variable: {:?}", err)
     };
 
     assert_eq!(
@@ -34,7 +34,7 @@ fn parse_variable_1() {
 
     let result = match Variable::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variable: {}", err)
+        Err(err) => panic!("Failed to parse variable: {:?}", err)
     };
 
     assert_eq!(
@@ -58,7 +58,7 @@ fn parse_variable_pool_0() {
 
     let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variables: {}", err)
+        Err(err) => panic!("Failed to parse variables: {:?}", err)
     };
 
     let mut expected_pool = HashMap::<String, Variable>::new();
@@ -140,7 +140,7 @@ fn parse_variable_pool_1() {
 
     let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variables: {}", err)
+        Err(err) => panic!("Failed to parse variables: {:?}", err)
     };
 
     let mut expected_pool = HashMap::<String, Variable>::new();
@@ -219,7 +219,7 @@ fn parse_list_variable() {
     let input = "0:my_booleans";
     let result = match ListVariable::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable: {}", err)
+        Err(err) => panic!("Failed to parse list variable: {:?}", err)
     };
 
     assert_eq!(
@@ -239,7 +239,7 @@ fn parse_list_variable_pool() {
 3:maps"#;
     let result = match ListVariablePool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable pool: {}", err)
+        Err(err) => panic!("Failed to parse list variable pool: {:?}", err)
     };
 
     let expected = {
@@ -265,7 +265,7 @@ fn parse_component() {
     let input = r#"{"componentId":"dialog","param1":"","param2":"","param3":"","type":7}"#;
     let result = match Component::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse component: {}", err)
+        Err(err) => panic!("Failed to parse component: {:?}", err)
     };
 
     let expected = Component {
@@ -288,7 +288,7 @@ fn parse_event() {
     let input = r#"{"eventName":"onClick","eventType":1,"targetId":"linear10","targetType":0}"#;
     let result = match Event::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse event: {}", err)
+        Err(err) => panic!("Failed to parse event: {:?}", err)
     };
 
     let expected = Event {
@@ -316,7 +316,7 @@ fn parse_event_pool() {
 
     let result = match EventPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse event pool: {}", err)
+        Err(err) => panic!("Failed to parse event pool: {:?}", err)
     };
 
     let expected = EventPool(vec![
@@ -344,7 +344,7 @@ fn parse_more_block() {
     let input = "cool_moreblock:hello world %s";
     let result = match MoreBlock::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock: {}", err)
+        Err(err) => panic!("Failed to parse moreblock: {:?}", err)
     };
 
     let expected = MoreBlock {
@@ -360,7 +360,7 @@ fn parse_more_block_pool_0() {
     let input = "cool_moreblock:hello world %s\nhello_world:very poggers %s cool %i";
     let result = match MoreBlockPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock pool: {}", err)
+        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err)
     };
 
     let mut expected = LinkedHashMap::<String, MoreBlock>::new();
@@ -385,7 +385,7 @@ saveView:saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath
 
     let result = match MoreBlockPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock pool: {}", err)
+        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err)
     };
 
     let mut expected = LinkedHashMap::<String, MoreBlock>::new();
@@ -429,7 +429,7 @@ execute_shell:execute_shell %s.command
 
     match Logic::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse logic: {}", err)
+        Err(err) => panic!("Failed to parse logic: {:?}", err)
     };
 
     // sadly i can't check if it produces a correct output, if someone got time, please do this
@@ -458,12 +458,12 @@ execute_shell:execute_shell %s.command
 
     let result = match Logic::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse logic: {}", err)
+        Err(err) => panic!("Failed to parse logic: {:?}", err)
     };
 
     let reconstructed = match result.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct logic: {}", err)
+        Err(err) => panic!("Failed to reconstruct logic: {:?}", err)
     };
 
     assert_eq!(input, reconstructed);

@@ -8,7 +8,7 @@ fn parse_library_item() {
     let input = r#"{"adUnits":[],"data":"","libType":0,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"N"}"#;
     let result = match LibraryItem::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse library item: {}", err)
+        Err(err) => panic!("Failed to parse library item: {:?}", err)
     };
 
     let expected = LibraryItem {
@@ -38,7 +38,7 @@ fn parse_library() {
 
     let result = match Library::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse library: {}", err),
+        Err(err) => panic!("Failed to parse library: {:?}", err),
     };
 
     let expected = Library {
@@ -82,7 +82,7 @@ fn reconstruct_library_item() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct library item: {}", err)
+        Err(err) => panic!("Failed to reconstruct library item: {:?}", err)
     };
 
     let expected = r#"{"adUnits":[],"data":"","libType":0,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"N"}"#;
@@ -117,7 +117,7 @@ fn reconstruct_library() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct library: {}", err)
+        Err(err) => panic!("Failed to reconstruct library: {:?}", err)
     };
 
     let expected = r#"@firebaseDB

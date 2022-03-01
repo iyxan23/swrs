@@ -1,8 +1,8 @@
 use crate::color::Color;
 use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
 use crate::parser::view::Layout;
-use crate::{SWRSError, SWRSResult};
 use crate::parser::view::models::layout::Orientation;
+use thiserror::Error;
 
 /// A model that represents a single view
 ///
@@ -40,9 +40,10 @@ pub struct View {
     /// view in the parent layout.
     pub layout_gravity: layout::gravity::Gravity,
 
-    /// The view-type-specific fields are stored in this enum, will give out `None` if this view's
-    /// type is not recognized.
-    pub view: Option<ViewType>,
+    /// The view-type-specific fields are stored in this enum in this result.
+    ///
+    /// This is stored in a result type because it doesn't really matter in the tree parsing process
+    pub view: Result<ViewType, ViewTypeConversionError>,
 
     /// The children of this view
     pub children: Vec<View>,
@@ -81,11 +82,9 @@ impl View {
     }
 }
 
-impl TryFrom<AndroidView> for View {
-    type Error = SWRSError;
-
-    fn try_from(value: AndroidView) -> Result<Self, Self::Error> {
-        Ok(View {
+impl From<AndroidView> for View {
+    fn from(value: AndroidView) -> Self {
+        View {
             id: value.id.clone(),
             background_color: value.layout.background_color,
             height: value.layout.height,
@@ -105,12 +104,11 @@ impl TryFrom<AndroidView> for View {
             weight: value.layout.weight,
             weight_sum: value.layout.weight_sum,
             layout_gravity: value.layout.layout_gravity,
-            // ignore the Err because the function only Err-s when the view type is unknown
-            view: if let Ok(res) = ViewType::from_view(&value) { Some(res) } else { None },
+            view: ViewType::from_view(&value),
             children: vec![],
             raw: value.clone(),
             view_type: value.r#type
-        })
+        }
     }
 }
 
@@ -219,7 +217,7 @@ pub enum ViewType {
 
 impl ViewType {
     /// Converts an [`AndroidView`] into [`ViewType`]
-    pub fn from_view(android_view: &AndroidView) -> SWRSResult<Self> {
+    pub fn from_view(android_view: &AndroidView) -> Result<Self, ViewTypeConversionError> {
         // https://github.com/Iyxan23/sketchware-data/blob/main/data/view-types.md
         Ok(match android_view.r#type {
             0 => ViewType::LinearLayout {
@@ -260,10 +258,9 @@ impl ViewType {
             },
             6 => ViewType::ImageView {
                 image_res_name: android_view.image.res_name.as_ref()
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "res_name is not present in the view id {} while the type is an ImageView",
-                        android_view.id
-                    )))?.clone(),
+                    .ok_or_else(||ViewTypeConversionError::ResNameNotPresent {
+                        view_id: android_view.id.to_owned()
+                    })?.clone(),
                 image_scale_type: android_view.image.scale_type,
             },
             7 => ViewType::WebView,
@@ -307,17 +304,16 @@ impl ViewType {
             15 => ViewType::CalendarView { first_day_of_week: android_view.first_day_of_week },
             16 => ViewType::Fab {
                 image_res_name: android_view.image.res_name.as_ref()
-                    .ok_or_else(||SWRSError::ParseError(format!(
-                        "res_name is not present in the view id {} while the type is a FAB",
-                        android_view.id
-                    )))?.clone(),
+                    .ok_or_else(||ViewTypeConversionError::ResNameNotPresent {
+                        view_id: android_view.id.to_owned(),
+                    })?.clone(),
             },
             17 => ViewType::AdView { adview_size: android_view.ad_size.clone() },
             18 => ViewType::MapView,
-            _ => Err(SWRSError::ParseError(format!(
-                "Unknown view type: {}",
-                android_view.r#type
-            )))?
+            _ => Err(ViewTypeConversionError::UnknownViewType {
+                view_type: android_view.r#type,
+                view_id: android_view.id.to_owned()
+            })?
         })
     }
 
@@ -434,45 +430,60 @@ impl ViewType {
     }
 }
 
+#[derive(Error, Debug, Clone, PartialEq)]
+pub enum ViewTypeConversionError {
+    #[error("unknown view type `{view_type}` on view with id `{view_id}`")]
+    UnknownViewType {
+        view_type: u8,
+        view_id: String,
+    },
+    #[error("the field res_name on view with id `{view_id}` is not present when needed as this view is either a FAB or an ImageView")]
+    ResNameNotPresent {
+        view_id: String,
+    }
+}
+
 /// Converts a parser's raw [`Layout`] into a tree of views, the returned vector of views is the
 /// children of the root view.
 ///
 /// You might expect this function to return a single view because a layout only has one single
 /// root view, but no, sketchware hardcodes the root view and it only stores its children.
-pub fn parse_raw_layout(screen_view: Layout) -> SWRSResult<Vec<View>> {
+pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutError> {
     let mut result = Vec::<View>::new();
 
     for view in screen_view.0 {
         let parent_id =
-            view.parent.as_ref().ok_or_else(||SWRSError::ParseError(format!(
-                "View `{}` doesn't have a parent field",
-                view.id
-            )))?;
+            view.parent.as_ref().ok_or_else(||ParseLayoutError::NoParentField {
+                view_id: view.id.to_owned()
+            })?;
 
         if parent_id == "root" {
-            result.push(
-                view.try_into()
-                    .map_err(|err|SWRSError::ParseError(format!(
-                        "Failed to convert view parser model to view api model:\n{}", err
-                    )))?
-            );
+            result.push(view.into());
         } else {
             let parent = result.iter_mut().find_map(|i|i.find_id_mut(&parent_id))
-                .ok_or_else(|| SWRSError::ParseError(format!(
-                    "Couldn't find the parent of view `{}` - Parent id: `{}`",
-                    view.id, parent_id
-                )))?;
+                .ok_or_else(||ParseLayoutError::NonexistentParent {
+                    view_id: view.id.to_owned(),
+                    parent_id: parent_id.to_owned()
+                })?;
 
-            parent.children.push(
-                view.try_into()
-                    .map_err(|err|SWRSError::ParseError(format!(
-                        "Failed to convert view parser model to view api model:\n{}", err
-                    )))?
-            );
+            parent.children.push(view.into());
         }
     }
 
     Ok(result)
+}
+
+#[derive(Error, Debug)]
+pub enum ParseLayoutError {
+    #[error("view with id {view_id} doesn't have a parent field")]
+    NoParentField {
+        view_id: String
+    },
+    #[error("couldn't find parent of view with id `{view_id}` (parent id: `{parent_id}`)")]
+    NonexistentParent {
+        view_id: String,
+        parent_id: String
+    }
 }
 
 /// Flattens a list of API [`View`] models into a single list of parser models
@@ -494,7 +505,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
         result_view.parent_type = parent_type as i8;
 
         // then apply the view type
-        if let Some(view_type) = view.view {
+        if let Ok(view_type) = view.view {
             view_type.apply_values_to_view(&mut result_view)
         }
 

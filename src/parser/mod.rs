@@ -1,6 +1,11 @@
 use std::path::PathBuf;
 use thiserror::Error;
 use crate::error::SWRSError;
+use crate::parser::file::{FileParseError, FileReconstructionError};
+use crate::parser::library::{LibraryParseError, LibraryReconstructionError};
+use crate::parser::logic::{LogicParseError, LogicReconstructionError};
+use crate::parser::resource::{ResourceParseError, ResourceReconstructionError};
+use crate::parser::view::{ViewParseError, ViewReconstructionError};
 use super::error::SWRSResult;
 
 pub mod project;
@@ -12,13 +17,17 @@ pub mod logic;
 pub(crate) mod serde_util;
 
 /// Represents a parsable (and possibly re-construct-able) object
-pub trait Parsable {
-    /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`SWRSResult`]
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> where Self: Sized;
+pub trait Parsable
+where Self: Sized {
+    type ParseError;
+    type ReconstructionError;
 
-    /// Reconstructs itself into a string form wrapped around a [`SWRSResult`]
+    /// Parses a decrypted content of itself and returns an instance of itself wrapped around a [`Result`]
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError>;
+
+    /// Reconstructs itself into a string form wrapped around a [`Result`]
     /// by default, if not implemented, this will panic ([`unimplemented!()`])
-    fn reconstruct(&self) -> SWRSResult<String> {
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         unimplemented!()
     }
 }
@@ -94,78 +103,122 @@ pub struct SketchwareProject {
     pub resource: resource::Resource,
     pub view: view::View,
     pub logic: logic::Logic,
-    pub resources: ResourceFiles,
+    pub resource_files: ResourceFiles,
 }
 
 impl SketchwareProject {
     /// Parses a [`RawSketchwareProject`] into [`SketchwareProject`]
-    pub fn parse_from(raw_swproj: RawSketchwareProject) -> SWRSResult<Self> {
+    pub fn parse_from(raw_swproj: RawSketchwareProject) -> Result<Self, SketchwareProjectParseError> {
         Ok(SketchwareProject {
             project: project::Project::parse(raw_swproj.project.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing project: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::ProjectParseError)?,
 
             file: file::File::parse(raw_swproj.file.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing file: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::FileParseError)?,
 
             library: library::Library::parse(raw_swproj.library.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing library: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::LibraryParseError)?,
 
             resource: resource::Resource::parse(raw_swproj.resource.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing resource: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::ResourceParseError)?,
 
             view: view::View::parse(raw_swproj.view.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing view: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::ViewParseError)?,
 
             logic: logic::Logic::parse(raw_swproj.logic.as_str())
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while parsing logic: {}", err
-                )))?,
+                .map_err(SketchwareProjectParseError::LogicParseError)?,
 
-            resources: raw_swproj.resources.try_into()
-                .map_err(|err|SWRSError::ParseError(format!(
-                    "Err while retrieving resource files" // todo: show the err once we got thiserror
-                )))?,
+            resource_files: raw_swproj.resources.try_into()
+                .map_err(SketchwareProjectParseError::ResourceFilesParseError)?,
         })
     }
 
     /// Parses a list of project data into [`SketchwareProject`]
-    pub fn parse(project: &str, file: &str, library: &str, resource: &str, view: &str, logic: &str) -> SWRSResult<Self> {
-        Ok(SketchwareProject {
-            project: project::Project::parse(project)?,
-            file: file::File::parse(file)?,
-            library: library::Library::parse(library)?,
-            resource: resource::Resource::parse(resource)?,
-            view: view::View::parse(view)?,
-            logic: logic::Logic::parse(logic)?,
-            resources: Default::default()
+    pub fn parse(project: &str, file: &str, library: &str, resource: &str, view: &str, logic: &str) -> Result<Self, SketchwareProjectParseError> {
+        SketchwareProject::parse_from(RawSketchwareProject {
+            project: project.to_string(),
+            file: file.to_string(),
+            library: library.to_string(),
+            resource: resource.to_string(),
+            view: view.to_string(),
+            logic: logic.to_string(),
+            resources: vec![]
         })
     }
 }
 
 impl TryInto<RawSketchwareProject> for SketchwareProject {
-    type Error = SWRSError;
+    type Error = SketchwareProjectReconstructionError;
 
     fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
         Ok(RawSketchwareProject {
-            project: self.project.reconstruct()?,
-            file: self.file.reconstruct()?,
-            library: self.library.reconstruct()?,
-            resource: self.resource.reconstruct()?,
-            view: self.view.reconstruct()?,
-            logic: self.logic.reconstruct()?,
-            resources: self.resources.into()
+            project: self.project.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::ProjectReconstructionError)?,
+
+            file: self.file.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::FileReconstructionError)?,
+
+            library: self.library.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::LibraryReconstructionError)?,
+
+            resource: self.resource.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::ResourceReconstructionError)?,
+
+            view: self.view.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::ViewReconstructionError)?,
+
+            logic: self.logic.reconstruct()
+                .map_err(SketchwareProjectReconstructionError::LogicReconstructionError)?,
+
+            resources: self.resource_files.into()
         })
     }
+}
+
+#[derive(Error, Debug)]
+pub enum SketchwareProjectParseError {
+    #[error("failed to parse the data file `project`")]
+    ProjectParseError(#[from] serde_json::Error),
+
+    #[error("failed to parse the data file `file`")]
+    FileParseError(#[from] FileParseError),
+
+    #[error("failed to parse the data file `library`")]
+    LibraryParseError(#[from] LibraryParseError),
+
+    #[error("failed to parse the data file `resource`")]
+    ResourceParseError(#[from] ResourceParseError),
+
+    #[error("failed to parse the data file `view`")]
+    ViewParseError(#[from] ViewParseError),
+
+    #[error("failed to parse the data file `logic`")]
+    LogicParseError(#[from] LogicParseError),
+
+    #[error("failed retrieve resource files")]
+    ResourceFilesParseError(#[from] ResourceFilesParseError)
+}
+
+// these names might be too long lol, should i shorten them to something like SwProjectReconError?
+#[derive(Error, Debug)]
+pub enum SketchwareProjectReconstructionError {
+    #[error("failed to reconstruct the data file `project`")]
+    ProjectReconstructionError(#[from] serde_json::Error),
+
+    #[error("failed to reconstruct the data file `file`")]
+    FileReconstructionError(#[from] FileReconstructionError),
+
+    #[error("failed to reconstruct the data file `library`")]
+    LibraryReconstructionError(#[from] LibraryReconstructionError),
+
+    #[error("failed to reconstruct the data file `resource`")]
+    ResourceReconstructionError(#[from] ResourceReconstructionError),
+
+    #[error("failed to reconstruct the data file `view`")]
+    ViewReconstructionError(#[from] ViewReconstructionError),
+
+    #[error("failed to reconstruct the data file `logic`")]
+    LogicReconstructionError(#[from] LogicReconstructionError),
 }
 
 /// A struct that stores all the resources of a sketchware project its attached to

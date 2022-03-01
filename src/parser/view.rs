@@ -1,7 +1,8 @@
 use crate::LinkedHashMap;
-use crate::error::{SWRSError, SWRSResult};
 use models::AndroidView;
 use crate::parser::Parsable;
+use thiserror::Error;
+use crate::util::CountingIterator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
@@ -14,8 +15,11 @@ pub struct View {
 }
 
 impl Parsable for View {
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
-        let mut lines = decrypted_content.split("\n");
+    type ParseError = ViewParseError;
+    type ReconstructionError = ViewReconstructionError;
+
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
+        let mut lines = CountingIterator::new(decrypted_content.split("\n"));
 
         let mut layouts = LinkedHashMap::<String, Layout>::new();
         let mut fabs = LinkedHashMap::<String, AndroidView>::new();
@@ -26,17 +30,18 @@ impl Parsable for View {
             let (screen_name, container_type) =
                 &line[1..]
                     .split_once(".")
-                    .ok_or_else(||SWRSError::ParseError(
-                        "Cannot separate header of a screen into screen name & container type"
-                            .to_string()
-                    ))?;
+                    .ok_or_else(|| ViewParseError::InvalidHeader {
+                        line: lines.get_count(),
+                        content: line.to_string()
+                    })?;
 
             if *container_type == "xml" {
                 let screen = Layout::parse_iter(&mut lines)
-                    .map_err(|e|SWRSError::ParseError(format!(
-                        "Error whilst trying to parse screen named {}: {}",
-                        screen_name, e
-                    )))?;
+                    .map_err(|err| ViewParseError::LayoutParseError {
+                        screen_name: screen_name.to_string(),
+                        container_name: container_type.to_string(),
+                        source: err
+                    })?;
 
                 layouts.insert(screen_name.to_string(), screen);
 
@@ -44,11 +49,16 @@ impl Parsable for View {
                 let fab_view =
                     AndroidView::parse(
                         lines.next()
-                            .ok_or_else(||SWRSError::ParseError(format!(
-                                "EOF whilst trying to parse the fab view of {}",
-                                screen_name
-                            )))?
-                    )?;
+                            .ok_or_else(|| ViewParseError::EOFAfterFabHeader {
+                                screen_name: screen_name.to_string(),
+                                line: lines.get_count()
+                            })?
+                    ).map_err(|err| ViewParseError::FabParseError {
+                        screen_name: screen_name.to_string(),
+                        line: lines.get_count(),
+                        content: line.to_string(),
+                        source: err
+                    })?;
 
                 fabs.insert(screen_name.to_string(), fab_view);
             }
@@ -57,22 +67,100 @@ impl Parsable for View {
         Ok(View { layouts, fabs })
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
-        Ok(format!(
-            "{}\n\n{}",
-            self.layouts
-                .iter()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml\n{}\n\n", acc, i.0, i.1.reconstruct()?))
-                })?
-                .trim(),
-            self.fabs
-                .iter()
-                .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}@{}.xml_fab\n{}\n\n", acc, i.0, i.1.reconstruct()?))
-                })?
-                .trim()
-        ))
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
+        let mut result = String::new();
+
+        for (name, layout) in &self.layouts {
+            match layout.reconstruct() {
+                Ok(reconstructed_layout) => {
+                    result.push_str(format!("@{}.xml\n", name).as_str());
+                    result.push_str(reconstructed_layout.as_str());
+                    result.push('\n');
+                }
+
+                Err(err) => {
+                    Err(ViewReconstructionError::LayoutReconstructionError {
+                        source: err,
+                        screen_name: name.to_owned(),
+                        layout: layout.to_owned()
+                    })?
+                }
+            }
+        }
+
+        // separate between the fabs and layouts
+        result.push('\n');
+
+        for (name, view) in &self.fabs {
+            match view.reconstruct() {
+                Ok(reconstructed_view) => {
+                    result.push_str(format!("@{}.xml_fab\n", name).as_str());
+                    result.push_str(reconstructed_view.as_str());
+                    result.push('\n');
+                }
+
+                Err(err) => {
+                    Err(ViewReconstructionError::FabReconstructionError {
+                        source: err,
+                        screen_name: name.to_owned(),
+                        view: view.to_owned()
+                    })?
+                }
+            }
+        }
+
+        result = result.trim_end().to_string();
+
+        Ok(result)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ViewParseError {
+    #[error("invalid view header at line {line}, couldn't separate screen name and container name")]
+    InvalidHeader {
+        line: u32,
+        content: String
+    },
+    #[error("error while parsing layout of {screen_name} {container_name}")]
+    LayoutParseError {
+        screen_name: String,
+        container_name: String,
+
+        #[source]
+        source: LayoutParseError
+    },
+    #[error("error while parsing a fab of screen {screen_name}")]
+    FabParseError {
+        screen_name: String,
+        line: u32,
+        content: String,
+
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("EOF after the fab header of screen {screen_name} at line {line}")]
+    EOFAfterFabHeader {
+        screen_name: String,
+        line: u32
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ViewReconstructionError {
+    #[error("error while reconstructing the layout named {screen_name}")]
+    LayoutReconstructionError {
+        #[source]
+        source: LayoutReconstructionError,
+        screen_name: String,
+        layout: Layout
+    },
+    #[error("error while reconstructing the fab of screen {screen_name}")]
+    FabReconstructionError {
+        #[source]
+        source: serde_json::Error,
+        screen_name: String,
+        view: AndroidView
     }
 }
 
@@ -83,32 +171,76 @@ impl Layout {
     /// Parses an iterator that iterates over newlines
     ///
     /// Must skip the header part
-    pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> SWRSResult<Self> {
-        Ok(Layout(
-            newline_iter
-                .by_ref()
-                .take_while(|i|*i != "")
-                .map(AndroidView::parse)
-                .collect::<SWRSResult<Vec<AndroidView>>>()?
-        ))
+    pub fn parse_iter<'a>(newline_iter: &mut impl Iterator<Item=&'a str>) -> Result<Self, LayoutParseError> {
+        // fixme: somehow detect if newline_iter's type is CountingIterator, where we will use its
+        //        count as the one we use on LayoutParseError's line count
+
+        let mut result = Vec::new();
+
+        // take everything until the line is empty
+        for (count, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
+            match AndroidView::parse(line) {
+                Ok(view) => result.push(view),
+                Err(err) => {
+                    Err(LayoutParseError {
+                        source: err,
+                        view_before: result.last().cloned(),
+                        content: line.to_string(),
+                        line: count as u32
+                    })?
+                }
+            }
+        }
+
+        Ok(Layout(result))
     }
 }
 
+#[derive(Error, Debug)]
+#[error("error while parsing the view at line {line} of a layout")]
+pub struct LayoutParseError {
+    #[source]
+    pub source: serde_json::Error,
+
+    pub view_before: Option<AndroidView>,
+    pub content: String,
+    pub line: u32
+}
+
+#[derive(Error, Debug)]
+#[error("error while reconstructing the view at line {line} of a layout")]
+pub struct LayoutReconstructionError {
+    #[source]
+    pub source: serde_json::Error,
+
+    pub view: AndroidView,
+    pub line: u32
+}
+
 impl Parsable for Layout {
-    fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+    type ParseError = LayoutParseError;
+    type ReconstructionError = LayoutReconstructionError;
+
+    fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
         Layout::parse_iter(&mut decrypted_content.split("\n"))
     }
 
-    fn reconstruct(&self) -> SWRSResult<String> {
-        Ok(
-            self.0
-                .iter()
-                .try_fold(String::new(), |acc, i|
-                    Ok(format!("{}\n{}", acc, i.reconstruct()?))
-                )?
-                .trim()
-                .to_string()
-        )
+    fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
+        let mut result = String::new();
+
+        for (line, view) in self.0.iter().enumerate() {
+            let reconstructed_view = view.reconstruct()
+                .map_err(|err| LayoutReconstructionError {
+                    source: err,
+                    view: view.to_owned(),
+                    line: line as u32
+                })?;
+
+            result.push_str(reconstructed_view.as_str());
+            result.push('\n');
+        }
+
+        Ok(result.trim().to_string())
     }
 }
 
@@ -116,7 +248,6 @@ pub mod models {
     use serde_repr::{Deserialize_repr, Serialize_repr};
     use serde::{Deserialize, Serialize};
     use crate::color::Color;
-    use crate::error::{SWRSError, SWRSResult};
     use crate::parser::Parsable;
     use crate::parser::serde_util::{bool_to_one_zero, bool_to_str};
     use crate::parser::view::models::layout::gravity::Gravity;
@@ -218,14 +349,15 @@ pub mod models {
     }
 
     impl Parsable for AndroidView {
-        fn parse(decrypted_content: &str) -> SWRSResult<Self> {
+        type ParseError = serde_json::Error;
+        type ReconstructionError = serde_json::Error;
+
+        fn parse(decrypted_content: &str) -> Result<Self, Self::ParseError> {
             serde_json::from_str(decrypted_content)
-                .map_err(|e|SWRSError::ParseError(e.to_string()))
         }
 
-        fn reconstruct(&self) -> SWRSResult<String> {
+        fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
             serde_json::to_string(self)
-                .map_err(|e|SWRSError::ReconstructionError(e.to_string()))
         }
     }
 

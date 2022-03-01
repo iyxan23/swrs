@@ -1,15 +1,15 @@
 use std::str::FromStr;
-use crate::{LinkedHashMap, SWRSError};
-use crate::api::block::Blocks;
-use crate::api::block::spec::Spec;
-use crate::api::component::ComponentKind;
-use crate::api::view::{parse_raw_layout, View};
+use crate::LinkedHashMap;
+use crate::api::block::{BlockConversionError, Blocks};
+use crate::api::block::spec::{Spec, SpecParseError};
+use crate::api::component::{ComponentKind, UnknownComponentType};
+use crate::api::view::{parse_raw_layout, ParseLayoutError, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
 use crate::parser::logic::{BlockContainer, ScreenLogic};
 use crate::parser::logic::list_variable::ListVariable;
 use crate::parser::logic::variable::Variable;
 use crate::parser::view::Layout as ViewScreen;
-use crate::SWRSResult;
+use thiserror::Error;
 
 /// A model that represents a screen / activity in a project
 #[derive(Debug, Clone, PartialEq)]
@@ -112,7 +112,7 @@ impl Event {
 type ParserEvent = crate::parser::logic::event::Event;
 
 impl TryFrom<ParserEvent> for Event {
-    type Error = SWRSError;
+    type Error = UnknownEventType;
 
     /// Creates an api::event from a parser::event, note that the returned event has no code
     fn try_from(value: ParserEvent) -> Result<Self, Self::Error> {
@@ -137,7 +137,7 @@ pub enum EventType {
 }
 
 impl EventType {
-    pub fn from_parser_event(event: &ParserEvent) -> SWRSResult<EventType> {
+    pub fn from_parser_event(event: &ParserEvent) -> Result<EventType, UnknownEventType> {
         Ok(match event.event_type {
             1 => EventType::ViewEvent { id: event.target_id.to_owned() },
             2 => EventType::ComponentEvent {
@@ -148,10 +148,10 @@ impl EventType {
                 // if you asked, no ActivityEvent doesn't have its activity event name written
                 // on target_type, its already on the event name
 
-            _ => Err(SWRSError::ParseError(format!(
-                "Unknown event_type of event {}; should be either 1, 2, or 3",
-                event.event_name.to_owned()
-            )))?
+            _ => Err(UnknownEventType {
+                event_name: event.event_name.to_owned(),
+                event_type: event.event_type
+            })?
         })
     }
 
@@ -173,18 +173,11 @@ impl EventType {
     }
 }
 
-fn associate_blocks_with_more_block(
-    blocks: BlockContainer,
-    more_block: crate::parser::logic::more_block::MoreBlock,
-) -> SWRSResult<MoreBlock> {
-    Ok(MoreBlock {
-        name: more_block.id.to_owned(),
-        spec: Spec::from_str(&*more_block.spec)?,
-        code: Blocks::try_from(blocks)
-            .map_err(|err|SWRSError::ParseError(format!(
-                "Unable to associate the blocks of more block {}:\n{}", more_block.id, err
-            )))?
-    })
+#[derive(Error, Debug)]
+#[error("unknown event type `{event_type}` for event `{event_name}`")]
+pub struct UnknownEventType {
+    pub event_name: String,
+    pub event_type: u8,
 }
 
 impl Screen {
@@ -195,11 +188,13 @@ impl Screen {
         view_entry: ViewScreen,
         mut logic_entry: ScreenLogic,
         fab: Option<View>,
-    ) -> SWRSResult<Self> {
+    ) -> Result<Self, ScreenConstructionError> {
         Ok(Screen {
             layout_name,
             java_name: logic_name,
-            layout: parse_raw_layout(view_entry)?,
+            layout: parse_raw_layout(view_entry)
+                .map_err(ScreenConstructionError::LayoutParseError)?,
+
             variables: logic_entry.variables.unwrap_or_default().0,
             list_variables: logic_entry.list_variables.unwrap_or_default().0,
 
@@ -208,14 +203,24 @@ impl Screen {
             more_blocks: logic_entry.more_blocks.unwrap_or_default().0
                 .into_iter()
                 .map(|(mb_id, mb)|
-                    Ok((mb_id.to_owned(), associate_blocks_with_more_block(
-                        logic_entry.block_containers
-                            .remove(&*format!("{}_moreBlock", mb_id))
-                            .unwrap_or_else(||BlockContainer(vec![])),
-                        mb
-                    )?))
+                    Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
+                        name: mb_id.to_owned(),
+                        spec: Spec::from_str(&*mb.spec)
+                            .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
+                                moreblock_id: mb_id.to_owned(),
+                                source: err
+                            })?,
+                        code: Blocks::try_from(
+                            logic_entry.block_containers
+                                .remove(&*format!("{}_moreBlock", mb_id))
+                                .unwrap_or_else(||BlockContainer(vec![])))
+                            .map_err(|err| ScreenConstructionError::BlocksParseError {
+                                container_name: format!("{}_moreBlock", mb_id),
+                                source: err
+                            })?
+                    }))
                 )
-                .collect::<SWRSResult<LinkedHashMap<String, MoreBlock>>>()?,
+                .collect::<Result<LinkedHashMap<String, MoreBlock>, _>>()?,
 
             components: logic_entry.components.unwrap_or_default().0
                 .into_iter()
@@ -224,22 +229,30 @@ impl Screen {
                     ComponentKind::from_parser_component(&cmp)
                         .map(|cmp| ((id, cmp)))
                 })
-                .collect::<SWRSResult<LinkedHashMap<String, ComponentKind>>>()?,
+                .collect::<Result<LinkedHashMap<String, ComponentKind>, UnknownComponentType>>()
+                .map_err(ScreenConstructionError::UnknownComponentType)?,
 
             events: logic_entry.events.unwrap_or_default().0
                 .into_iter()
                 .map(|event| {
-                    let mut event = Event::try_from(event)?;
+                    let mut event = Event::try_from(event)
+                        .map_err(ScreenConstructionError::UnknownEventType)?;
+
                     let code = logic_entry.block_containers
                         .remove(event.get_block_container_id().as_str())
-                        .ok_or_else(||SWRSError::ParseError(format!(
-                            "Unable to find blocks for event {}", event.name
-                        )))?;
+                        .ok_or_else(||ScreenConstructionError::MissingBlocks {
+                            event_name: event.name.to_owned()
+                        })?;
 
-                    event.code = Blocks::try_from(code)?;
+                    event.code = Blocks::try_from(code)
+                        .map_err(|err| ScreenConstructionError::BlocksParseError {
+                            container_name: event.get_block_container_id(),
+                            source: err
+                        })?;
+
                     Ok(event)
                 })
-                .collect::<SWRSResult<Vec<Event>>>()?,
+                .collect::<Result<Vec<Event>, ScreenConstructionError>>()?,
 
             fab,
             fullscreen_enabled: file_entry.options.fullscreen_enabled,
@@ -251,4 +264,33 @@ impl Screen {
             keyboard_setting: file_entry.keyboard_setting
         })
     }
+}
+
+#[derive(Error, Debug)]
+pub enum ScreenConstructionError {
+    #[error("error while parsing the spec of the moreblock with id `{moreblock_id}`")]
+    MoreBlockSpecParseError {
+        moreblock_id: String,
+        source: SpecParseError
+    },
+
+    #[error("error while parsing the blocks of container `{container_name}`")]
+    BlocksParseError {
+        container_name: String,
+        source: BlockConversionError
+    },
+
+    #[error("{0}")]
+    UnknownEventType(#[from] UnknownEventType),
+
+    #[error("{0}")]
+    UnknownComponentType(#[from] UnknownComponentType),
+
+    #[error("couldn't find the block container of event `{event_name}`")]
+    MissingBlocks {
+        event_name: String
+    },
+
+    #[error("error while parsing the layout: `{0:?}`")]
+    LayoutParseError(#[from] ParseLayoutError)
 }

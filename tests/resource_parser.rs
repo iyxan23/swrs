@@ -6,7 +6,7 @@ fn parse_resource_item() {
     let input = r#"{"resFullName":"my_img.png","resName":"my_img","resType":1}"#;
     let result = match ResourceItem::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse resource item: {}", err)
+        Err(err) => panic!("Failed to parse resource item: {:?}", err)
     };
 
     let expected = ResourceItem {
@@ -32,7 +32,7 @@ fn parse_resource() {
 
     let result = match Resource::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse resource: {}", err)
+        Err(err) => panic!("Failed to parse resource: {:?}", err)
     };
 
     let expected = Resource {
@@ -88,7 +88,7 @@ fn reconstruct_resource_item() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct resource item: {}", err)
+        Err(err) => panic!("Failed to reconstruct resource item: {:?}", err)
     };
 
     let expected = r#"{"resFullName":"my_img.png","resName":"my_img","resType":1}"#;
@@ -140,7 +140,7 @@ fn reconstruct_resource() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct resource: {}", err)
+        Err(err) => panic!("Failed to reconstruct resource: {:?}", err)
     };
 
     let expected = r#"@images
