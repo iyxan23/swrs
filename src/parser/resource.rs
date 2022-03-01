@@ -10,7 +10,7 @@ pub struct Resource {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-enum ResourceSection {
+pub enum ResourceSection {
     Images,
     Sounds,
     Fonts,

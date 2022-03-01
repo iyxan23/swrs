@@ -453,7 +453,9 @@ pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutErr
 
     for view in screen_view.0 {
         let parent_id =
-            view.parent.as_ref().ok_or_else(||ParseLayoutError::NoParentField { view_id: view.id })?;
+            view.parent.as_ref().ok_or_else(||ParseLayoutError::NoParentField {
+                view_id: view.id.to_owned()
+            })?;
 
         if parent_id == "root" {
             result.push(view.into());

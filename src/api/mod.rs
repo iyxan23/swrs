@@ -210,7 +210,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                     logic,
                     fab
                 ).map_err(|err| APISketchwareProjectConversionError::ScreenConstructionError {
-                    java_screen_name: logic.name.to_owned(),
+                    java_screen_name: view_name_to_logic(name.as_str()),
                     layout_screen_name: name,
                     source: err
                 })?);
@@ -225,7 +225,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 let layout = val.view.layouts
                     .remove(file_entry.filename.as_str())
                     .ok_or_else(||APISketchwareProjectConversionError::MissingCustomViewLayout {
-                        custom_view_id: file_entry.filename,
+                        custom_view_id: file_entry.filename.to_owned(),
                     })?;
 
                 acc.push(CustomView {

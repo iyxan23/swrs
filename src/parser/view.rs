@@ -70,7 +70,7 @@ impl Parsable for View {
     fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
         let mut result = String::new();
 
-        for (name, layout) in self.layouts {
+        for (name, layout) in &self.layouts {
             match layout.reconstruct() {
                 Ok(reconstructed_layout) => {
                     result.push_str(format!("@{}.xml\n", name).as_str());
@@ -81,8 +81,8 @@ impl Parsable for View {
                 Err(err) => {
                     Err(ViewReconstructionError::LayoutReconstructionError {
                         source: err,
-                        screen_name: name,
-                        layout
+                        screen_name: name.to_owned(),
+                        layout: layout.to_owned()
                     })?
                 }
             }
@@ -91,7 +91,7 @@ impl Parsable for View {
         // separate between the fabs and layouts
         result.push('\n');
 
-        for (name, view) in self.fabs {
+        for (name, view) in &self.fabs {
             match view.reconstruct() {
                 Ok(reconstructed_view) => {
                     result.push_str(format!("@{}.xml\n", name).as_str());
@@ -102,8 +102,8 @@ impl Parsable for View {
                 Err(err) => {
                     Err(ViewReconstructionError::FabReconstructionError {
                         source: err,
-                        screen_name: name,
-                        view
+                        screen_name: name.to_owned(),
+                        view: view.to_owned()
                     })?
                 }
             }

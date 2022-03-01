@@ -44,7 +44,7 @@ impl Parsable for Logic {
                 // parse variables
                 let variable_pool = variable::VariablePool::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::VariablePoolParseError {
-                        screen_name,
+                        screen_name: screen_name.to_owned(),
                         line: line_counter,
                         source: err
                     })?;
@@ -62,7 +62,7 @@ impl Parsable for Logic {
                 // then parse it
                 let list_variable_pool = list_variable::ListVariablePool::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::ListVariablePoolParseError {
-                        screen_name,
+                        screen_name: screen_name.to_owned(),
                         line: line_counter,
                         source: err,
                     })?;
@@ -81,7 +81,7 @@ impl Parsable for Logic {
                 // then parse it
                 let component_pool = component::ComponentPool::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::ComponentPoolParseError {
-                        screen_name,
+                        screen_name: screen_name.to_owned(),
                         line: line_counter,
                         source: err
                     })?;
@@ -100,7 +100,7 @@ impl Parsable for Logic {
                 // then parse it
                 let event_pool = event::EventPool::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::EventPoolParseError {
-                        screen_name,
+                        screen_name: screen_name.to_owned(),
                         line: line_counter,
                         source: err
                     })?;
@@ -118,7 +118,7 @@ impl Parsable for Logic {
                 // then parse it
                 let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::MoreBlockPoolParseError {
-                        screen_name,
+                        screen_name: screen_name.to_owned(),
                         line: line_counter,
                         source: err,
                     })?;
@@ -142,8 +142,8 @@ impl Parsable for Logic {
                 // parse the blocks
                 let blocks = BlockContainer::parse_iter(&mut lines)
                     .map_err(|err| LogicParseError::BlockContainerParseError {
-                        screen_name,
-                        container_name,
+                        screen_name: screen_name.to_owned(),
+                        container_name: container_name.to_owned(),
                         line: line_counter,
                         source: err
                     })?;

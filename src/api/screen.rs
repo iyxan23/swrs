@@ -207,7 +207,7 @@ impl Screen {
                         name: mb_id.to_owned(),
                         spec: Spec::from_str(&*mb.spec)
                             .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
-                                moreblock_id: mb_id,
+                                moreblock_id: mb_id.to_owned(),
                                 source: err
                             })?,
                         code: Blocks::try_from(
