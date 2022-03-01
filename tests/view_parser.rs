@@ -8,7 +8,7 @@ fn parse_android_view() {
 
     match AndroidView::parse(input) {
         Ok(_) => (),
-        Err(err) => panic!("Failed to parse android view: {}", err)
+        Err(err) => panic!("Failed to parse android view: {:?}", err)
     };
 
     // todo: check this bruh
@@ -31,7 +31,7 @@ fn parse_view() {
 
     match View::parse(input) {
         Ok(_) => (),
-        Err(err) => panic!("Failed to parse view: {}", err)
+        Err(err) => panic!("Failed to parse view: {:?}", err)
     }
 
     // todo: check this bruh
@@ -43,7 +43,7 @@ fn reconstruct_android_view() {
 
     let parsed = match AndroidView::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse android view: {}", err)
+        Err(err) => panic!("Failed to parse android view: {:?}", err)
     };
 
     let reconstructed = parsed.reconstruct().expect("Failed to reconstruct android view");
@@ -67,7 +67,7 @@ fn reconstruct_view() {
 
     let parsed = match View::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse view: {}", err)
+        Err(err) => panic!("Failed to parse view: {:?}", err)
     };
 
     let reconstructed = parsed.reconstruct().expect("Failed to reconstruct view");

@@ -6,7 +6,7 @@ fn parse_file_item() {
     let input = r#"{"fileName":"main","fileType":0,"keyboardSetting":0,"options":0,"orientation":2,"theme":-1}"#;
     let result = match FileItem::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse FileItem: {}", err)
+        Err(err) => panic!("Failed to parse FileItem: {:?}", err)
     };
 
     let expected = FileItem {
@@ -41,7 +41,7 @@ fn parse_file() {
 
     let result = match File::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse file: {}", err)
+        Err(err) => panic!("Failed to parse file: {:?}", err)
     };
 
     let expected = File {
@@ -136,7 +136,7 @@ fn reconstruct_file_item() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed reconstructing fileitem: {}", err)
+        Err(err) => panic!("Failed reconstructing fileitem: {:?}", err)
     };
 
     let expected = r#"{"fileName":"main","fileType":0,"keyboardSetting":0,"options":0,"orientation":2,"theme":-1}"#;
@@ -219,7 +219,7 @@ fn reconstruct_file() {
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct file: {}", err)
+        Err(err) => panic!("Failed to reconstruct file: {:?}", err)
     };
 
     let expected = r#"@activity

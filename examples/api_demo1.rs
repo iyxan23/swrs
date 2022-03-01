@@ -4,6 +4,7 @@ use std::fs::read;
 use swrs::api::block::Blocks;
 use swrs::api::SketchwareProject;
 use swrs::parser::RawSketchwareProject;
+use swrs::parser::SketchwareProject as ParsedSketchwareProject;
 
 fn main() {
     let mut args = std::env::args();
@@ -37,7 +38,9 @@ fn main() {
     // and parse them
 
     let sketchware_project = SketchwareProject::try_from(
-        RawSketchwareProject::new(project, file, library, resource, view, logic)
+        ParsedSketchwareProject::parse_from(
+            RawSketchwareProject::new(project, file, library, resource, view, logic, vec![])
+        ).expect("Corrupted sketchware project")
     ).expect("Corrupted sketchware project");
 
     println!("Screens:");
