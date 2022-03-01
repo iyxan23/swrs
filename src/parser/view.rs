@@ -94,7 +94,7 @@ impl Parsable for View {
         for (name, view) in &self.fabs {
             match view.reconstruct() {
                 Ok(reconstructed_view) => {
-                    result.push_str(format!("@{}.xml\n", name).as_str());
+                    result.push_str(format!("@{}.xml_fab\n", name).as_str());
                     result.push_str(reconstructed_view.as_str());
                     result.push('\n');
                 }
@@ -108,6 +108,8 @@ impl Parsable for View {
                 }
             }
         }
+
+        result = result.trim_end().to_string();
 
         Ok(result)
     }

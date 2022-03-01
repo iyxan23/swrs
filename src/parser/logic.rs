@@ -1064,7 +1064,9 @@ impl Parsable for BlockContainer {
                         block: block.clone(),
                         source: err
                     })?
-                    .as_str())
+                    .as_str()
+            );
+            result.push('\n');
         }
 
         Ok(result)
