@@ -24,7 +24,7 @@ Stuff:
    - [x] Conversion back to parser models
    - [ ] **TESTING**
  - [ ] Resources implementation
- - [ ] Fix the really crappy error system - don't look it up
+ - [x] Fix the really crappy error system
 
 ## Cool, I want to help!
 I'd be very very thankful for those that are interested in contributing to this project. I'm new to rust and my code needs some reviewing from an actual rust user and I would love to hear feedbacks from it!
