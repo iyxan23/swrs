@@ -1,12 +1,11 @@
 use std::path::PathBuf;
+use std::string::FromUtf8Error;
 use thiserror::Error;
-use crate::error::SWRSError;
 use crate::parser::file::{FileParseError, FileReconstructionError};
 use crate::parser::library::{LibraryParseError, LibraryReconstructionError};
 use crate::parser::logic::{LogicParseError, LogicReconstructionError};
 use crate::parser::resource::{ResourceParseError, ResourceReconstructionError};
 use crate::parser::view::{ViewParseError, ViewReconstructionError};
-use super::error::SWRSResult;
 
 pub mod project;
 pub mod file;
@@ -71,13 +70,10 @@ impl RawSketchwareProject {
         view: Vec<u8>,
         logic: Vec<u8>,
         resources: Vec<PathBuf>
-    ) -> SWRSResult<Self> {
+    ) -> Result<Self, FromUtf8Error> {
         macro_rules! decrypt {
             ($name_ident:ident, $name:expr) => {
-                String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)
-                    .map_err(|e| SWRSError::ParseError(format!(
-                        "Failed to decode {} due to an encoding error: {}", $name, e
-                    )))?
+                String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)?
             }
         }
 
