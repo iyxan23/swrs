@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::CryptoError;
 use crate::parser::file::{FileParseError, FileReconstructionError};
 use crate::parser::library::{LibraryParseError, LibraryReconstructionError};
 use crate::parser::logic::{LogicParseError, LogicReconstructionError};
@@ -41,12 +41,8 @@ pub struct RawSketchwareProject {
     pub view: String,
     pub logic: String,
 
-    /// A list of resource files that belongs to this project; yes you need to do some work to get
-    /// the files
-    ///
-    /// These files must match `.sketchware/resources/(fonts|icons|images|sounds)/{project_id}/*`
-    /// and must exist
-    pub resources: Vec<PathBuf>
+    /// A list of resource files that belongs to this project
+    pub resource_files: Vec<FileWrapper>
 }
 
 impl RawSketchwareProject {
@@ -58,9 +54,9 @@ impl RawSketchwareProject {
         resource: String,
         view: String,
         logic: String,
-        resources: Vec<PathBuf>
+        resource_files: Vec<FileWrapper>
     ) -> Self {
-        RawSketchwareProject { project, file, library, resource, view, logic, resources }
+        RawSketchwareProject { project, file, library, resource, view, logic, resource_files }
     }
 
     pub fn from_encrypted(
@@ -70,7 +66,7 @@ impl RawSketchwareProject {
         resource: Vec<u8>,
         view: Vec<u8>,
         logic: Vec<u8>,
-        resources: Vec<PathBuf>
+        resource_files: Vec<FileWrapper>
     ) -> Result<Self, CryptoError> {
         macro_rules! decrypt {
             ($name_ident:ident, $name:expr) => {
@@ -86,7 +82,7 @@ impl RawSketchwareProject {
             resource: decrypt!(resource, "resource"),
             view: decrypt!(view, "view"),
             logic: decrypt!(logic, "logic"),
-            resources
+            resource_files
         })
     }
 }
@@ -126,7 +122,7 @@ impl SketchwareProject {
             logic: logic::Logic::parse(raw_swproj.logic.as_str())
                 .map_err(SketchwareProjectParseError::LogicParseError)?,
 
-            resource_files: raw_swproj.resources.try_into()
+            resource_files: raw_swproj.resource_files.try_into()
                 .map_err(SketchwareProjectParseError::ResourceFilesParseError)?,
         })
     }
@@ -140,7 +136,7 @@ impl SketchwareProject {
             resource: resource.to_string(),
             view: view.to_string(),
             logic: logic.to_string(),
-            resources: vec![]
+            resource_files: vec![]
         })
     }
 }
@@ -168,7 +164,7 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
             logic: self.logic.reconstruct()
                 .map_err(SketchwareProjectReconstructionError::LogicReconstructionError)?,
 
-            resources: self.resource_files.into()
+            resource_files: self.resource_files.into()
         })
     }
 }
@@ -252,7 +248,7 @@ pub enum FileWrapper {
     },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ResourceType { Image, Sound, Font, CustomIcon }
 
 /// A struct that stores all the resources of a sketchware project its attached to
@@ -293,34 +289,34 @@ impl TryFrom<Vec<FileWrapper>> for ResourceFiles {
 
                     let res_name = file.file_name()
                         .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
-                        .to_str().ok_or_else(|| ResourceFilesParseError { path: file.clone() })?
+                        .to_str().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
                         .to_string();
 
                     match res_type {
-                        "images" => images.insert(res_name, path),
-                        "sounds" => sounds.insert(res_name, path),
-                        "fonts" => fonts.insert(res_name, path),
-                        "icons" => custom_icon = Some(path),
+                        "images" => { images.insert(res_name, path); },
+                        "sounds" => { sounds.insert(res_name, path); },
+                        "fonts" => { fonts.insert(res_name, path); },
+                        "icons" => { custom_icon = Some(path); },
 
-                        &_ => Err(ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        _ => Err(ResourceFilesParseError::InvalidPath { path: file.clone() })?
                     }
                 }
 
                 FileWrapper::StringId { res_type, res_name, .. } => {
                     match res_type {
-                        ResourceType::Image => images.insert(res_name.to_owned(), path),
-                        ResourceType::Sound => sounds.insert(res_name.to_owned(), path),
-                        ResourceType::Font => fonts.insert(res_name.to_owned(), path),
-                        ResourceType::CustomIcon => { custom_icon = Some(path) }
+                        ResourceType::Image => { images.insert(res_name.to_owned(), path); },
+                        ResourceType::Sound => { sounds.insert(res_name.to_owned(), path); },
+                        ResourceType::Font => { fonts.insert(res_name.to_owned(), path); },
+                        ResourceType::CustomIcon => { custom_icon = Some(path); }
                     }
                 }
 
                 FileWrapper::U32Id { res_type, res_name, .. } => {
                     match res_type {
-                        ResourceType::Image => images.insert(res_name.to_owned(), path),
-                        ResourceType::Sound => sounds.insert(res_name.to_owned(), path),
-                        ResourceType::Font => fonts.insert(res_name.to_owned(), path),
-                        ResourceType::CustomIcon => { custom_icon = Some(path) }
+                        ResourceType::Image => { images.insert(res_name.to_owned(), path); },
+                        ResourceType::Sound => { sounds.insert(res_name.to_owned(), path); },
+                        ResourceType::Font => { fonts.insert(res_name.to_owned(), path); },
+                        ResourceType::CustomIcon => { custom_icon = Some(path); }
                     }
                 }
             }
@@ -343,16 +339,16 @@ pub enum ResourceFilesParseError {
 }
 
 impl Into<Vec<FileWrapper>> for ResourceFiles {
-    fn into(mut self) -> Vec<FileWrapper> {
+    fn into(self) -> Vec<FileWrapper> {
         let mut result = Vec::new();
 
         if let Some(custom_icon) = self.custom_icon {
             result.push(custom_icon);
         }
 
-        result.append(self.images.values().collect());
-        result.append(self.sounds.values().collect());
-        result.append(self.fonts.values().collect());
+        result.append(&mut self.images.into_values().collect());
+        result.append(&mut self.sounds.into_values().collect());
+        result.append(&mut self.fonts.into_values().collect());
 
         result
     }
