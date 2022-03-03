@@ -71,10 +71,11 @@ impl RawSketchwareProject {
         view: Vec<u8>,
         logic: Vec<u8>,
         resources: Vec<PathBuf>
-    ) -> Result<Self, FromUtf8Error> {
+    ) -> Result<Self, CryptoError> {
         macro_rules! decrypt {
             ($name_ident:ident, $name:expr) => {
-                String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)?
+                String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)
+                    .map_err(CryptoError::FromUtf8Error)?
             }
         }
 
