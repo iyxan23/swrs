@@ -3,6 +3,7 @@ pub mod view;
 pub mod block;
 pub mod component;
 
+use std::path::PathBuf;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::{Event, MoreBlock, Screen, ScreenConstructionError};
@@ -17,7 +18,7 @@ use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
-use crate::parser::{RawSketchwareProject, SketchwareProjectReconstructionError};
+use crate::parser::{ResourceFileWrapper, RawSketchwareProject, ResourceType, SketchwareProjectReconstructionError};
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 use crate::parser::view::Layout;
@@ -97,15 +98,128 @@ pub struct CustomView {
 }
 
 /// A model that stores data of resources
-///
-/// Each `LinkedHashMap`s are a map of resource name (the name defined in the res folder) and
-/// resource full name (the actual filename)
-// todo: actually implement a resource system
 #[derive(Debug, Clone, PartialEq)]
 pub struct Resources {
-    pub images: LinkedHashMap<String, String>,
-    pub sounds: LinkedHashMap<String, String>,
-    pub fonts: LinkedHashMap<String, String>,
+    pub custom_icon: Option<ResourceFileWrapper>,
+    images: LinkedHashMap<ResourceId, ResourceFileWrapper>,
+    sounds: LinkedHashMap<ResourceId, ResourceFileWrapper>,
+    fonts: LinkedHashMap<ResourceId, ResourceFileWrapper>,
+}
+
+/// A newtype struct of a resource id, used in [`Resources`]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ResourceId(pub String);
+
+impl Resources {
+    /// Retrieves a resource using a [`ResourceId`]
+    pub fn get_resource(&self, id: &ResourceId) -> Option<(&ResourceFileWrapper, ResourceType)> {
+        if let Some(image) = self.images.get(id) {
+            return Some((image, ResourceType::Image));
+        }
+
+        if let Some(sound) = self.sounds.get(id) {
+            return Some((sound, ResourceType::Sound));
+        }
+
+        if let Some(font) = self.fonts.get(id) {
+            return Some((font, ResourceType::Font));
+        }
+
+        None
+    }
+
+    /// Removes a resource from the given [`ResourceId`]
+    pub fn remove_resource(&mut self, id: &ResourceId) -> Option<(ResourceFileWrapper, ResourceType)> {
+        if let Some(image) = self.images.remove(id) {
+            return Some((image, ResourceType::Image));
+        }
+
+        if let Some(sound) = self.sounds.remove(id) {
+            return Some((sound, ResourceType::Sound));
+        }
+
+        if let Some(font) = self.fonts.remove(id) {
+            return Some((font, ResourceType::Font));
+        }
+
+        None
+    }
+
+    /// Puts a given resource to a given resource id and type
+    ///
+    /// Will not do any path checks (except file existence) on the file given if it is a real file
+    /// (as opposed to the TryFrom impl of [`crate::parser::ResourceFiles`])
+    ///
+    /// `res_type` of the given ResourceFileWrapper will be set to this function's `res_type`
+    /// argument
+    ///
+    /// **BIG NOTE**: `res_full_name` of the given ResourceFileWrapper won't be changed with the
+    /// `id` given, make sure you have set it to the correct file name and placed it in a resource
+    /// folder where it belongs (images, sounds, fonts)
+    pub fn put_resource(
+        &mut self,
+        id: ResourceId,
+        mut file: ResourceFileWrapper,
+        res_type: ResourceType
+    ) -> Result<(), ResourceAdditionError> {
+        if let ResourceType::CustomIcon = res_type {
+            panic!("yo can't put a custom icon here (╯°□°）╯︵ ┻━┻"); // small easter egg ig ;)
+        }
+
+        // check if file exists if the file is a real file
+        if let ResourceFileWrapper::Path(path) = file.to_owned() {
+            if !path.exists() {
+                return Err(ResourceAdditionError::FileDoesntExist { path });
+            }
+        }
+
+        // big warning: don't get confused with resource id and file wrapper id
+
+        // re-set the res_type if this file is a StringId
+        if let ResourceFileWrapper::StringId { id: file_id, res_full_name, .. } = &file {
+            file = ResourceFileWrapper::StringId {
+                id: file_id.to_owned(),
+                res_full_name: res_full_name.to_owned(),
+                res_type
+            };
+        }
+
+        // re-set the res_type if this file is a U32Id
+        if let ResourceFileWrapper::U32Id { id: file_id, res_full_name, .. } = &file {
+            file = ResourceFileWrapper::U32Id {
+                id: file_id.to_owned(),
+                res_full_name: res_full_name.to_owned(),
+                res_type
+            };
+        }
+
+        // check if there is already a resource file with this id
+        if self.images.contains_key(&id) {
+            return Err(ResourceAdditionError::IdTaken { id });
+        }
+
+        match res_type {
+            ResourceType::Image => { self.images.insert(id, file); }
+            ResourceType::Sound => { self.sounds.insert(id, file); }
+            ResourceType::Font  => { self.fonts.insert(id, file); }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    pub fn get_images(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.images }
+    pub fn get_sounds(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.sounds }
+    pub fn get_fonts (&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.fonts  }
+}
+
+#[derive(Error, Debug)]
+pub enum ResourceAdditionError {
+    #[error("resource id `{}` is already taken", 0.0)]
+    IdTaken { id: ResourceId },
+
+    #[error("file `{path:?}` does not exist")]
+    FileDoesntExist { path: PathBuf },
 }
 
 /// A sketchware project
@@ -173,11 +287,20 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
         }
 
         macro_rules! resources_conv {
-            ($res_name:ident) => {{
-                val.resource.$res_name
-                    .drain(..)
-                    .map(|ResourceItem { full_name, name, .. }| (name, full_name))
-                    .collect()
+            ($res_type:ident, $res_type_c:ident) => {{
+                val.resource.$res_type
+                    .into_iter()
+                    .map(|ResourceItem { full_name, name, .. }|{
+                        let resource = val.resource_files.$res_type.remove(&full_name)
+                            .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
+                                res_name: name.to_owned(),
+                                res_full_name: full_name,
+                                res_type: ResourceType::$res_type_c
+                            })?;
+
+                        Ok((ResourceId(name), resource))
+                    })
+                    .collect::<Result<LinkedHashMap<_, _>, _>>()?
             }}
         }
 
@@ -277,9 +400,10 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 }),
             },
             resources: Resources {
-                images: resources_conv!(images),
-                sounds: resources_conv!(sounds),
-                fonts: resources_conv!(fonts),
+                custom_icon: val.resource_files.custom_icon,
+                images: resources_conv!(images, Image),
+                sounds: resources_conv!(sounds, Sound),
+                fonts: resources_conv!(fonts, Font),
             }
         })
     }
@@ -310,6 +434,13 @@ pub enum APISketchwareProjectConversionError {
     InvalidUseYNValue {
         library_name: String,
         value: String
+    },
+
+    #[error("couldn't find a resource file matching with id `{res_name}`")]
+    MissingResourceFile {
+        res_name: String,
+        res_full_name: String,
+        res_type: ResourceType,
     }
 }
 
@@ -326,8 +457,8 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
         macro_rules! resource_conv {
             ($name:ident) => {{
                 val.resources.$name
-                    .drain()
-                    .map(|(full_name, name)| ResourceItem { full_name, name, r#type: 1 })
+                    .into_iter()
+                    .map(|(id, file)| ResourceItem { full_name: file.get_full_name().to_owned(), name: id.0, r#type: 1 })
                     .collect()
             }}
         }
@@ -461,9 +592,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 version_code: val.metadata.version_code,
                 version_name: val.metadata.version_name,
                 date_created: val.metadata.time_created,
-                custom_icon: false,
-                // todo: this is temporarily hardcoded, we'll do the actual
-                //       thing once we get resource management implemented
+                custom_icon: val.resources.custom_icon.is_some(),
                 color_palette: parser::project::ProjectColorPalette {
                     color_primary: val.colors.color_primary,
                     color_primary_dark: val.colors.color_primary_dark,
@@ -562,7 +691,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
-            resource_files: Default::default()
+            resource_files: todo!("implement resource_files conversion")
         }
     }
 }
