@@ -3,6 +3,7 @@ pub mod view;
 pub mod block;
 pub mod component;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use crate::LinkedHashMap;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
@@ -18,7 +19,7 @@ use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::more_block::MoreBlockPool;
 use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
-use crate::parser::{ResourceFileWrapper, RawSketchwareProject, ResourceType, SketchwareProjectReconstructionError};
+use crate::parser::{ResourceFileWrapper, RawSketchwareProject, ResourceType, SketchwareProjectReconstructionError, ResourceFiles};
 use crate::parser::resource::{Resource, ResourceItem};
 use crate::parser::SketchwareProject as ParsedSketchwareProject;
 use crate::parser::view::Layout;
@@ -448,17 +449,30 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
     type Error = SketchwareProjectReconstructionError;
 
     fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
+        // false positive in intellij idea's rust plugin, compiles fine on rust without any warnings
         ParsedSketchwareProject::from(self).try_into()
     }
 }
 
 impl From<SketchwareProject> for ParsedSketchwareProject {
-    fn from(mut val: SketchwareProject) -> Self {
+    fn from(val: SketchwareProject) -> Self {
+        // these hashmaps are filled as the resources are filled
+        let mut image_resource_files = HashMap::new();
+        let mut sound_resource_files = HashMap::new();
+        let mut font_resource_files = HashMap::new();
+
         macro_rules! resource_conv {
-            ($name:ident) => {{
+            ($name:ident, $resource_files_hmap:ident) => {{
                 val.resources.$name
                     .into_iter()
-                    .map(|(id, file)| ResourceItem { full_name: file.get_full_name().to_owned(), name: id.0, r#type: 1 })
+                    .map(|(id, file)| {
+                        let full_name = file.get_full_name();
+                        $resource_files_hmap.insert(full_name.to_owned(), file);
+
+                        ResourceItem {
+                            full_name: full_name, name: id.0, r#type: 1
+                        }
+                    })
                     .collect()
             }}
         }
@@ -682,16 +696,21 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 },
             },
             resource: Resource {
-                images: resource_conv!(images),
-                sounds: resource_conv!(sounds),
-                fonts: resource_conv!(fonts)
+                images: resource_conv!(images, image_resource_files),
+                sounds: resource_conv!(sounds, sound_resource_files),
+                fonts: resource_conv!(fonts, font_resource_files)
             },
             view: parser::view::View {
                 layouts,
                 fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
-            resource_files: todo!("implement resource_files conversion")
+            resource_files: ResourceFiles {
+                custom_icon: val.custom_icon,
+                images: image_resource_files,
+                sounds: sound_resource_files,
+                fonts: font_resource_files
+            }
         }
     }
 }
