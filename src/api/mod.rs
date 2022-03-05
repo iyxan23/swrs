@@ -100,7 +100,6 @@ pub struct CustomView {
 /// A model that stores data of resources
 #[derive(Debug, Clone, PartialEq)]
 pub struct Resources {
-    pub custom_icon: Option<ResourceFileWrapper>,
     images: LinkedHashMap<ResourceId, ResourceFileWrapper>,
     sounds: LinkedHashMap<ResourceId, ResourceFileWrapper>,
     fonts: LinkedHashMap<ResourceId, ResourceFileWrapper>,
@@ -225,6 +224,7 @@ pub enum ResourceAdditionError {
 /// A sketchware project
 #[derive(Debug, Clone, PartialEq)]
 pub struct SketchwareProject {
+    pub custom_icon: Option<ResourceFileWrapper>,
     pub metadata: Metadata,
     pub colors: Colors,
     pub screens: Vec<screen::Screen>,
@@ -364,6 +364,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             })?;
 
         Ok(SketchwareProject {
+            custom_icon: val.resource_files.custom_icon,
             metadata: Metadata {
                 local_id: val.project.id,
                 name: val.project.app_name,
@@ -400,7 +401,6 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 }),
             },
             resources: Resources {
-                custom_icon: val.resource_files.custom_icon,
                 images: resources_conv!(images, Image),
                 sounds: resources_conv!(sounds, Sound),
                 fonts: resources_conv!(fonts, Font),
@@ -592,7 +592,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 version_code: val.metadata.version_code,
                 version_name: val.metadata.version_name,
                 date_created: val.metadata.time_created,
-                custom_icon: val.resources.custom_icon.is_some(),
+                custom_icon: val.custom_icon.is_some(),
                 color_palette: parser::project::ProjectColorPalette {
                     color_primary: val.colors.color_primary,
                     color_primary_dark: val.colors.color_primary_dark,
