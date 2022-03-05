@@ -9,7 +9,7 @@ use crate::parser::logic::list_variable::ListVariablePoolParseError;
 use crate::parser::logic::more_block::MoreBlockPoolParseError;
 use crate::parser::logic::variable::VariablePoolParseError;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Logic {
     /// All the logic of each screens
     ///
@@ -319,7 +319,7 @@ pub enum LogicReconstructionError {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ScreenLogic {
     pub name: String,
     pub block_containers: LinkedHashMap<String, BlockContainer>,
@@ -351,7 +351,7 @@ pub mod variable {
     use crate::parser::Parsable;
     use thiserror::Error;
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct VariablePool(pub LinkedHashMap<String, Variable>);
 
     impl VariablePool {
@@ -503,7 +503,7 @@ pub mod list_variable {
     /// Represents a list variable pool
     ///
     /// `0: HashMap<String, ListVariable>` is a map of variable name -> [`ListVariable`]
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct ListVariablePool(pub LinkedHashMap<String, ListVariable>);
 
     impl ListVariablePool {
@@ -621,7 +621,7 @@ pub mod component {
     use crate::parser::Parsable;
     use thiserror::Error;
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct ComponentPool(pub Vec<Component>);
 
     impl ComponentPool {
@@ -759,7 +759,7 @@ pub mod more_block {
     use crate::parser::Parsable;
     use thiserror::Error;
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct MoreBlockPool(pub LinkedHashMap<String, MoreBlock>);
 
     impl MoreBlockPool {
@@ -883,7 +883,7 @@ pub mod event {
     use crate::parser::Parsable;
     use thiserror::Error;
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct EventPool(pub Vec<Event>);
 
     impl EventPool {

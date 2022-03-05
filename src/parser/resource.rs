@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use super::Parsable;
 use thiserror::Error;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Resource {
     pub images: Vec<ResourceItem>,
     pub sounds: Vec<ResourceItem>,

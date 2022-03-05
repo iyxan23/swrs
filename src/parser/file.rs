@@ -3,7 +3,7 @@ use serde_repr::{Serialize_repr, Deserialize_repr};
 use thiserror::Error;
 use super::Parsable;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct File {
     pub activities: Vec<FileItem>,
     pub custom_views: Vec<FileItem>,

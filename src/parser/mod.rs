@@ -33,6 +33,7 @@ where Self: Sized {
 }
 
 /// Represents a raw (un-parsed) sketchware project
+#[derive(Debug, Clone, PartialEq)]
 pub struct RawSketchwareProject {
     pub project: String,
     pub file: String,
@@ -90,6 +91,7 @@ impl RawSketchwareProject {
 /// Represents a parsed sketchware project that contains
 /// [`project::Project`], [`file::File`], [`library::Library`], [`resource::Resource`],
 /// [`view::View`], and [`logic::Logic`]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SketchwareProject {
     pub project: project::Project,
     pub file: file::File,

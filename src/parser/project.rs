@@ -3,7 +3,7 @@ use crate::parser::serde_util::{string_to_u16, date_to_timestamp};
 use crate::color::Color;
 use super::Parsable;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Project {
     #[serde(rename = "sc_id")]
     #[serde(with = "string_to_u16")]
@@ -37,7 +37,7 @@ pub struct Project {
     pub sketchware_version: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ProjectColorPalette {
     pub color_primary: Color,
     pub color_primary_dark: Color,

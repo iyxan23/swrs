@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use super::Parsable;
 use thiserror::Error;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Library {
     pub firebase_db: LibraryItem,
     pub compat: LibraryItem,
@@ -122,7 +122,7 @@ pub enum LibraryReconstructionError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryItem {
     pub ad_units: Vec<AdUnit>,
