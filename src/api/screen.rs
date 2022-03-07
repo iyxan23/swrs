@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::LinkedHashMap;
 use crate::api::block::{BlockConversionError, Blocks};
-use crate::api::block::spec::{Spec, SpecParseError};
+use crate::api::block::block_content::{BlockContent, BlockContentParseError};
 use crate::api::component::{ComponentKind, UnknownComponentType};
 use crate::api::view::{parse_raw_layout, ParseLayoutError, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
@@ -57,7 +57,7 @@ pub struct Screen {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MoreBlock {
     pub name: String,
-    pub spec: Spec,
+    pub spec: BlockContent,
     pub code: Blocks,
 }
 
@@ -205,7 +205,7 @@ impl Screen {
                 .map(|(mb_id, mb)|
                     Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
                         name: mb_id.to_owned(),
-                        spec: Spec::from_str(&*mb.spec)
+                        spec: BlockContent::from_str(&*mb.spec)
                             .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
                                 moreblock_id: mb_id.to_owned(),
                                 source: err
@@ -271,7 +271,7 @@ pub enum ScreenConstructionError {
     #[error("error while parsing the spec of the moreblock with id `{moreblock_id}`")]
     MoreBlockSpecParseError {
         moreblock_id: String,
-        source: SpecParseError
+        source: BlockContentParseError
     },
 
     #[error("error while parsing the blocks of container `{container_name}`")]
