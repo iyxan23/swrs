@@ -621,10 +621,10 @@ pub mod block_content {
                     name,
                     // .map wont work since i need to propagate the Error
                     value: if let Some(args) = arguments {
+                        if args.is_empty() { Err(SpecItemParseError::NotEnoughArgs)? }
+
                         Some(FieldValue::parse_from(
-                            args.pop()
-                                .ok_or_else(|| SpecItemParseError::NotEnoughArgs)?
-                                .as_str(),
+                            args.remove(0).as_str(),
                             get_block)?)
                     } else { None }
                 }
