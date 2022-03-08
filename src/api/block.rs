@@ -504,22 +504,18 @@ pub mod block_content {
             arguments: Option<Vec<String>>,
             mut get_block: F
         ) -> Result<Self, BlockContentParseError> {
-            // println!("\n[ CALL ] parse_from, given args: {:?}", arguments);
-            let result = Vec::new();
+            let mut result = Vec::new();
             let arguments = RefCell::new(arguments);
 
             for (idx, value) in spec.split(" ").enumerate() {
-                // println!("loop on idx {}, val: {}", idx, value);
-                SpecItem::parse_from(value, &mut arguments.borrow_mut(), &mut get_block)
-                    .map_err(|err| BlockContentParseError::SpecItemParseError {
-                        index: idx as u32,
-                        source: err
-                    })?;
-
-                // println!(" -> args now: {:?}", arguments.borrow())
+                result.push(
+                    SpecItem::parse_from(value, &mut arguments.borrow_mut(), &mut get_block)
+                        .map_err(|err| BlockContentParseError::SpecItemParseError {
+                            index: idx as u32,
+                            source: err
+                        })?
+                );
             }
-
-            // println!("[ END CALL ]\n");
 
             Ok(BlockContent { items: result })
         }
