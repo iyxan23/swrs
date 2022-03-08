@@ -4,6 +4,7 @@ use crate::LinkedHashMap;
 use crate::color::Color;
 use crate::parser::logic::BlockContainer;
 use thiserror::Error;
+use crate::api::block::block_content::FieldValue;
 
 type ParserBlock = crate::parser::logic::Block;
 
@@ -283,49 +284,66 @@ impl Into<BlockContainer> for Blocks {
     fn into(self) -> BlockContainer {
         let mut block_container = BlockContainer(vec![]);
 
-        fn flatten(blocks: Blocks, result: &mut BlockContainer) {
+        fn convert_block(block: Block, result: &mut Vec<ParserBlock>) {
+            // first we flatten its children
+            let mut ss_1_container = BlockContainer(vec![]);
+            let mut ss_1_id = -1i32;
+
+            if let Some(blocks) = block.sub_stack1 {
+                ss_1_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
+                flatten_blocks(blocks, &mut ss_1_container);
+            }
+
+            let mut ss_2_container = BlockContainer(vec![]);
+            let mut ss_2_id = -1i32;
+
+            if let Some(blocks) = block.sub_stack2 {
+                ss_2_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
+                flatten_blocks(blocks, &mut ss_2_container);
+            }
+
+            // do the actual block conversion
+            result.push(ParserBlock {
+                color: block.color,
+                id: block.id.0.to_string(),
+                next_block: block.next_block.map(|n|n.0 as i32).unwrap_or(-1),
+                op_code: block.op_code,
+                spec: block.content.to_string(),
+                parameters: block.content.cloned_args()
+                    .into_iter()
+                    .map(|v| v.to_string())
+                    .collect(),
+                sub_stack1: ss_1_id,
+                sub_stack2: ss_2_id,
+                r#type: block.ret_type,
+                type_name: block.type_name
+            });
+
+            // after that, we parse the blocks that's in the block's fields
+            for field in block.content.cloned_args() {
+                if let FieldValue::Block(block) = field {
+                    let mut field_blk_blocks = vec![];
+                    convert_block(block, &mut field_blk_blocks);
+
+                    // and append em to our result
+                    result.append(&mut field_blk_blocks);
+                }
+            }
+
+            // then finally push its children that's in substack1 or 2
+            result.append(&mut ss_1_container.0);
+            result.append(&mut ss_2_container.0);
+
+            // remember, the order is quite important (for sketchware)
+        }
+
+        fn flatten_blocks(blocks: Blocks, result: &mut BlockContainer) {
             for block in blocks {
-                // flatten its children first
-                let mut ss_1_container = BlockContainer(vec![]);
-                let mut ss_1_id = -1i32;
-
-                if let Some(blocks) = block.sub_stack1 {
-                    ss_1_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
-                    flatten(blocks, &mut ss_1_container);
-                }
-
-                let mut ss_2_container = BlockContainer(vec![]);
-                let mut ss_2_id = -1i32;
-
-                if let Some(blocks) = block.sub_stack2 {
-                    ss_2_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
-                    flatten(blocks, &mut ss_2_container);
-                }
-
-                // do the actual block conversion
-                result.0.push(ParserBlock {
-                    color: block.color,
-                    id: block.id.0.to_string(),
-                    next_block: block.next_block.map(|n|n.0 as i32).unwrap_or(-1),
-                    op_code: block.op_code,
-                    spec: block.content.to_string(),
-                    parameters: block.content.cloned_args()
-                        .into_iter()
-                        .map(|v| v.to_string())
-                        .collect(),
-                    sub_stack1: ss_1_id,
-                    sub_stack2: ss_2_id,
-                    r#type: block.ret_type,
-                    type_name: block.type_name
-                });
-
-                // then push its children
-                result.0.append(&mut ss_1_container.0);
-                result.0.append(&mut ss_2_container.0);
+                convert_block(block, &mut result.0);
             }
         }
 
-        flatten(self, &mut block_container);
+        flatten_blocks(self, &mut block_container);
 
         block_container
     }
