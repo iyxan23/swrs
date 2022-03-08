@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::LinkedHashMap;
 use crate::api::block::{BlockConversionError, Blocks};
 use crate::api::block::block_content::{BlockContent, BlockContentParseError};
@@ -205,7 +204,7 @@ impl Screen {
                 .map(|(mb_id, mb)|
                     Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
                         name: mb_id.to_owned(),
-                        spec: BlockContent::from_str(&*mb.spec)
+                        spec: BlockContent::parse_from_wo_args(mb.spec.as_str())
                             .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
                                 moreblock_id: mb_id.to_owned(),
                                 source: err
