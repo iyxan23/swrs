@@ -493,6 +493,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
     let parent_type = parent_type.unwrap_or_else(|| 0);
 
     let mut result = Vec::<AndroidView>::new();
+    let mut children_result = Vec::<AndroidView>::new();
 
     for view in views {
         // get the raw view old
@@ -531,15 +532,20 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
         // done, push it to the result
         result.push(result_view);
 
-        // and also recursively flatten the children
-        result.append(
-            &mut flatten_views(
-                view.children,
-                Some(view.id),
-                Some(view.view_type)
+        // and also recursively flatten the children if there is any
+        if !view.children.is_empty() {
+            children_result.append(
+                &mut flatten_views(
+                    view.children,
+                    Some(view.id),
+                    Some(view.view_type)
+                )
             )
-        )
+        }
     }
+
+    // finally add the children views into the final result
+    result.append(&mut children_result);
 
     result
 }
