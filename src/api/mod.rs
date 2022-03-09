@@ -526,10 +526,11 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 events
                     .into_iter()
                     .map(|event| {
+                        let block_container_id = event.get_block_container_id();
                         let (event, blocks) = event.into_parser_event();
 
                         let block_container = blocks.into();
-                        block_containers.insert(event.event_name.to_owned(), block_container);
+                        block_containers.insert(block_container_id, block_container);
 
                         event
                     })
