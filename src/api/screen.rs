@@ -240,7 +240,7 @@ impl Screen {
                     let code = logic_entry.block_containers
                         .remove(event.get_block_container_id().as_str())
                         .ok_or_else(||ScreenConstructionError::MissingBlocks {
-                            event_name: event.name.to_owned()
+                            event_id: event.get_block_container_id()
                         })?;
 
                     event.code = Blocks::try_from(code)
@@ -285,9 +285,9 @@ pub enum ScreenConstructionError {
     #[error("{0}")]
     UnknownComponentType(#[from] UnknownComponentType),
 
-    #[error("couldn't find the block container of event `{event_name}`")]
+    #[error("couldn't find the block container of event `{event_id}`")]
     MissingBlocks {
-        event_name: String
+        event_id: String
     },
 
     #[error("error while parsing the layout: `{0:?}`")]
