@@ -1,4 +1,3 @@
-use crate::LinkedHashMap;
 use crate::color::Color;
 use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
 use crate::parser::view::Layout;
@@ -450,7 +449,7 @@ pub enum ViewTypeConversionError {
 /// You might expect this function to return a single view because a layout only has one single
 /// root view, but no, sketchware hardcodes the root view and it only stores its children.
 pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutError> {
-    let mut result = LinkedHashMap::<String, View>::new();
+    let mut result = Vec::<View>::new();
 
     for view in screen_view.0 {
         let parent_id =
@@ -459,9 +458,9 @@ pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutErr
             })?;
 
         if parent_id == "root" {
-            result.insert(view.id.to_owned(), view.into());
+            result.push(view.into());
         } else {
-            let parent = result.get_mut(parent_id)
+            let parent = result.iter_mut().find_map(|i|i.find_id_mut(&parent_id))
                 .ok_or_else(||ParseLayoutError::NonexistentParent {
                     view_id: view.id.to_owned(),
                     parent_id: parent_id.to_owned()
@@ -471,7 +470,7 @@ pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutErr
         }
     }
 
-    Ok(result.into_iter().map(|(_, v)| v).collect())
+    Ok(result)
 }
 
 #[derive(Error, Debug)]
