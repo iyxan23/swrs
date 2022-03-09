@@ -594,6 +594,14 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 );
             }
 
+            // don't forget about the custom views
+            for custom_view in val.custom_views {
+                layouts.insert(
+                    custom_view.res_name,
+                    Layout(view::flatten_views(custom_view.layout, None, None))
+                );
+            }
+
             (logic_screens, layouts, fabs)
         };
 
