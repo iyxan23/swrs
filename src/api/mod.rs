@@ -493,10 +493,10 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                     orientation: screen.orientation,
                     theme: screen.theme
                 }).collect(),
-                val.screens
+                val.custom_views
                     .iter()
                     .map(|custom_view| FileItem {
-                        filename: custom_view.layout_name.to_owned(),
+                        filename: custom_view.res_name.to_owned(),
                         file_type: FileType::CustomView,
                         keyboard_setting: KeyboardSetting::Unspecified,
                         options: ActivityOptions {
