@@ -572,11 +572,14 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
 
             for screen in val.screens {
                 if let Some(fab) = screen.fab {
-                    fabs.insert(
-                        screen.layout_name.to_owned(),
-                        flatten_views(vec![fab], None, None)
-                            .remove(0)
-                    );
+                    let mut fab_view = flatten_views(vec![fab], None, None)
+                        .remove(0);
+
+                    // these values are specifically set for the fab view
+                    fab_view.parent = None;
+                    fab_view.parent_type = -1;
+
+                    fabs.insert(screen.layout_name.to_owned(), fab_view);
                 }
 
                 logic_screens.insert(screen.java_name.to_owned(), to_screen_logic(
