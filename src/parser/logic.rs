@@ -1073,6 +1073,10 @@ impl Parsable for BlockContainer {
     }
 }
 
+impl Default for BlockContainer {
+    fn default() -> Self { BlockContainer(vec![]) }
+}
+
 #[derive(Error, Debug)]
 #[error("error while parsing a block of a block container")]
 pub struct BlockContainerParseError {

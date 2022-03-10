@@ -259,9 +259,7 @@ impl Screen {
 
                     let code = logic_entry.block_containers
                         .remove(event.get_block_container_id().as_str())
-                        .ok_or_else(||ScreenConstructionError::MissingBlocks {
-                            event_id: event.get_block_container_id()
-                        })?;
+                        .unwrap_or_default();
 
                     event.code = Blocks::try_from(code)
                         .map_err(|err| ScreenConstructionError::BlocksParseError {
@@ -304,11 +302,6 @@ pub enum ScreenConstructionError {
 
     #[error("{0}")]
     UnknownComponentType(#[from] UnknownComponentType),
-
-    #[error("couldn't find the block container of event `{event_id}`")]
-    MissingBlocks {
-        event_id: String
-    },
 
     #[error("error while parsing the layout: `{0:?}`")]
     LayoutParseError(#[from] ParseLayoutError)
