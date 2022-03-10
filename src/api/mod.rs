@@ -548,7 +548,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         let (more_block, blocks) = more_block.into_parser_more_block();
 
                         let block_container = blocks.into();
-                        block_containers.insert(id.to_owned(), block_container);
+                        block_containers.insert(format!("{}_moreBlock", &id), block_container);
 
                         (id, more_block)
                     })
