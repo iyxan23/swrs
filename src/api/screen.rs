@@ -9,6 +9,7 @@ use crate::parser::logic::list_variable::ListVariable;
 use crate::parser::logic::variable::Variable;
 use crate::parser::view::Layout as ViewScreen;
 use thiserror::Error;
+use crate::parser::logic::event::EventPool;
 
 /// A model that represents a screen / activity in a project
 #[derive(Debug, Clone, PartialEq)]
@@ -81,7 +82,6 @@ pub struct Event {
 impl Event {
     /// Generates the block container id from the event name and type
     pub fn get_block_container_id(&self) -> String {
-        // todo: check component event and other activity events
         match &self.event_type {
             EventType::ViewEvent { id } => format!("{}_{}", id, self.name),
             EventType::ComponentEvent { id, .. } => format!("{}_{}", id, self.name),
@@ -188,6 +188,26 @@ impl Screen {
         mut logic_entry: ScreenLogic,
         fab: Option<View>,
     ) -> Result<Self, ScreenConstructionError> {
+        // onCreate is special (i hate this), its not defined in events, but can appear as a block
+        // container.
+        //
+        // what we're doing here is creating an event for onCreate if there is an onCreate block
+        // container in this screen so the code after this can recognize it
+        //
+        // (this event will be removed on reconstruction)
+        if logic_entry.block_containers.contains_key("onCreate_initializeLogic") {
+            // make an event pool if there is none
+            if logic_entry.events.is_none() { logic_entry.events = Some(EventPool::default()) }
+            if let Some(events) = &mut logic_entry.events {
+                events.0.insert(0, ParserEvent {
+                    event_name: "onCreate".to_string(),
+                    event_type: 3,
+                    target_id: "onCreate".to_string(),
+                    target_type: 0
+                })
+            }
+        }
+
         Ok(Screen {
             layout_name,
             java_name: logic_name,

@@ -525,14 +525,18 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
             let parser_events =
                 events
                     .into_iter()
-                    .map(|event| {
+                    .filter_map(|event| {
                         let block_container_id = event.get_block_container_id();
                         let (event, blocks) = event.into_parser_event();
 
                         let block_container = blocks.into();
                         block_containers.insert(block_container_id, block_container);
 
-                        event
+                        // drop this event if its onCreate, but preserve the block container
+                        // see `api::screen::Screen::from_parsed` comments for more explanation
+                        if event.event_name == "onCreate" { return None; }
+
+                        Some(event)
                     })
                     .collect::<Vec<_>>();
 
