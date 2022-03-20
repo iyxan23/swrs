@@ -232,6 +232,8 @@ pub struct SketchwareProject {
     pub custom_views: Vec<CustomView>,
     pub libraries: Libraries,
     pub resources: Resources,
+
+    automatic_res_file_ids: bool
 }
 
 // turns a view name to a logic name, something like `main` into `MainActivity`,
@@ -292,12 +294,16 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 val.resource.$res_type
                     .into_iter()
                     .map(|ResourceItem { full_name, name, .. }|{
-                        let resource = val.resource_files.$res_type.remove(&full_name)
-                            .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
-                                res_name: name.to_owned(),
-                                res_full_name: full_name,
-                                res_type: ResourceType::$res_type_c
-                            })?;
+                        let resource = if let Some(rf) = &mut val.resource_files {
+                            rf.$res_type.remove(&full_name)
+                                .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
+                                    res_name: name.to_owned(),
+                                    res_full_name: full_name,
+                                    res_type: ResourceType::$res_type_c
+                                })?
+                        } else {
+                            ResourceFileWrapper::make_random_id(full_name, ResourceType::$res_type_c)
+                        };
 
                         Ok((ResourceId(name), resource))
                     })
@@ -365,7 +371,11 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             })?;
 
         Ok(SketchwareProject {
-            custom_icon: val.resource_files.custom_icon,
+            // there might be a better way of getting a field of T from an Option<T> without needing
+            // to own Option<>
+            custom_icon: if let Some(rf) = &val.resource_files {
+                rf.custom_icon.clone()
+            } else { None },
             metadata: Metadata {
                 local_id: val.project.id,
                 name: val.project.app_name,
@@ -405,7 +415,8 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 images: resources_conv!(images, Image),
                 sounds: resources_conv!(sounds, Sound),
                 fonts: resources_conv!(fonts, Font),
-            }
+            },
+            automatic_res_file_ids: val.resource_files.is_none()
         })
     }
 }
@@ -467,7 +478,10 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                     .into_iter()
                     .map(|(id, file)| {
                         let full_name = file.get_full_name();
-                        $resource_files_hmap.insert(full_name.to_owned(), file);
+
+                        if !val.automatic_res_file_ids {
+                            $resource_files_hmap.insert(full_name.to_owned(), file);
+                        }
 
                         ResourceItem {
                             full_name: full_name, name: id.0, r#type: 1
@@ -721,12 +735,12 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 fabs
             },
             logic: parser::logic::Logic { screens: logic_screens },
-            resource_files: ResourceFiles {
+            resource_files: val.automatic_res_file_ids.then(|| ResourceFiles {
                 custom_icon: val.custom_icon,
                 images: image_resource_files,
                 sounds: sound_resource_files,
                 fonts: font_resource_files
-            }
+            })
         }
     }
 }

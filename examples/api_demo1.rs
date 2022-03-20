@@ -54,7 +54,7 @@ fn main() {
 
             fn print_blocks(indentation: u32, blocks: Blocks) {
                 for block in blocks {
-                    println!("{}Block #{} opcode {}: {}", " ".repeat(indentation as usize), block.id.0, block.op_code, block.spec.to_string());
+                    println!("{}Block #{} opcode {}: {}", " ".repeat(indentation as usize), block.id.0, block.op_code, block.content.to_string());
 
                     if let Some(blocks_ss1) = block.sub_stack1 {
                         println!("{}substack1: ", " ".repeat(indentation as usize));

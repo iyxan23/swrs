@@ -43,7 +43,9 @@ pub struct RawSketchwareProject {
     pub logic: String,
 
     /// A list of resource files that belongs to this project
-    pub resource_files: Vec<ResourceFileWrapper>
+    ///
+    /// `None` means to automatically assign missing resources with a random id
+    pub resource_files: Option<Vec<ResourceFileWrapper>>
 }
 
 impl RawSketchwareProject {
@@ -57,7 +59,20 @@ impl RawSketchwareProject {
         logic: String,
         resource_files: Vec<ResourceFileWrapper>
     ) -> Self {
-        RawSketchwareProject { project, file, library, resource, view, logic, resource_files }
+        RawSketchwareProject { project, file, library, resource, view, logic, resource_files: Some(resource_files) }
+    }
+
+    /// Creates a RawSketchwareProject with the specified fields without the resource files, they
+    /// will all be assigned to random ids
+    pub fn new_wo_res(
+        project: String,
+        file: String,
+        library: String,
+        resource: String,
+        view: String,
+        logic: String,
+    ) -> Self {
+        RawSketchwareProject { project, file, library, resource, view, logic, resource_files: None }
     }
 
     pub fn from_encrypted(
@@ -83,7 +98,35 @@ impl RawSketchwareProject {
             resource: decrypt!(resource, "resource"),
             view: decrypt!(view, "view"),
             logic: decrypt!(logic, "logic"),
-            resource_files
+            resource_files: Some(resource_files)
+        })
+    }
+
+    /// Creates a RawSketchwareProject from encrypted sketchware project data without the resource
+    /// files, they will all be assigned to random ids
+    pub fn from_encrypted_wo_res(
+        project: Vec<u8>,
+        file: Vec<u8>,
+        library: Vec<u8>,
+        resource: Vec<u8>,
+        view: Vec<u8>,
+        logic: Vec<u8>,
+    ) -> Result<Self, CryptoError> {
+        macro_rules! decrypt {
+            ($name_ident:ident, $name:expr) => {
+                String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)
+                    .map_err(CryptoError::FromUtf8Error)?
+            }
+        }
+
+        Ok(RawSketchwareProject {
+            project: decrypt!(project, "project"),
+            file: decrypt!(file, "file"),
+            library: decrypt!(library, "library"),
+            resource: decrypt!(resource, "resource"),
+            view: decrypt!(view, "view"),
+            logic: decrypt!(logic, "logic"),
+            resource_files: None
         })
     }
 }
@@ -99,7 +142,10 @@ pub struct SketchwareProject {
     pub resource: resource::Resource,
     pub view: view::View,
     pub logic: logic::Logic,
-    pub resource_files: ResourceFiles,
+
+    /// The resource files attached to this project. If None, that means the resource files are
+    /// ignored
+    pub resource_files: Option<ResourceFiles>,
 }
 
 impl SketchwareProject {
@@ -124,21 +170,43 @@ impl SketchwareProject {
             logic: logic::Logic::parse(raw_swproj.logic.as_str())
                 .map_err(SketchwareProjectParseError::LogicParseError)?,
 
-            resource_files: raw_swproj.resource_files.try_into()
+            resource_files: raw_swproj.resource_files
+                .map(|r| r.try_into())
+                .transpose()
                 .map_err(SketchwareProjectParseError::ResourceFilesParseError)?,
         })
     }
 
     /// Parses a list of project data into [`SketchwareProject`]
-    pub fn parse(project: &str, file: &str, library: &str, resource: &str, view: &str, logic: &str) -> Result<Self, SketchwareProjectParseError> {
+    pub fn parse(project: String, file: String, library: String, resource: String, view: String,
+                 logic: String, resource_files: Vec<ResourceFileWrapper>)
+        -> Result<Self, SketchwareProjectParseError> {
+
         SketchwareProject::parse_from(RawSketchwareProject {
-            project: project.to_string(),
-            file: file.to_string(),
-            library: library.to_string(),
-            resource: resource.to_string(),
-            view: view.to_string(),
-            logic: logic.to_string(),
-            resource_files: vec![]
+            project,
+            file,
+            library,
+            resource,
+            view,
+            logic,
+            resource_files: Some(resource_files)
+        })
+    }
+
+    /// Parses a list of project data into [`SketchwareProject`] without resource files (they'll be
+    /// ignored on API)
+    pub fn parse_wo_res(project: String, file: String, library: String, resource: String,
+                        view: String, logic: String)
+                 -> Result<Self, SketchwareProjectParseError> {
+
+        SketchwareProject::parse_from(RawSketchwareProject {
+            project,
+            file,
+            library,
+            resource,
+            view,
+            logic,
+            resource_files: None
         })
     }
 }
@@ -166,7 +234,7 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
             logic: self.logic.reconstruct()
                 .map_err(SketchwareProjectReconstructionError::LogicReconstructionError)?,
 
-            resource_files: self.resource_files.into()
+            resource_files: self.resource_files.map(|r| r.into())
         })
     }
 }
@@ -266,6 +334,15 @@ impl ResourceFileWrapper {
 
             ResourceFileWrapper::StringId { res_full_name, .. } => { res_full_name.to_owned() }
             ResourceFileWrapper::U32Id { res_full_name, .. } => { res_full_name.to_owned() }
+        }
+    }
+
+    /// Generates a random ResourceFileWrapper::U32Id with the provided resource name and type
+    pub fn make_random_id(res_full_name: String, res_type: ResourceType) -> ResourceFileWrapper {
+        ResourceFileWrapper::U32Id {
+            id: rand::random(),
+            res_full_name,
+            res_type
         }
     }
 }
