@@ -848,7 +848,7 @@ pub mod more_block {
         type ReconstructionError = ();
 
         /// Parses a moreblock item, example:
-        /// ```
+        /// ```txt
         /// execute_shell:execute_shell %s.command
         /// ```
         fn parse(s: &str) -> Result<MoreBlock, Self::ParseError> {
