@@ -70,7 +70,7 @@ pub struct Libraries {
     pub google_map: Option<library::GoogleMap>,
 }
 
-mod library {
+pub mod library {
     #[derive(Debug, Clone, PartialEq)]
     pub struct Firebase {
         pub project_id: String,     // key: data

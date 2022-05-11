@@ -46,6 +46,18 @@ pub struct ProjectColorPalette {
     pub color_control_highlight: Color,
 }
 
+impl Default for ProjectColorPalette {
+    fn default() -> Self {
+        ProjectColorPalette {
+            color_primary: 0xff008dcd.into(),
+            color_primary_dark: 0xff0084c2.into(),
+            color_accent: 0xff008dcd.into(),
+            color_control_normal: 0xff57beee.into(),
+            color_control_highlight: 0x20008dcd.into()
+        }
+    }
+}
+
 impl Parsable for Project {
     type ParseError = serde_json::Error;
     type ReconstructionError = serde_json::Error;
