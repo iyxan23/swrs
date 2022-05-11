@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
+use std::num::ParseIntError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{Error, Visitor};
 
@@ -9,6 +10,15 @@ pub struct Color {
 }
 
 impl Color {
+    pub fn parse_hex(txt: &str) -> Result<Self, ParseIntError> {
+        let mut hex = String::new();
+        // add the transparency
+        if txt.len() == 6 { hex.push_str("ff"); }
+        hex.push_str(txt);
+
+        Ok(u32::from_str_radix(&hex, 16)?.into())
+    }
+
     pub fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
         Color { value: (0xFFu32 << 24 | (red as u32) << 16 | (green as u32) << 8 | (blue as u32) << 0) as u32 }
     }
