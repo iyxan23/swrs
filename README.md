@@ -3,26 +3,17 @@
 
 swrs is (my first) rust library that can parse and reconstruct Sketchware projects easily. You can use the provided apis ([`crate::api`](/src/api)) to modify parsed Sketchware projects and convert them back into a raw sketchware project without much hassle!
 
-This library is in **alpha**, and only supports regular Sketchware projects; this library have not been tested with modded projects - although I do have a plan to support it maybe sometime in the future. This library has been tested with multiple projects off of [Sketchub](https://sketchub.in) and parsing and reconstruction worked flawlessly.
+This library is in **alpha**, and only supports regular Sketchware projects; this library has not been tested with modded projects (although I do have a plan to support it sometime in the future). This library has been tested with multiple projects off of [Sketchub](https://sketchub.in) and parsing and reconstruction worked flawlessly.
 
-I'm going to state that this library is pretty useless; nobody uses Sketchware anymore and it's getting irrelevant as time goes on. So, don't expect me to do a lot of maintenance on this library. I mainly made this so that I could build my next project.
+I'm going to state that this library is pretty useless; not a lot of people uses Sketchware anymore and it's getting irrelevant as time goes on. So, don't expect me to do a lot of maintenance on this library. I mainly made this so that I could build my next project.
 
 ### Installation
-I don't have the courage to publish this library on crates.io, it's pretty useless anyway.
+I don't have the courage to publish this library on crates.io, it's pretty useless lol.
+
+Just clone this repo and include it in your `Cargo.toml` through `path` or using cargo workspaces.
 
 ### Usage
 ```rs
-use swrs::parser::RawSketchwareProject;
-use swrs::parser::SketchwareProject as ParserSketchwareProject;
-use swrs::api::SketchwareProject;
-
-use swrs::api::block::Blocks;
-use swrs::api::block::BlockId;
-use swrs::api::block::BlockContent;
-
-use swrs::parser::logic::variable::Variable;
-use swrs::parser::logic::variable::VariableType;
-
 // First you'll need to make a RawSketchwareProject struct instance
 // which contains unencrypted raw data of a Sketchware project
 let raw = RawSketchwareProject::from_encrypted(
@@ -34,7 +25,7 @@ let raw = RawSketchwareProject::from_encrypted(
 // Then you'll have to parse it
 let parsed = ParserSketchwareProject::parse_from(raw).except("Corrupted sketchware project");
 
-// note: ParserSketchwareProject is [`swrs::parser::SketchwareProject`]
+// !! NOTE: ParserSketchwareProject is [`swrs::parser::SketchwareProject`] !!
 // it's type aliased because it has the same name as in `swrs::api::SketchwareProject`
 
 // And convert it to an API object so that you can modify it easily
