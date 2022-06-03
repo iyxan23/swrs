@@ -43,19 +43,23 @@ pub struct View {
     /// The view-type-specific fields are stored in this enum in this result.
     ///
     /// This is stored in a result type because it doesn't really matter in the tree parsing process
+    ///
+    /// Special note: the resulting reconstructed view's type field is dependent this field; unless
+    /// it's an `Err`, in which case the type field on the raw field is used.
     pub view: Result<ViewType, ViewTypeConversionError>,
 
     /// The children of this view
     pub children: Vec<View>,
 
     /// The raw view of this View. This may be used to access every fields of this view in its raw
-    /// form. Changes made on fields that are already exposed on the API (such as a specific view
-    /// type field, or for example, padding and margin (stuff that are already exposed in this
-    /// struct)) are NOT going to be accounted in the reconstruction of this view.
+    /// form. Changes made on fields are then reflected on the view reconstruction result, except
+    /// for fields that are already exposed on the API (such as a specific view type field, or stuff
+    /// like padding and margin (stuff that are already exposed in this struct)).
+    ///
+    /// Special note for the type field: the resulting reconstructed view's type field is dependent
+    /// on the view field of this struct; unless it's an `Err`, in which case the type field in here
+    /// is used.
     pub raw: AndroidView,
-
-    /// The type of this view in its id form
-    view_type: u8,
 }
 
 impl View {
@@ -106,8 +110,7 @@ impl From<AndroidView> for View {
             layout_gravity: value.layout.layout_gravity,
             view: ViewType::from_view(&value),
             children: vec![],
-            raw: value.clone(),
-            view_type: value.r#type
+            raw: value,
         }
     }
 }
@@ -317,6 +320,29 @@ impl ViewType {
         })
     }
 
+    /// Gets the type id of this view
+    pub fn get_type_id(&self) -> u8 {
+        match self {
+            ViewType::LinearLayout { .. }   => 0,
+            ViewType::ScrollView { .. }     => 2,
+            ViewType::Button { .. }         => 3,
+            ViewType::TextView { .. }       => 4,
+            ViewType::EditText { .. }       => 5,
+            ViewType::ImageView { .. }      => 6,
+            ViewType::WebView               => 7,
+            ViewType::ProgressBar { .. }    => 8,
+            ViewType::ListView { .. }       => 9,
+            ViewType::Spinner { .. }        => 10,
+            ViewType::CheckBox { .. }       => 11,
+            ViewType::Switch { .. }         => 12,
+            ViewType::SeekBar { .. }        => 13,
+            ViewType::CalendarView { .. }   => 14,
+            ViewType::Fab { .. }            => 15,
+            ViewType::AdView { .. }         => 16,
+            ViewType::MapView               => 17,
+        }
+    }
+
     /// Applies the specific values of a ViewType to the given view
     pub fn apply_values_to_view(self, view: &mut AndroidView) {
         match self {
@@ -501,14 +527,24 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
 
         // set our id, type and parent just to make sure those cheeky hackers tries to change it
         result_view.id = view.id.to_owned();
-        result_view.r#type = view.view_type;
         result_view.parent = Some(parent_id.clone());
         result_view.parent_type = parent_type as i8;
 
-        // then apply the view type
-        if let Ok(view_type) = view.view {
-            view_type.apply_values_to_view(&mut result_view)
-        }
+        // Gets the type id from the view type that is in the `view` field. If it's an Err, will
+        // fallback to the type field from the raw view.
+        //
+        // also overwrite values from the view-specific fields to the raw view
+        let view_type_id = if let Ok(view_type) = view.view {
+            // set the type id to the one from view
+            let type_id = view_type.get_type_id();
+
+            view_type.apply_values_to_view(&mut result_view);
+
+            type_id
+        } else {
+            // use the one in the raw view
+            result_view.r#type
+        };
 
         // and then just map the variables
         result_view.layout.height = view.height;
@@ -538,7 +574,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
                 &mut flatten_views(
                     view.children,
                     Some(view.id),
-                    Some(view.view_type)
+                    Some(view_type_id)
                 )
             )
         }

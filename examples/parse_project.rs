@@ -1,7 +1,6 @@
 extern crate swrs;
 
 use std::fs;
-use swrs::color::Color;
 use swrs::parser::Parsable;
 use swrs::parser::project::Project;
 
