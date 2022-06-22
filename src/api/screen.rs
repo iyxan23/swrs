@@ -224,7 +224,7 @@ impl Screen {
                 .map(|(mb_id, mb)|
                     Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
                         name: mb_id.to_owned(),
-                        spec: BlockContent::parse_from_wo_args(mb.spec.as_str())
+                        spec: BlockContent::new(mb.spec.as_str())
                             .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
                                 moreblock_id: mb_id.to_owned(),
                                 source: err
