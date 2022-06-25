@@ -1,7 +1,7 @@
 use std::collections::btree_map::Range;
-use std::collections::{Bound, BTreeMap};
+use std::collections::{Bound, BTreeMap, HashMap};
 use std::num::ParseIntError;
-use std::ops::RangeBounds;
+use std::ops::{Neg, RangeBounds};
 use std::str::FromStr;
 use thiserror::Error;
 use crate::color::Color;
@@ -10,10 +10,25 @@ use crate::parser::logic::BlockContainer;
 /// The default start id of a [`Blocks`]
 const DEFAULT_BLOCK_ID_START: BlockId = BlockId(10);
 
+// todo: block_content params
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Blocks {
     blocks: BTreeMap<BlockId, BlockEntry>,
+
+    // todo: get rid of this
     starting_id: BlockId,
+
+    // future me: a way to store where the sub stacks and params are, right in here
+    // i think its better to move it out of BlockEntry
+    // something like
+    //                     block id   ss1      ss2
+    // sub_stacks: BTreeMap<BlockId, (BlockId, Option<BlockId>)>
+    //    BTreeMap because then we can like search for the closest block that has a substack or
+    //    something
+    //
+    //               param block id  parent block id
+    // parameters: BTreeMap<BlockId, BlockId>
 }
 
 impl Blocks {
@@ -30,24 +45,90 @@ impl Blocks {
         Self { blocks: BTreeMap::new(), starting_id }
     }
 
-    /// Compacts blocks after the specified id.
+    /// Compacts blocks after the specified id that will start with the given starting id.
+    ///
+    /// ### Panics
+    /// Panics when the `start: BlockId` starting point falls below the starting id of this [`Blocks`]
     ///
     /// ### Examples
     /// ```txt
     /// a = [10, 11, 14, 16, 30, 31, 32, 35]
-    /// a.compact(after: None)
+    /// a.compact_blocks(after: None, start: None)
     /// a -> [10, 11, 12, 13, 14, 15, 16, 17]
     /// ```
     /// ```txt
     /// a = [10, 11, 14, 16, 30, 31, 32, 35]
-    /// a.compact(after: Some(16))
+    /// a.compact_blocks(after: Some(16), start: None)
     ///
     /// a -> [10, 11, 14, 16, 30, 31, 32, 35]
     ///                       vv  vv  vv  vv
     /// a -> [10, 11, 14, 16, 17, 18, 19, 20]
     /// ```
-    pub fn compact_blocks(&mut self, after: Option<BlockId>) {
-        todo!()
+    /// ```txt
+    /// a = [10, 11, 14, 16, 30, 31, 32, 35]
+    /// a.compact_blocks(after: Some(16), start: Some(20))
+    ///
+    /// a -> [10, 11, 14, 16, 30, 31, 32, 35]
+    ///                       vv  vv  vv  vv
+    /// a -> [10, 11, 14, 16, 20, 21, 22, 23]
+    /// ```
+    pub fn compact_blocks(&mut self, after: Option<BlockId>, start: Option<BlockId>) {
+        // todo: account for sub stack id change
+        if let Some(start) = start {
+            if start < self.starting_id {
+                panic!(
+                    "starting id cannot be below the starting id of this Blocks. starting id: " +
+                    "{:?}, given start id: {:?}", self.starting_id, start
+                )
+            }
+        }
+
+        let after = after.unwrap_or_else(|| self.starting_id);
+        let entries = self.blocks
+            .range(after..)
+            .collect::<Vec<(&BlockId, &BlockEntry)>>();
+
+        // this hashmap is used to make blocks that have sub stacks react to the change of the sub
+        // stack block id's change being compacted
+        //
+        //                     ss block id > block id, sub stack number
+        let mut sub_stacks: HashMap<BlockId, (BlockId, u8)> = HashMap::new();
+        let mut current_new_id = start.unwrap_or_else(|| after.increment());
+
+        for (block_id, _) in entries {
+            let mut block = self.blocks.remove(block_id).unwrap();
+
+            block.id = current_new_id;
+
+            let sub_stack1 = block.sub_stack1;
+            let sub_stack2 = block.sub_stack2;
+
+            self.blocks.insert(current_new_id, block);
+
+            // check if this is any of the sub stack id referenced before
+            if let Some((id, ss_number)) = sub_stacks.remove(&current_new_id) {
+                let block = self.blocks.get_mut(&id).unwrap();
+
+                if ss_number == 1 {
+                    block.sub_stack1
+                } else if ss_number == 2 {
+                    block.sub_stack2
+                } else {
+                    unreachable!("hamburger cheeseburger big mac whopper")
+                } = Some(current_new_id);
+            }
+
+            // add our own sub stack just if we will ever encounter them after this
+            if let Some(ss1_id) = sub_stack1 {
+                sub_stacks.insert(ss1_id, (current_new_id, 1));
+            }
+
+            if let Some(ss2_id) = sub_stack2 {
+                sub_stacks.insert(ss2_id, (current_new_id, 2));
+            }
+
+            current_new_id.increment();
+        }
     }
 
     /// Inserts another [`Blocks`] chain after the specified block id. The remained blocks after the
@@ -55,6 +136,8 @@ impl Blocks {
     /// and so does the newly inserted blocks.
     ///
     /// Inserting blocks inside a block's substack will change the block's substack position as well
+    ///
+    /// Returns the id of the start of the inserted blocks
     ///
     /// ### Examples
     /// ```txt
@@ -68,6 +151,8 @@ impl Blocks {
     /// b ->             [10, 12, 15]
     /// a -> [10, 11, 13] vv  vv  vv
     /// a -> [10, 11, 13, 14, 15, 16]
+    ///
+    /// returns 14 -------^^
     /// ```
     /// ```txt
     /// Insertion in the middle of blocks
@@ -84,13 +169,34 @@ impl Blocks {
     /// b ->         [10, 12, 15] vv  vv  vv
     ///               vv  vv  vv  vv  vv  vv
     /// a -> [10, 12, 13, 14, 15, 16, 17, 18]
+    ///
+    /// returns 13 ---^^
     /// ```
     pub fn insert_blocks(
         &mut self,
-        blocks: Blocks,
+        mut blocks: Blocks,
         after: BlockId
-    ) -> Option<BlockId> {
-        todo!()
+    ) -> BlockId {
+        // todo: account for sub stack id change
+        let start_id = after.increment();
+
+        // compact the blocks first
+        blocks.compact_blocks(None, Some(start_id));
+
+        // shift and compact the blocks after the given block id if there are blocks after it
+        if self.blocks.range(after..).next().is_some() {
+            self.shift_blocks(after, blocks.length() as i32);
+
+            self.compact_blocks(
+                Some(after),
+                Some(after.increment_by(blocks.length() as u32))
+            );
+        }
+
+        // then we insert!
+        self.blocks.append(&mut blocks.blocks);
+
+        start_id
     }
 
     /// Shifts blocks after the specified block into a specified number amount of time (exclusive).
@@ -135,7 +241,7 @@ impl Blocks {
     /// returns 14 -------^^
     /// ```
     pub fn shift_blocks(&mut self, after: BlockId, shift: i32) -> Option<BlockId> {
-        // todo: check if we'll be surpassing the starting_id
+        // todo: account for sub stack id change
         if shift.is_negative() {
             // check if there is a space to the back
             let block_before = self.blocks.range(..=after).rev().next();
@@ -317,6 +423,7 @@ impl Blocks {
 
     /// Removes the block with the given id and its substacks.
     pub fn remove(&mut self, id: BlockId) -> Option<(Block, (Option<Blocks>, Option<Blocks>))> {
+        // todo: account if this is removing the a substack id
         let block = self.blocks.remove(&id)?;
 
         Some((block.block, (
@@ -328,6 +435,7 @@ impl Blocks {
     /// Removes a range of blocks
     pub fn remove_ranged<R>(&mut self, range: R) -> Blocks
     where R: RangeBounds<BlockId> {
+        // todo: account for substack blocks
         // used to skip substacks
         let mut skip_until = None;
         let mut removed_blocks = Blocks::new();
@@ -351,6 +459,7 @@ impl Blocks {
 
     /// Removes an amount of blocks after a block with the given id
     pub fn remove_amount(&mut self, from: BlockId, amount: u32) -> Option<Blocks> {
+        // todo: account for substack blocks
         todo!()
     }
 
@@ -366,16 +475,64 @@ impl Blocks {
         Some(self.blocks.range(block.sub_stack1..=block.sub_stack2?))
     }
 
-    /// Removes the substack of the specified block id and mented by Rust's built-in range types, produced by range syntax like .., a.., ..b, ..=c, d..e, or f..=g.replaces it with the provided [`Blocks`].
-    /// Will compact the blocks after the inserted substack with [`Blocks::compact_blocks`]
-    pub fn replace_sub_stack1(&mut self, id: BlockId, blocks: Blocks) -> Option<BlockId> {
-        todo!()
+    /// Sets the first substack of the specified block id to be the given blocks.
+    /// If there already is a substack, it will remove it and replaces it with the given blocks.
+    ///
+    /// The blocks after the substack will then get shifted by the length of the new given blocks
+    ///
+    /// Returns `.0`: the start of the sub_stack1, `.1`: the removed blocks of sub stack1 that were
+    /// there.
+    pub fn set_sub_stack1(&mut self, id: BlockId, blocks: Blocks)
+        -> Option<(BlockId, Option<Blocks>)> {
+        let block = self.blocks.get_mut(&id)?;
+
+        // remove the previous substack1 block if it exists
+        let sub_stack1_blocks = block.sub_stack1.map(|sub_stack1| {
+            self.remove_ranged(id..sub_stack1)
+        });
+
+        // if its previously occupied, shift the blocks back to the back of the inserted blocks
+        if let Some(sub_stack1_blocks) = &sub_stack1_blocks {
+            self.shift_blocks(
+                id,
+                -(
+                    (id.0 as i32 + sub_stack1_blocks.length()) - (id.0 as i32 + blocks.length())
+                )
+            )
+        }
+
+        // insert our blocks
+        let start_id = self.insert_blocks(blocks, id);
+
+        Some((start_id, sub_stack1_blocks))
     }
 
     /// Removes the sub stack of the specified block id and replaces it with the provided [`Blocks`]
-    /// Will compact the blocks after the inserted substack with [`Blocks::compact_blocks`]
-    pub fn replace_sub_stack2(&mut self, id: BlockId, blocks: Blocks) -> Option<BlockId> {
-        todo!()
+    /// The blocks after the substack will get shifted by the length of the new given blocks
+    pub fn set_sub_stack2(&mut self, id: BlockId, blocks: Blocks)
+        -> Option<(BlockId, Option<Blocks>)> {
+        let block = self.blocks.get_mut(&id)?;
+        let after = block.sub_stack1?;
+
+        // remove the previous substack2 block if it exists
+        let sub_stack2_blocks = block.sub_stack2.map(|sub_stack2| {
+            self.remove_ranged(after..sub_stack2)
+        });
+
+        // if its previously occupied, shift the blocks back to the back of the inserted blocks
+        if let Some(sub_stack2_blocks) = &sub_stack2_blocks {
+            self.shift_blocks(
+                after,
+                -(
+                    (after.0 as i32 + sub_stack2_blocks.length()) - (after.0 as i32 + blocks.length())
+                )
+            )
+        }
+
+        // insert our blocks
+        let start_id = self.insert_blocks(blocks, after);
+
+        Some((start_id, sub_stack2_blocks))
     }
 
     /// Returns how much blocks are there that are stored in this [`Blocks`]
@@ -389,6 +546,10 @@ impl Blocks {
 pub struct BlockEntry {
     id: BlockId,
     pub block: Block,
+
+    // points on the last substack block (inclusive)
+    // [id] [other blocks] [sub_stack1] [other blocks] [sub_stack2]
+    //      [ sub stack 1 of {id}     ] [sub stack 2 of {id}      ]
     sub_stack1: Option<BlockId>,
     sub_stack2: Option<BlockId>,
 }
