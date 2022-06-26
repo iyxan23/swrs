@@ -1,440 +1,39 @@
 use std::num::ParseIntError;
 use std::str::FromStr;
-use crate::LinkedHashMap;
 use crate::color::Color;
 use crate::parser::logic::BlockContainer;
 use thiserror::Error;
-use crate::api::block::block_content::FieldValue;
 
 type ParserBlock = crate::parser::logic::Block;
 
-/// A struct that basically stores blocks with its starting id
+/// An abstraction over the blockchain model of sketchware, doesn't store the block ids. It
+/// generates them on conversion into BlockContainer.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Blocks {
-    pub starting_id: Option<BlockId>,
-    pub blocks: LinkedHashMap<BlockId, Block>
-}
-
-impl Blocks {
-    /// Inserts a block at the end of the blockchain, returns its id
-    pub fn push_block(&mut self, mut block: Block) -> BlockId {
-        let last_id = self.blocks
-            .back()
-            .map(|i|i.0.clone())
-            .unwrap_or(BlockId(0));
-
-        // get next id
-        let new_id = BlockId(last_id.0 + 1);
-
-        // set next_block of the last block to our new id, if it exists
-        if let Some(last_block) = self.blocks.get_mut(&last_id) {
-            last_block.next_block = Some(new_id);
-        }
-
-        // set the new id
-        block.id = new_id;
-
-        // then insert our new shiny block
-        self.blocks.insert(new_id, block);
-
-        // then return our new shiny block id
-        new_id
-    }
-
-    /// Removes a block in the block chain, rewires the block before it to the block
-    /// after it. Returns false when it failed to do so, can be either the block doesn't exist, or
-    /// it couldn't find the block before it.
-    pub fn remove_block(&mut self, id: BlockId) -> bool {
-        let next_block = if let Some(to_be_removed_block) = self.blocks.get(&id) {
-            to_be_removed_block.next_block
-        } else {
-            return false;
-        };
-
-        // check if we're the start of the block chain
-        if let Some(starting_id) = self.starting_id {
-            if starting_id == id {
-                // we need to set the starting id to the next block
-                if let Some(next_block) = next_block {
-                    self.starting_id = Some(next_block);
-                } else {
-                    // else then the block chain is empty, there is no block after us and we're the
-                    // start of this block chain
-                    self.starting_id = None;
-                }
-
-                return true;
-            }
-        }
-
-        // there is a block before us, find the block that has next_block referenced to us
-        //
-        // we can't just loop back and check if its a block, because it can be that the block
-        // before us has a substack and those children are put after that block
-        //
-        // [ block we wanted ]
-        //   [ substack ]
-        //   [ substack ]
-        // [ us ]
-
-        // loop back until we reach Some() and that block contains next_block that references us
-        let mut block_before: &mut Block = self.blocks.get_mut(&id).unwrap();
-        loop {
-            // check if it's next_block matches our id
-            if let Some(next_block) = block_before.next_block {
-                if next_block == id {
-                    // nice we got it!
-                    break;
-                }
-            }
-
-            // find the block before it
-            let mut block_id_before = BlockId(block_before.id.0 - 1);
-            while !self.blocks.contains_key(&block_id_before) {
-                // check if we've reached the bottom
-                if block_id_before.0 == 0 {
-                    // meh, there isn't any block before us that references us, that's weird
-                    // todo: Result
-                    return false;
-                }
-
-                block_id_before.0 -= 1;
-            }
-
-            block_before = self.blocks.get_mut(&block_id_before).unwrap();
-        }
-
-        // we then modify that block to reference the next block (relative to the removed block)
-        if let Some(next_block) = next_block {
-            block_before.next_block = Some(next_block);
-        }
-
-        // we are done!
-
-        true
-    }
-}
+type Blocks = Vec<Block>;
 
 // converts a block container into an API struct Blocks
 impl TryFrom<BlockContainer> for Blocks {
     type Error = BlockConversionError;
 
     fn try_from(value: BlockContainer) -> Result<Self, Self::Error> {
-        // first we map them into a LinkedHashMap and associate with each blocks' id
-        let mut blocks = value.0
-            .into_iter()
-            .try_fold(LinkedHashMap::<BlockId, ParserBlock>::new(), |mut acc, block| {
-                acc.insert(
-                    BlockId::from_str(block.id.as_str())
-                        .map_err(|err| BlockConversionError::MalformedBlockId {
-                            id: block.id.to_owned(),
-                            source: err
-                        })?,
-                    block
-                );
-
-                Ok(acc)
-            })?;
-
-        /// a utility function that simply turns an i32 into u32 or if its negative it will return
-        /// None
-        fn to_u32_else_none(val: i32) -> Option<u32> {
-            if val.is_negative() { None } else { Some(val as u32) }
-        }
-
-        /// Converts a parser block with the given id into an api Block
-        fn parse_a_block(
-            id: BlockId, mut blocks: &mut LinkedHashMap<BlockId, ParserBlock>
-        ) -> Result<Block, BlockConversionError> {
-
-            // first we get the block from the current id
-            let p_block = blocks.remove(&id)
-                .ok_or_else(|| BlockConversionError::BlockNotFound { id })?;
-
-            // then we convert it to our own Block struct
-            let block = Block {
-                id,
-                next_block: to_u32_else_none(p_block.next_block).map(|val| BlockId(val)),
-
-                // if the substack1 is negative, then there is no substack1, else we parse the
-                // blocks starting from that substack1
-                sub_stack1: if p_block.sub_stack1.is_negative() { Ok(None) } else {
-                    parse_to_blocks(BlockId(p_block.sub_stack1 as u32), blocks)
-                        .map(|it| Some(it))
-                }.map_err(|error| BlockConversionError::Substack1ParseError {
-                    id,
-                    sub_stack1_pointer: BlockId(p_block.sub_stack1 as u32),
-                    source: Box::new(error)
-                })?,
-
-                // if the substack2 is negative, then there is no substack2, else we parse the
-                // blocks starting from that substack2
-                sub_stack2: if p_block.sub_stack2.is_negative() { Ok(None) } else {
-                    parse_to_blocks(BlockId(p_block.sub_stack2 as u32), blocks)
-                        .map(|it| Some(it))
-                }.map_err(|error| BlockConversionError::Substack2ParseError {
-                    id,
-                    sub_stack2_pointer: BlockId(p_block.sub_stack2 as u32),
-                    source: Box::new(error)
-                })?,
-
-                color: p_block.color,
-                op_code: p_block.op_code,
-                content: {
-                    let content =
-                        block_content::BlockContent::parse_from(
-                            p_block.spec.as_str(),
-                            Some(p_block.parameters),
-                            |id| {
-                                parse_a_block(id, &mut blocks)
-                            }
-                        ).map_err(|err| BlockConversionError::MalformedContent {
-                            id,
-                            source: err
-                        })?;
-
-                    content
-                },
-                ret_type: p_block.r#type,
-                type_name: p_block.type_name,
-            };
-
-            Ok(block)
-        }
-
-        /// A recursive function that parses blocks given from its id and follows the blocks'
-        /// next_block until it stops. This function gets its blocks from the [`blocks`]
-        /// variable defined above
-        fn parse_to_blocks(
-            starting_id: BlockId, mut blocks: &mut LinkedHashMap<BlockId, ParserBlock>
-        ) -> Result<Blocks, BlockConversionError> {
-
-            let mut result = LinkedHashMap::<BlockId, Block>::new();
-            let mut current_id = starting_id;
-
-            loop {
-                let block = parse_a_block(current_id, &mut blocks)?;
-                let next_block = block.next_block;
-
-                // we've successfully converted the block let's add them to the result
-                result.insert(current_id, block);
-
-                // if the next block is none then we stop
-                if let Some(id) = next_block {
-                    // set this as our next id
-                    current_id = id;
-                } else {
-                    // ok we stop
-                    break;
-                }
-            }
-
-            Ok(Blocks {
-                // get the first element and get its id
-                starting_id: result.iter().nth(0).map(|(id, _block)| id.to_owned()),
-                blocks: result
-            })
-        }
-
-        // get the first block from the blocks list, then parse the blocks after it or if there
-        // isn't any, it will just return default
-        if let Some(id) = blocks.iter().nth(0) {
-            Ok(parse_to_blocks(id.0.to_owned(), &mut blocks)?)
-        } else {
-            Ok(Default::default())
-        }
+        todo!()
     }
 }
 
 #[derive(Error, Debug)]
-pub enum BlockConversionError {
-    #[error("couldn't parse block id as an integer: `{id}`")]
-    MalformedBlockId {
-        id: String,
-        source: ParseIntError
-    },
+pub struct BlockConversionError {
 
-    #[error("couldn't find the block with id `{}`", .id.0)]
-    BlockNotFound {
-        id: BlockId,
-    },
-
-    #[error("malformed block content on the block with id `{}`", .id.0)]
-    MalformedContent {
-        id: BlockId,
-        source: block_content::BlockContentParseError
-    },
-
-    #[error("error while parsing substack1 of block with id `{}`", .id.0)]
-    Substack1ParseError {
-        id: BlockId,
-        sub_stack1_pointer: BlockId,
-        source: Box<BlockConversionError>,
-    },
-
-    #[error("error while parsing substack2 of block with id `{}`", .id.0)]
-    Substack2ParseError {
-        id: BlockId,
-        sub_stack2_pointer: BlockId,
-        source: Box<BlockConversionError>,
-    },
 }
 
 impl Into<BlockContainer> for Blocks {
     fn into(self) -> BlockContainer {
-        let mut block_container = BlockContainer(vec![]);
-
-        fn convert_block(block: Block, result: &mut Vec<ParserBlock>) {
-            // first we flatten its children
-            let mut ss_1_container = BlockContainer(vec![]);
-            let mut ss_1_id = -1i32;
-
-            if let Some(blocks) = block.sub_stack1 {
-                ss_1_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
-                flatten_blocks(blocks, &mut ss_1_container);
-            }
-
-            let mut ss_2_container = BlockContainer(vec![]);
-            let mut ss_2_id = -1i32;
-
-            if let Some(blocks) = block.sub_stack2 {
-                ss_2_id = blocks.starting_id.map(|i|i.0 as i32).unwrap_or(-1);
-                flatten_blocks(blocks, &mut ss_2_container);
-            }
-
-            // do the actual block conversion
-            result.push(ParserBlock {
-                color: block.color,
-                id: block.id.0.to_string(),
-                next_block: block.next_block.map(|n|n.0 as i32).unwrap_or(-1),
-                op_code: block.op_code,
-                spec: block.content.to_string(),
-                parameters: block.content.cloned_args()
-                    .into_iter()
-                    .map(|v| v.to_string())
-                    .collect(),
-                sub_stack1: ss_1_id,
-                sub_stack2: ss_2_id,
-                r#type: block.ret_type,
-                type_name: block.type_name
-            });
-
-            // after that, we parse the blocks that's in the block's fields
-            for field in block.content.cloned_args() {
-                if let FieldValue::Block(block) = field {
-                    let mut field_blk_blocks = vec![];
-                    convert_block(block, &mut field_blk_blocks);
-
-                    // and append em to our result
-                    result.append(&mut field_blk_blocks);
-                }
-            }
-
-            // then finally push its children that's in substack1 or 2
-            result.append(&mut ss_1_container.0);
-            result.append(&mut ss_2_container.0);
-
-            // remember, the order is quite important (for sketchware)
-        }
-
-        fn flatten_blocks(blocks: Blocks, result: &mut BlockContainer) {
-            for block in blocks {
-                convert_block(block, &mut result.0);
-            }
-        }
-
-        flatten_blocks(self, &mut block_container);
-
-        block_container
-    }
-}
-
-impl FromIterator<Block> for Blocks {
-    fn from_iter<T: IntoIterator<Item=Block>>(iter: T) -> Self {
-        let blocks = iter
-            .into_iter()
-            .map(|b: Block| (b.id, b))
-            .collect::<LinkedHashMap<BlockId, Block>>();
-
-        Blocks {
-            starting_id: blocks.front().map(|i| i.0.clone()),
-            blocks
-        }
-    }
-}
-
-impl IntoIterator for Blocks {
-    type Item = Block;
-    type IntoIter = BlocksIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        BlocksIterator {
-            next_block_id: self.starting_id,
-            blocks: self,
-        }
-    }
-}
-
-impl Default for Blocks {
-    fn default() -> Self {
-        Blocks {
-            starting_id: None,
-            blocks: Default::default()
-        }
-    }
-}
-
-/// An iterator that iterates over [`Blocks`] using each blocks' id and next_block
-pub struct BlocksIterator {
-    blocks: Blocks,
-    next_block_id: Option<BlockId>,
-}
-
-impl Iterator for BlocksIterator {
-    type Item = Block;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_block_id {
-            None => None,
-            Some(next_block_id) => {
-                // get the next block
-                if let Some(block) = self.blocks.blocks.remove(&next_block_id) {
-                    // checks if this block has a next block
-                    if let Some(next_block) = block.next_block {
-                        // yes, update the next block id
-                        self.next_block_id = Some(next_block);
-                    } else {
-                        // apparently not, it seems like we're at the end of this iteration
-                        self.next_block_id = None;
-                    }
-
-                    Some(block)
-                } else { None }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
-pub struct BlockId(pub u32);
-
-impl FromStr for BlockId {
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(BlockId(s.parse::<u32>()?))
+        todo!()
     }
 }
 
 /// A model that represents a block
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
-    /// The id of this block
-    pub id: BlockId,
-
-    /// The id of the next block. None if the value is -1 (the end of the block chain)
-    pub next_block: Option<BlockId>,
-
     /// The first substack / nest of this block, gives None if this block doesn't have a substack / nest
     pub sub_stack1: Option<Blocks>,
 
@@ -462,6 +61,66 @@ impl Block {
     /// match to any block category
     pub fn category(&self) -> Result<BlockCategory, UnknownColor> {
         BlockCategory::try_from(self.color)
+    }
+}
+
+// all of block types can be seen here
+// https://github.com/Iyxan23/sketchware-data/blob/main/data/block-opcodes.md
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum BlockType {
+    Regular,
+    Argument(ArgumentBlockReturnType),
+    Control(BlockControl),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ArgumentBlockReturnType {
+    Boolean,
+    String,
+    Number,
+    View { type_name: String },
+    Component { type_name: String }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum BlockControl {
+    OneNest, // if block
+    TwoNest, // ifElse block
+    EndingBlock // finish/break block
+}
+
+impl BlockType {
+    pub fn from(s: &str, type_name: String) -> Result<Self, InvalidBlockType> {
+        Ok(match s {
+            "v" => BlockType::Argument(ArgumentBlockReturnType::View { type_name }),
+            "p" => BlockType::Argument(ArgumentBlockReturnType::Component { type_name }),
+            "b" => BlockType::Argument(ArgumentBlockReturnType::Boolean),
+            "s" => BlockType::Argument(ArgumentBlockReturnType::String),
+            "d" => BlockType::Argument(ArgumentBlockReturnType::Number),
+            "c" => BlockType::Control(BlockControl::OneNest),
+            "e" => BlockType::Control(BlockControl::TwoNest),
+            "f" => BlockType::Control(BlockControl::EndingBlock),
+            "" => BlockType::Regular,
+            _ => Err(InvalidBlockType)?
+        })
+    }
+}
+
+pub struct InvalidBlockType;
+
+impl ToString for BlockType {
+    fn to_string(&self) -> String {
+        match self {
+            BlockType::Regular => "",
+            BlockType::Argument(ArgumentBlockReturnType::Boolean) => "b",
+            BlockType::Argument(ArgumentBlockReturnType::String) => "s",
+            BlockType::Argument(ArgumentBlockReturnType::Number) => "d",
+            BlockType::Argument(ArgumentBlockReturnType::View { .. }) => "v",
+            BlockType::Argument(ArgumentBlockReturnType::Component { .. }) => "p",
+            BlockType::Control(BlockControl::OneNest) => "c",
+            BlockType::Control(BlockControl::TwoNest) => "e",
+            BlockType::Control(BlockControl::EndingBlock) => "f",
+        }.to_string()
     }
 }
 
@@ -493,7 +152,7 @@ impl TryFrom<Color> for BlockCategory {
             (0x4a, 0x6c, 0xd4) => BlockCategory::ViewFunc,
             (0xfc, 0xa5, 0xe2) => BlockCategory::ComponentFunc,
             (0x8a, 0x55, 0xd7) => BlockCategory::MoreBlock,
-            (_, _, _) => Err(UnknownColor { color: value })?
+            (    _,    _,   _) => Err(UnknownColor { color: value })?
         })
     }
 }
@@ -509,7 +168,9 @@ pub mod block_content {
     use std::num::ParseIntError;
     use std::str::FromStr;
     use thiserror::Error;
-    use crate::api::block::{Block, BlockConversionError, BlockId};
+    use crate::LinkedHashMap;
+    use crate::api::block::{BlockEntry, BlockConversionError, BlockId};
+    use super::Block;
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct BlockContent {
@@ -517,7 +178,14 @@ pub mod block_content {
     }
 
     impl BlockContent {
-        pub fn parse_from<F: FnMut(BlockId) -> Result<Block, BlockConversionError>>(
+        /// Creates a new [`BlockContent`] with no arguments
+        pub fn new(spec: &str) -> Result<Self, BlockContentParseError> {
+            BlockContent::new_args(spec, None, |_| unreachable!())
+        }
+
+        /// Creates a new [`BlockContent`] with the specified spec and arguments.
+        /// Note: the argument `get_block` is used to retrieve block arguments through their id.
+        pub fn new_args<F: FnMut(u32) -> Result<Block, BlockConversionError>>(
             spec: &str,
             arguments: Option<Vec<String>>,
             mut get_block: F
@@ -538,19 +206,56 @@ pub mod block_content {
             Ok(BlockContent { items: result })
         }
 
-        /// Parses from a spec string without arguments
-        pub fn parse_from_wo_args(spec: &str) -> Result<Self, BlockContentParseError> {
-            BlockContent::parse_from(spec, None, |_| panic!("shouldn't be called"))
-        }
+        pub fn remove_args(mut self) -> (Self, Vec<FieldValue>) {
+            let mut args = Vec::new();
 
-        // make remove_args(&mut self) -> Vec<FieldValue>
-        // this thing is hard to implement
+            self.items = self.items
+                .into_iter()
+                .map(|item| {
+                    if let SpecItem::Field {
+                        field_type, name, value
+                    } = item {
+                        if let Some(value) = value { args.push(value); }
+
+                        SpecItem::Field {
+                            field_type, name, value: None
+                        }
+                    } else { item }
+                })
+                .collect();
+
+            (self, args)
+        }
 
         pub fn cloned_args(&self) -> Vec<FieldValue> {
-            self.get_args().into_iter().cloned().collect()
+            self.get_args_vec().into_iter().cloned().collect()
         }
 
-        pub fn get_args(&self) -> Vec<&FieldValue> {
+        pub fn get_args(&self) -> LinkedHashMap<String, &FieldValue> {
+            self.items.iter()
+                .filter_map(|i| {
+                    if let SpecItem::Field { name, value, .. } = i {
+                        if name.is_some() && value.is_some() {
+                            Some((name.as_ref().unwrap().clone(), value.as_ref().unwrap()))
+                        } else { None }
+                    } else { None }
+                })
+                .collect()
+        }
+
+        pub fn get_arg_names(&self) -> Vec<&str> {
+            self.items.iter()
+                .filter_map(|i| {
+                    if let SpecItem::Field { name, .. } = i {
+                        if let Some(name) = name {
+                            Some(name.as_str())
+                        } else { None }
+                    } else { None }
+                })
+                .collect()
+        }
+
+        pub fn get_args_vec(&self) -> Vec<&FieldValue> {
             self.items.iter()
                 .filter_map(|i|
                     // weird code, too lazy to make it prettier lol
@@ -605,7 +310,7 @@ pub mod block_content {
     impl SpecItem {
         // small note: sketchware named their arguments field as "parameters" for some reason, so
         // don't get confused by it. this "arguments" parameter is taking that ^
-        pub fn parse_from<F: FnMut(BlockId) -> Result<Block, BlockConversionError>>(
+        pub fn parse_from<F: FnMut(u32) -> Result<Block, BlockConversionError>>(
             s: &str,
             arguments: &mut Option<Vec<String>>,
             get_block: F
@@ -635,28 +340,32 @@ pub mod block_content {
     #[derive(Debug, Clone, PartialEq)]
     pub enum FieldValue {
         Text(String),
-        Block(Block)
+        Block {
+            block: Block,
+            id: u32
+        }
     }
 
     impl FieldValue {
-        pub fn parse_from<F: FnMut(BlockId) -> Result<Block, BlockConversionError>>(
+        pub fn parse_from<F: FnMut(u32) -> Result<Block, BlockConversionError>>(
             s: &str,
             mut get_block: F
         ) -> Result<Self, SpecItemParseError> {
             Ok(if s.starts_with("@") {
-                let block_id = BlockId((&s[1..]).parse::<u32>()
+                let block_id = s[1..].parse::<u32>()
                     .map_err(|err| SpecItemParseError::MalformedParameterBlockId {
                         content: s.to_string(),
                         source: err
-                    })?);
+                    })?;
 
-                FieldValue::Block(
-                    get_block(block_id.to_owned())
+                FieldValue::Block {
+                    block: get_block(block_id)
                         .map_err(|err| SpecItemParseError::BlockArgConversionError {
                             block_id,
                             source: Box::new(err)
-                        })?
-                )
+                        })?,
+                    id: block_id
+                }
             } else { FieldValue::Text(s.to_string()) })
         }
     }
@@ -665,7 +374,7 @@ pub mod block_content {
         fn to_string(&self) -> String {
             match self {
                 FieldValue::Text(text) => text.to_owned(),
-                FieldValue::Block(block) => format!("@{}", block.id.0)
+                FieldValue::Block { id, ..} => format!("@{}", id)
             }
         }
     }
