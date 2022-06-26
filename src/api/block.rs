@@ -16,33 +16,22 @@ const DEFAULT_BLOCK_ID_START: BlockId = BlockId(10);
 pub struct Blocks {
     blocks: BTreeMap<BlockId, BlockEntry>,
 
-    // todo: get rid of this
-    starting_id: BlockId,
-
     // future me: a way to store where the sub stacks and params are, right in here
     // i think its better to move it out of BlockEntry
     // something like
-    //                     block id   ss1      ss2
-    // sub_stacks: BTreeMap<BlockId, (BlockId, Option<BlockId>)>
+    //                      s1/2  block id  1/2 depending on the ss number
+    // sub_stacks: BTreeMap<BlockId, (BlockId, u8)>,
     //    BTreeMap because then we can like search for the closest block that has a substack or
     //    something
     //
-    //               param block id  parent block id
+    //            param block id  parent block id
     // parameters: BTreeMap<BlockId, BlockId>
 }
 
 impl Blocks {
     /// Creates a new [`Blocks`] instance
     pub fn new() -> Self {
-        Self {
-            blocks: BTreeMap::new(),
-            starting_id: DEFAULT_BLOCK_ID_START
-        }
-    }
-
-    /// Creates a new [`Blocks`] instance that will start with the specified starting id
-    pub fn new_w_start(starting_id: BlockId) -> Self {
-        Self { blocks: BTreeMap::new(), starting_id }
+        Self { blocks: BTreeMap::new(), }
     }
 
     /// Compacts blocks after the specified id that will start with the given starting id.
@@ -74,16 +63,7 @@ impl Blocks {
     /// ```
     pub fn compact_blocks(&mut self, after: Option<BlockId>, start: Option<BlockId>) {
         // todo: account for sub stack id change
-        if let Some(start) = start {
-            if start < self.starting_id {
-                panic!(
-                    "starting id cannot be below the starting id of this Blocks. starting id: " +
-                    "{:?}, given start id: {:?}", self.starting_id, start
-                )
-            }
-        }
-
-        let after = after.unwrap_or_else(|| self.starting_id);
+        let after = after.unwrap_or_else(|| DEFAULT_BLOCK_ID_START);
         let entries = self.blocks
             .range(after..)
             .collect::<Vec<(&BlockId, &BlockEntry)>>();
@@ -337,7 +317,7 @@ impl Blocks {
             if let Some(_) = self.blocks.range(..after).rev().next() {
                 after.increment()
             } else {
-                self.starting_id
+                DEFAULT_BLOCK_ID_START
             }
         };
 
@@ -385,7 +365,7 @@ impl Blocks {
             last_block_id.increment()
         } else {
             // oh this blocks is empty
-            self.starting_id
+            DEFAULT_BLOCK_ID_START
         };
 
         let entry = BlockEntry { id, block, sub_stack1: None, sub_stack2: None };
@@ -423,7 +403,7 @@ impl Blocks {
 
     /// Removes the block with the given id and its substacks.
     pub fn remove(&mut self, id: BlockId) -> Option<(Block, (Option<Blocks>, Option<Blocks>))> {
-        // todo: account if this is removing the a substack id
+        // todo: account if this is removing a substack id
         let block = self.blocks.remove(&id)?;
 
         Some((block.block, (
