@@ -1,6 +1,5 @@
 use crate::LinkedHashMap;
-use crate::api::block::{BlockConversionError, Blocks};
-use crate::api::block::block_content::{BlockContent, BlockContentParseError};
+use crate::api::block::{BlockContent, BlockContentParseError, BlockConversionError, Blocks};
 use crate::api::component::{ComponentKind, UnknownComponentType};
 use crate::api::view::{parse_raw_layout, ParseLayoutError, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
@@ -224,7 +223,7 @@ impl Screen {
                 .map(|(mb_id, mb)|
                     Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
                         name: mb_id.to_owned(),
-                        spec: BlockContent::parse_from_wo_args(mb.spec.as_str())
+                        spec: BlockContent::parse_wo_params(mb.spec.as_str())
                             .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
                                 moreblock_id: mb_id.to_owned(),
                                 source: err
