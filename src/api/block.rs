@@ -158,7 +158,7 @@ impl Blocks {
         ///
         /// returns the id of the block
         fn convert_block(
-            mut result: &mut Vec<ParserBlock>,
+            result: &mut Vec<ParserBlock>,
             block: Block,
             mut id_counter: &mut u32,
             type_name: Option<String>,
@@ -166,75 +166,16 @@ impl Blocks {
         ) -> u32 {
             //////////
             // First we process all of the data of this block
-            let (content, args) = block.content.take_args();
 
-            // takes out block arguments and generate a list of parameters that stores the value
-            // of arguments or points to the block arguments we've popped off
-            let mut block_args = Vec::new();
-            let parameters = args
-                .into_iter()
-                .map(|arg| match arg {
-                    Argument::String { value } => {
-                        match value {
-                            ArgValue::Value(val) => val,
-                            ArgValue::Block(block) => {
-                                convert_block(&mut result, block, &mut id_counter, None, false);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
-                        }
-                    }
-                    Argument::Number { value } => {
-                        match value {
-                            ArgValue::Value(val) => val.to_string(),
-                            ArgValue::Block(block) => {
-                                convert_block(&mut result, block, &mut id_counter, None, false);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
-                        }
-                    }
-                    Argument::Boolean { value } => {
-                        match value {
-                            ArgValue::Value(val) => val.to_string(),
-                            ArgValue::Block(block) => {
-                                convert_block(&mut result, block, &mut id_counter, None, false);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
-                        }
-                    }
-                    Argument::Menu { value, type_name } => {
-                        match value {
-                            ArgValue::Value(val) => val.to_string(),
-                            ArgValue::Block(block) => {
-                                convert_block(&mut result, block, &mut id_counter, Some(type_name), false);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
-                        }
-                    }
-                })
-                .collect();
-
-            // since argument block starts before the actual block, we need to get our block id
-            // and leave the next ids for the substacks (because they come after the actual block)
+            // --- reserve an id for our block at the start (since the actual block is placed at the start)
             *id_counter += 1;
             let block_id = *id_counter;
 
-            // parse sub stack blocks and add them to a list
+            // --- then its arguments
+            let (parameters, mut block_args, content)
+                = process_content(block.content);
+
+            // --- then sub stacks
             let mut sub_stack_blocks = Vec::new();
             let sub_stack1_id = block.sub_stack1
                 .map(|ss1| {
@@ -267,10 +208,7 @@ impl Blocks {
             /////////
             // Actually append stuff
 
-            // append the block arguments of this block, it comes before the actual block
-            result.append(&mut block_args);
-
-            // then the actual block itself
+            // append the block itself
             result.push(ParserBlock {
                 color: block.color,
                 id: block_id.to_string(),
@@ -288,10 +226,81 @@ impl Blocks {
                 sub_stack2: sub_stack2_id,
             });
 
-            // after the actual block, its substacks gets added
+            // then its args
+            result.append(&mut block_args);
+
+            // and its sub stacks
             result.append(&mut sub_stack_blocks);
 
             block_id
+        }
+
+        /// takes off arguments and block arguments from the provided block content and return them
+        fn process_content(block_content: BlockContent)
+            -> (Vec<String>, Vec<ParserBlock>, BlockContent) {
+
+            let (content, args) = block_content.take_args();
+
+            let mut block_args: Vec<ParserBlock> = Vec::new();
+            let parameters = args
+                .into_iter()
+                .map(|arg| match arg {
+                    Argument::String { value } => {
+                        match value {
+                            ArgValue::Value(val) => val,
+                            ArgValue::Block(block) => {
+                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Number { value } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Boolean { value } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Menu { value, type_name } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut block_args, block, &mut id_counter, Some(type_name), true);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                })
+                .collect();
+
+            (parameters, block_args, content)
         }
 
         BlockContainer(result)

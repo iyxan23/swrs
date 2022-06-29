@@ -68,7 +68,7 @@ fn test1() {
     fn print_blocks(blocks: Blocks, depth: usize) {
         for block in blocks {
             print!("{}", "| |   ".repeat(depth));
-            println!("[ {} ]: {} ({:?}) {{{:?}}}", block.content.to_string(), block.op_code, block.category().unwrap(), block.content.get_args());
+            println!("[ {} ]: {} ({:?})", block.content.to_string(), block.op_code, block.category().unwrap());
 
             if let Some(ss1) = block.sub_stack1 {
                 print_blocks(ss1, depth + 1);
@@ -92,5 +92,5 @@ fn test1() {
     }
 
     // assert_eq!(rpblocks, pblocks); // Blocks in this new API doesn't preserve the IDs, so
-    //                                   it definitely wont match
+    //                                   it definitely wont match one-per-one
 }
