@@ -508,8 +508,8 @@ impl BlockContent {
             let arg = match &s.chars().nth(1).unwrap() {
                 's' => Argument::String {
                     value: {
-                        let value = args.pop()
-                            .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
@@ -523,9 +523,8 @@ impl BlockContent {
                 },
                 'b' => Argument::Boolean {
                     value: {
-                        let value =
-                            args.pop()
-                                .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
@@ -546,9 +545,8 @@ impl BlockContent {
                 },
                 'd' => Argument::Number {
                     value: {
-                        let value =
-                            args.pop()
-                                .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
@@ -569,10 +567,12 @@ impl BlockContent {
                 },
                 'm' => Argument::Menu {
                     type_name: s[3..].to_string(),
-                    value: ArgValue::Value(
-                        args.pop()
-                            .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?
-                    )
+                    value: {
+                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        ArgValue::Value(
+                            args.remove(0)
+                        )
+                    }
                 },
                 _ => Err(BlockContentParseError::UnknownSpecParam {
                     name: s.chars().nth(1).unwrap().to_string(),
@@ -595,8 +595,8 @@ impl BlockContent {
                     SpecItem::Parameter(Argument::String { value }) => {
                         SpecItem::Parameter(Argument::String {
                             value: if let ArgValue::Empty = value {
-                                let val = args.pop()
-                                    .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                                let val = args.remove(0);
 
                                 if val.starts_with("@") {
                                     ArgValue::BlockPlaceholder {
@@ -612,9 +612,8 @@ impl BlockContent {
                     SpecItem::Parameter(Argument::Number { value }) => {
                         SpecItem::Parameter(Argument::Number {
                             value: if let ArgValue::Empty = value {
-                                let value =
-                                    args.pop()
-                                        .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                                let value = args.remove(0);
 
                                 if value.starts_with("@") {
                                     ArgValue::BlockPlaceholder {
@@ -637,9 +636,8 @@ impl BlockContent {
                     SpecItem::Parameter(Argument::Boolean { value }) => {
                         SpecItem::Parameter(Argument::Boolean {
                             value: if let ArgValue::Empty = value {
-                                let value =
-                                    args.pop()
-                                        .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                                let value = args.remove(0);
 
                                 if value.starts_with("@") {
                                     ArgValue::BlockPlaceholder {
@@ -663,8 +661,8 @@ impl BlockContent {
                         SpecItem::Parameter(Argument::Menu {
                             type_name,
                             value: if let ArgValue::Empty = value {
-                                let value = args.pop()
-                                    .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                                let value = args.remove(0);
 
                                 if value.starts_with("@") {
                                     ArgValue::BlockPlaceholder {
