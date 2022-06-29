@@ -51,7 +51,7 @@ impl TryFrom<BlockContainer> for Blocks {
                     Some(parse_blocks(id, blocks)
                         .map_err(|error| BlockConversionError::Substack2ParseError {
                             id,
-                            sub_stack1_pointer: parser_block.sub_stack2 as u32,
+                            sub_stack2_pointer: parser_block.sub_stack2 as u32,
                             source: Box::new(error)
                         })?)
                 },
@@ -123,7 +123,7 @@ pub enum BlockConversionError {
     #[error("error while parsing substack2 of block with id `{id}`")]
     Substack2ParseError {
         id: u32,
-        sub_stack1_pointer: u32,
+        sub_stack2_pointer: u32,
         source: Box<BlockConversionError>,
     },
 
@@ -138,9 +138,169 @@ pub enum BlockConversionError {
     }
 }
 
+impl Blocks {
+    fn to_block_container(self, starts_with: u32) -> BlockContainer {
+        let mut result = Vec::new();
+        let mut id_counter = starts_with - 1;
+        let mut blocks = self.0.into_iter().peekable();
+
+        while let Some(block) = blocks.next() {
+            convert_block(
+                &mut result, block, &mut id_counter, None,
+                blocks.peek().is_none()
+            );
+        }
+
+        /// Converts the given block into a [`ParserBlock`] then adds it into the result mutable
+        /// borrow using the id from id_counter
+        ///
+        /// panics when [`ArgValue::BlockPlaceholder`] is encountered
+        ///
+        /// returns the id of the block
+        fn convert_block(
+            mut result: &mut Vec<ParserBlock>,
+            block: Block,
+            mut id_counter: &mut u32,
+            type_name: Option<String>,
+            last_block: bool
+        ) -> u32 {
+            //////////
+            // First we process all of the data of this block
+            let (content, args) = block.content.take_args();
+
+            // takes out block arguments and generate a list of parameters that stores the value
+            // of arguments or points to the block arguments we've popped off
+            let mut block_args = Vec::new();
+            let parameters = args
+                .into_iter()
+                .map(|arg| match arg {
+                    Argument::String { value } => {
+                        match value {
+                            ArgValue::Value(val) => val,
+                            ArgValue::Block(block) => {
+                                convert_block(&mut result, block, &mut id_counter, None, false);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Number { value } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut result, block, &mut id_counter, None, false);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Boolean { value } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut result, block, &mut id_counter, None, false);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                    Argument::Menu { value, type_name } => {
+                        match value {
+                            ArgValue::Value(val) => val.to_string(),
+                            ArgValue::Block(block) => {
+                                convert_block(&mut result, block, &mut id_counter, Some(type_name), false);
+                                format!("@{}", id_counter)
+                            }
+                            ArgValue::BlockPlaceholder { block_id } =>
+                                panic!("tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}", block_id),
+                            ArgValue::Empty => "".to_string()
+                        }
+                    }
+                })
+                .collect();
+
+            // since argument block starts before the actual block, we need to get our block id
+            // and leave the next ids for the substacks (because they come after the actual block)
+            *id_counter += 1;
+            let block_id = *id_counter;
+
+            // parse sub stack blocks and add them to a list
+            let mut sub_stack_blocks = Vec::new();
+            let sub_stack1_id = block.sub_stack1
+                .map(|ss1| {
+                    let mut ss1_blocks = ss1.to_block_container(*id_counter);
+                    let ss1_last_id = ss1_blocks.0
+                        .last()
+                        .map(|b| b.id.parse::<i32>().unwrap())
+                        .unwrap_or_else(|| -1);
+
+                    sub_stack_blocks.append(&mut ss1_blocks.0);
+
+                    *id_counter = ss1_last_id as u32;
+                    ss1_last_id
+                }).unwrap_or_else(|| -1);
+
+            let sub_stack2_id = block.sub_stack2
+                .map(|ss2| {
+                    let mut ss2_blocks = ss2.to_block_container(*id_counter);
+                    let ss2_last_id = ss2_blocks.0
+                        .last()
+                        .map(|b| b.id.parse::<i32>().unwrap())
+                        .unwrap_or_else(|| -1);
+
+                    sub_stack_blocks.append(&mut ss2_blocks.0);
+
+                    *id_counter = ss2_last_id as u32;
+                    ss2_last_id
+                }).unwrap_or_else(|| -1);
+
+            /////////
+            // Actually append stuff
+
+            // append the block arguments of this block, it comes before the actual block
+            result.append(&mut block_args);
+
+            // then the actual block itself
+            result.push(ParserBlock {
+                color: block.color,
+                id: block_id.to_string(),
+                next_block: if last_block { -1 } else { (*id_counter + 1) as i32 },
+                op_code: block.op_code,
+                parameters,
+                spec: content.to_string(),
+                r#type: block.block_type.to_string(),
+
+                // fixme: which do i choose lol
+                type_name: type_name.or(block.block_type.get_typename())
+                    .unwrap_or_else(|| "".to_string()),
+
+                sub_stack1: sub_stack1_id,
+                sub_stack2: sub_stack2_id,
+            });
+
+            // after the actual block, its substacks gets added
+            result.append(&mut sub_stack_blocks);
+
+            block_id
+        }
+
+        BlockContainer(result)
+    }
+}
+
 impl Into<BlockContainer> for Blocks {
     fn into(self) -> BlockContainer {
-        todo!()
+        self.to_block_container(10)
     }
 }
 
@@ -229,6 +389,17 @@ impl BlockType {
             _ => Err(InvalidBlockType { block_type: s.to_string() })?
         })
     }
+
+    /// Retrieves the typename of this block (if any)
+    pub fn get_typename(&self) -> Option<String> {
+        match self {
+            BlockType::Argument(ArgumentBlockReturnType::View { type_name }) =>
+                Some(type_name.to_string()),
+            BlockType::Argument(ArgumentBlockReturnType::Component { type_name }) =>
+                Some(type_name.to_string()),
+            _ => None
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -292,6 +463,7 @@ pub struct UnknownColor {
     pub color: Color
 }
 
+/// A model that stores the appearance of a block and its arguments
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockContent {
     pub items: Vec<SpecItem>
@@ -514,6 +686,58 @@ impl BlockContent {
                 }
             })
             .collect()
+    }
+
+    /// Retrieves all the arguments as a mutable reference
+    pub fn get_args_mut(&mut self) -> Vec<&mut Argument> {
+        self.items
+            .iter_mut()
+            .filter_map(|item| {
+                match item {
+                    SpecItem::Text(_) => None,
+                    SpecItem::Parameter(arg) => Some(arg)
+                }
+            })
+            .collect()
+    }
+
+    /// Takes the arguments from the block content, returns them as a [`Vec<Argument>`] and
+    /// replaces them with [`ArgValue::Empty`]
+    pub fn take_args(self) -> (Self, Vec<Argument>) {
+        let mut arguments = Vec::new();
+        let reconstructed = Self {
+            items: self.items
+                .into_iter()
+                .map(|item| {
+                    if let SpecItem::Parameter(arg) = item {
+                        SpecItem::Parameter({
+                            // create a new instance of Argument depending on the type of the
+                            // argument before, then set them to be empty
+                            let ret = match &arg {
+                                Argument::String { .. } =>
+                                    Argument::String { value: ArgValue::Empty },
+                                Argument::Number { .. } =>
+                                    Argument::Number { value: ArgValue::Empty },
+                                Argument::Boolean { .. } =>
+                                    Argument::Boolean { value: ArgValue::Empty },
+                                Argument::Menu { type_name, .. } =>
+                                    Argument::Menu {
+                                        value: ArgValue::Empty,
+                                        type_name: type_name.to_string()
+                                    },
+                            };
+
+                            // push the owned argument
+                            arguments.push(arg);
+
+                            ret
+                        })
+                    } else { item }
+                })
+                .collect()
+        };
+
+        (reconstructed, arguments)
     }
 }
 
