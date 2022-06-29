@@ -40,7 +40,7 @@ impl TryFrom<BlockContainer> for Blocks {
 
             Ok(Block {
                 sub_stack1: if parser_block.sub_stack1.is_negative() { None } else {
-                    Some(parse_blocks(id, blocks)
+                    Some(parse_blocks(parser_block.sub_stack1 as u32, blocks)
                         .map_err(|error| BlockConversionError::Substack1ParseError {
                             id,
                             sub_stack1_pointer: parser_block.sub_stack1 as u32,
@@ -48,7 +48,7 @@ impl TryFrom<BlockContainer> for Blocks {
                         })?)
                 },
                 sub_stack2: if parser_block.sub_stack2.is_negative() { None } else {
-                    Some(parse_blocks(id, blocks)
+                    Some(parse_blocks(parser_block.sub_stack2 as u32, blocks)
                         .map_err(|error| BlockConversionError::Substack2ParseError {
                             id,
                             sub_stack2_pointer: parser_block.sub_stack2 as u32,
@@ -385,7 +385,7 @@ impl BlockType {
             "c" => BlockType::Control(BlockControl::OneNest),
             "e" => BlockType::Control(BlockControl::TwoNest),
             "f" => BlockType::Control(BlockControl::EndingBlock),
-            "" => BlockType::Regular,
+            " " => BlockType::Regular,
             _ => Err(InvalidBlockType { block_type: s.to_string() })?
         })
     }
@@ -411,7 +411,7 @@ pub struct InvalidBlockType {
 impl ToString for BlockType {
     fn to_string(&self) -> String {
         match self {
-            BlockType::Regular => "",
+            BlockType::Regular => " ",
             BlockType::Argument(ArgumentBlockReturnType::Boolean) => "b",
             BlockType::Argument(ArgumentBlockReturnType::String) => "s",
             BlockType::Argument(ArgumentBlockReturnType::Number) => "d",
@@ -507,30 +507,65 @@ impl BlockContent {
 
             let arg = match &s.chars().nth(1).unwrap() {
                 's' => Argument::String {
-                    value: ArgValue::Value(
-                        args.pop()
-                            .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?
-                    )
-                },
-                'b' => {
-                    let value =
-                        args.pop()
+                    value: {
+                        let value = args.pop()
                             .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
 
-                    let value = value.parse()
-                        .map_err(|_| BlockContentParseError::InvalidBooleanArgument { value })?;
-
-                    Argument::Boolean { value: ArgValue::Value(value) }
+                        if value.starts_with("@") {
+                            ArgValue::BlockPlaceholder {
+                                block_id: (&value[1..]).parse()
+                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                        value
+                                    })?
+                            }
+                        } else { ArgValue::Value(value) }
+                    }
                 },
-                'd' => {
-                    let value =
-                        args.pop()
-                            .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+                'b' => Argument::Boolean {
+                    value: {
+                        let value =
+                            args.pop()
+                                .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
 
-                    let value = value.parse()
-                        .map_err(|_| BlockContentParseError::InvalidBooleanArgument { value })?;
+                        if value.starts_with("@") {
+                            ArgValue::BlockPlaceholder {
+                                block_id: (&value[1..]).parse()
+                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                        value
+                                    })?
+                            }
+                        } else {
+                            let value = value.parse()
+                                .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
+                                    value
+                                })?;
 
-                    Argument::Number { value: ArgValue::Value(value) }
+                            ArgValue::Value(value)
+                        }
+                    }
+                },
+                'd' => Argument::Number {
+                    value: {
+                        let value =
+                            args.pop()
+                                .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+
+                        if value.starts_with("@") {
+                            ArgValue::BlockPlaceholder {
+                                block_id: (&value[1..]).parse()
+                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                        value
+                                    })?
+                            }
+                        } else {
+                            let value = value.parse()
+                                .map_err(|_| BlockContentParseError::InvalidNumberArgument {
+                                    value
+                                })?;
+
+                            ArgValue::Value(value)
+                        }
+                    }
                 },
                 'm' => Argument::Menu {
                     type_name: s[3..].to_string(),
@@ -560,10 +595,17 @@ impl BlockContent {
                     SpecItem::Parameter(Argument::String { value }) => {
                         SpecItem::Parameter(Argument::String {
                             value: if let ArgValue::Empty = value {
-                                ArgValue::Value(
-                                    args.pop()
-                                        .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?
-                                )
+                                let val = args.pop()
+                                    .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+
+                                if val.starts_with("@") {
+                                    ArgValue::BlockPlaceholder {
+                                        block_id: (&val[1..]).parse()
+                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                                value: val
+                                            })?
+                                    }
+                                } else { ArgValue::Value(val) }
                             } else { value }
                         })
                     }
@@ -574,12 +616,21 @@ impl BlockContent {
                                     args.pop()
                                         .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
 
-                                let value = value.parse()
-                                    .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
-                                        value
-                                    })?;
+                                if value.starts_with("@") {
+                                    ArgValue::BlockPlaceholder {
+                                        block_id: (&value[1..]).parse()
+                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                                value
+                                            })?
+                                    }
+                                } else {
+                                    let value = value.parse()
+                                        .map_err(|_| BlockContentParseError::InvalidNumberArgument {
+                                            value
+                                        })?;
 
-                                ArgValue::Value(value)
+                                    ArgValue::Value(value)
+                                }
                             } else { value }
                         })
                     }
@@ -590,12 +641,21 @@ impl BlockContent {
                                     args.pop()
                                         .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
 
-                                let value = value.parse()
-                                    .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
-                                        value
-                                    })?;
+                                if value.starts_with("@") {
+                                    ArgValue::BlockPlaceholder {
+                                        block_id: (&value[1..]).parse()
+                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                                value
+                                            })?
+                                    }
+                                } else {
+                                    let value = value.parse()
+                                        .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
+                                            value
+                                        })?;
 
-                                ArgValue::Value(value)
+                                    ArgValue::Value(value)
+                                }
                             } else { value }
                         })
                     }
@@ -603,10 +663,17 @@ impl BlockContent {
                         SpecItem::Parameter(Argument::Menu {
                             type_name,
                             value: if let ArgValue::Empty = value {
-                                ArgValue::Value(
-                                    args.pop()
-                                        .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?
-                                )
+                                let value = args.pop()
+                                    .ok_or_else(|| BlockContentParseError::RanOutOfArgs)?;
+
+                                if value.starts_with("@") {
+                                    ArgValue::BlockPlaceholder {
+                                        block_id: (&value[1..]).parse()
+                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
+                                                value
+                                            })?
+                                    }
+                                } else { ArgValue::Value(value) }
                             } else { value }
                         })
                     }
@@ -746,6 +813,11 @@ pub enum BlockContentParseError {
     #[error("block with id {block_id} not found")]
     BlockNotFound {
         block_id: u32
+    },
+
+    #[error("invalid block id given on params while referencing a block argument: `{value}`")]
+    InvalidBlockId {
+        value: String
     },
 
     #[error("unknown spec parameter: {name}")]
