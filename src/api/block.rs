@@ -842,7 +842,19 @@ pub enum BlockContentParseError {
 
 impl ToString for BlockContent {
     fn to_string(&self) -> String {
-        todo!()
+        let mut output = String::new();
+        for item in &self.items {
+            output.push_str(match item {
+                SpecItem::Text(text) => text.as_str(),
+                SpecItem::Parameter(Argument::String { .. }) => "%s",
+                SpecItem::Parameter(Argument::Number { .. }) => "%d",
+                SpecItem::Parameter(Argument::Boolean { .. }) => "%b",
+                SpecItem::Parameter(Argument::Menu { .. }) => "%m",
+            });
+            output.push(' ');
+        }
+        output.pop(); // remove the trailing space
+        output
     }
 }
 
