@@ -175,7 +175,7 @@ impl Blocks {
             let mut sub_stack_blocks = Vec::new();
             let sub_stack1_id = block.sub_stack1
                 .map(|ss1| {
-                    let mut ss1_blocks = ss1.to_block_container(*id_counter);
+                    let mut ss1_blocks = ss1.to_block_container(*id_counter + 1);
                     let ss1_last_id = ss1_blocks.0
                         .last()
                         .map(|b| b.id.parse::<i32>().unwrap())
@@ -189,7 +189,7 @@ impl Blocks {
 
             let sub_stack2_id = block.sub_stack2
                 .map(|ss2| {
-                    let mut ss2_blocks = ss2.to_block_container(*id_counter);
+                    let mut ss2_blocks = ss2.to_block_container(*id_counter + 1);
                     let ss2_last_id = ss2_blocks.0
                         .last()
                         .map(|b| b.id.parse::<i32>().unwrap())
