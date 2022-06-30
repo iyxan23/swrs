@@ -145,10 +145,7 @@ impl Blocks {
         let mut blocks = self.0.into_iter().peekable();
 
         while let Some(block) = blocks.next() {
-            convert_block(
-                &mut result, block, &mut id_counter, None,
-                blocks.peek().is_none()
-            );
+            convert_block(&mut result, block, &mut id_counter, blocks.peek().is_none());
         }
 
         /// Converts the given block into a [`ParserBlock`] then adds it into the result mutable
@@ -161,7 +158,6 @@ impl Blocks {
             result: &mut Vec<ParserBlock>,
             block: Block,
             mut id_counter: &mut u32,
-            type_name: Option<String>,
             last_block: bool
         ) -> u32 {
             //////////
@@ -173,7 +169,7 @@ impl Blocks {
 
             // --- then its arguments
             let (parameters, mut block_args, content)
-                = process_content(block.content);
+                = process_content(block.content, &mut id_counter);
 
             // --- then sub stacks
             let mut sub_stack_blocks = Vec::new();
@@ -219,8 +215,7 @@ impl Blocks {
                 r#type: block.block_type.to_string(),
 
                 // fixme: which do i choose lol
-                type_name: type_name.or(block.block_type.get_typename())
-                    .unwrap_or_else(|| "".to_string()),
+                type_name: block.block_type.get_typename().unwrap_or_else(|| "".to_string()),
 
                 sub_stack1: sub_stack1_id,
                 sub_stack2: sub_stack2_id,
@@ -236,7 +231,7 @@ impl Blocks {
         }
 
         /// takes off arguments and block arguments from the provided block content and return them
-        fn process_content(block_content: BlockContent)
+        fn process_content(block_content: BlockContent, mut id_counter: &mut u32)
             -> (Vec<String>, Vec<ParserBlock>, BlockContent) {
 
             let (content, args) = block_content.take_args();
@@ -245,11 +240,11 @@ impl Blocks {
             let parameters = args
                 .into_iter()
                 .map(|arg| match arg {
-                    Argument::String { value } => {
+                    Argument::String { value, .. } => {
                         match value {
                             ArgValue::Value(val) => val,
                             ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
                             }
                             ArgValue::BlockPlaceholder { block_id } =>
@@ -258,11 +253,11 @@ impl Blocks {
                             ArgValue::Empty => "".to_string()
                         }
                     }
-                    Argument::Number { value } => {
+                    Argument::Number { value, .. } => {
                         match value {
                             ArgValue::Value(val) => val.to_string(),
                             ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
                             }
                             ArgValue::BlockPlaceholder { block_id } =>
@@ -271,11 +266,11 @@ impl Blocks {
                             ArgValue::Empty => "".to_string()
                         }
                     }
-                    Argument::Boolean { value } => {
+                    Argument::Boolean { value, .. } => {
                         match value {
                             ArgValue::Value(val) => val.to_string(),
                             ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, None, true);
+                                convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
                             }
                             ArgValue::BlockPlaceholder { block_id } =>
@@ -284,11 +279,11 @@ impl Blocks {
                             ArgValue::Empty => "".to_string()
                         }
                     }
-                    Argument::Menu { value, type_name } => {
+                    Argument::Menu { value, ..} => {
                         match value {
                             ArgValue::Value(val) => val.to_string(),
                             ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, Some(type_name), true);
+                                convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
                             }
                             ArgValue::BlockPlaceholder { block_id } =>
@@ -488,11 +483,18 @@ impl BlockContent {
                 continue
             }
 
+            // check if this thing has a name
+            // example: %s.name
+            let has_name = s.chars().nth(2)
+                .map(|c| c == '.' && s.len() > 3)
+                .unwrap_or(false);
+            let name = has_name.then(|| (&s[3..]).to_string());
+
             let arg = match &s.chars().nth(1).unwrap() {
-                's' => Argument::String { value: ArgValue::Empty },
-                'b' => Argument::Boolean { value: ArgValue::Empty },
-                'd' => Argument::Number { value: ArgValue::Empty },
-                'm' => Argument::Menu { type_name: s[3..].to_string(), value: ArgValue::Empty },
+                's' => Argument::String { name, value: ArgValue::Empty },
+                'b' => Argument::Boolean { name, value: ArgValue::Empty },
+                'd' => Argument::Number { name, value: ArgValue::Empty },
+                'm' => Argument::Menu { name: name.unwrap(), value: ArgValue::Empty },
                 _ => Err(BlockContentParseError::UnknownSpecParam {
                     name: s.chars().nth(1).unwrap().to_string(),
                     full: s.to_string()
@@ -514,8 +516,16 @@ impl BlockContent {
                 continue
             }
 
+            // check if this thing has a name
+            // example: %s.name
+            let has_name = s.chars().nth(2)
+                .map(|c| c == '.' && s.len() > 3)
+                .unwrap_or(false);
+            let name = has_name.then(|| (&s[3..]).to_string());
+
             let arg = match &s.chars().nth(1).unwrap() {
                 's' => Argument::String {
+                    name,
                     value: {
                         if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                         let value = args.remove(0);
@@ -531,6 +541,7 @@ impl BlockContent {
                     }
                 },
                 'b' => Argument::Boolean {
+                    name,
                     value: {
                         if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                         let value = args.remove(0);
@@ -553,6 +564,7 @@ impl BlockContent {
                     }
                 },
                 'd' => Argument::Number {
+                    name,
                     value: {
                         if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                         let value = args.remove(0);
@@ -575,7 +587,7 @@ impl BlockContent {
                     }
                 },
                 'm' => Argument::Menu {
-                    type_name: s[3..].to_string(),
+                    name: name.unwrap(),
                     value: {
                         if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                         ArgValue::Value(
@@ -601,8 +613,9 @@ impl BlockContent {
             items: self.items.into_iter()
                 .map(|item| Ok(match item {
                     SpecItem::Text(val) => SpecItem::Text(val),
-                    SpecItem::Parameter(Argument::String { value }) => {
+                    SpecItem::Parameter(Argument::String { name, value }) => {
                         SpecItem::Parameter(Argument::String {
+                            name,
                             value: if let ArgValue::Empty = value {
                                 if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                                 let val = args.remove(0);
@@ -618,8 +631,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Number { value }) => {
+                    SpecItem::Parameter(Argument::Number { name, value }) => {
                         SpecItem::Parameter(Argument::Number {
+                            name,
                             value: if let ArgValue::Empty = value {
                                 if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                                 let value = args.remove(0);
@@ -642,8 +656,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Boolean { value }) => {
+                    SpecItem::Parameter(Argument::Boolean { name, value }) => {
                         SpecItem::Parameter(Argument::Boolean {
+                            name,
                             value: if let ArgValue::Empty = value {
                                 if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                                 let value = args.remove(0);
@@ -666,9 +681,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Menu { type_name, value }) => {
+                    SpecItem::Parameter(Argument::Menu { name, value }) => {
                         SpecItem::Parameter(Argument::Menu {
-                            type_name,
+                            name,
                             value: if let ArgValue::Empty = value {
                                 if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
                                 let value = args.remove(0);
@@ -696,8 +711,9 @@ impl BlockContent {
             items: self.items.into_iter()
                 .map(|item| Ok(match item {
                     SpecItem::Text(val) => SpecItem::Text(val),
-                    SpecItem::Parameter(Argument::String { value }) => {
+                    SpecItem::Parameter(Argument::String { name, value }) => {
                         SpecItem::Parameter(Argument::String {
+                            name,
                             value: if let ArgValue::BlockPlaceholder { block_id } = value {
                                 ArgValue::Block(
                                     get_block(block_id)
@@ -708,8 +724,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Number { value }) => {
+                    SpecItem::Parameter(Argument::Number { name, value }) => {
                         SpecItem::Parameter(Argument::Number {
+                            name,
                             value: if let ArgValue::BlockPlaceholder { block_id } = value {
                                 ArgValue::Block(
                                     get_block(block_id)
@@ -720,8 +737,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Boolean { value }) => {
+                    SpecItem::Parameter(Argument::Boolean { name, value }) => {
                         SpecItem::Parameter(Argument::Boolean {
+                            name,
                             value: if let ArgValue::BlockPlaceholder { block_id } = value {
                                 ArgValue::Block(
                                     get_block(block_id)
@@ -732,9 +750,9 @@ impl BlockContent {
                             } else { value }
                         })
                     }
-                    SpecItem::Parameter(Argument::Menu { type_name, value }) => {
+                    SpecItem::Parameter(Argument::Menu { name, value }) => {
                         SpecItem::Parameter(Argument::Menu {
-                            type_name,
+                            name,
                             value: if let ArgValue::BlockPlaceholder { block_id } = value {
                                 ArgValue::Block(
                                     get_block(block_id)
@@ -787,17 +805,19 @@ impl BlockContent {
                         SpecItem::Parameter({
                             // create a new instance of Argument depending on the type of the
                             // argument before, then set them to be empty
+                            //
+                            // oh yeah the name should be cloned because it is essential
                             let ret = match &arg {
-                                Argument::String { .. } =>
-                                    Argument::String { value: ArgValue::Empty },
-                                Argument::Number { .. } =>
-                                    Argument::Number { value: ArgValue::Empty },
-                                Argument::Boolean { .. } =>
-                                    Argument::Boolean { value: ArgValue::Empty },
-                                Argument::Menu { type_name, .. } =>
+                                Argument::String { name, .. } =>
+                                    Argument::String { name: name.as_ref().cloned(), value: ArgValue::Empty },
+                                Argument::Number { name, .. } =>
+                                    Argument::Number { name: name.as_ref().cloned(), value: ArgValue::Empty },
+                                Argument::Boolean { name, .. } =>
+                                    Argument::Boolean { name: name.as_ref().cloned(), value: ArgValue::Empty },
+                                Argument::Menu { name, .. } =>
                                     Argument::Menu {
+                                        name: name.to_owned(),
                                         value: ArgValue::Empty,
-                                        type_name: type_name.to_string()
                                     },
                             };
 
@@ -851,13 +871,29 @@ impl ToString for BlockContent {
     fn to_string(&self) -> String {
         let mut output = String::new();
         for item in &self.items {
+            let mut p_name = None;
+
             output.push_str(match item {
                 SpecItem::Text(text) => text.as_str(),
-                SpecItem::Parameter(Argument::String { .. }) => "%s",
-                SpecItem::Parameter(Argument::Number { .. }) => "%d",
-                SpecItem::Parameter(Argument::Boolean { .. }) => "%b",
-                SpecItem::Parameter(Argument::Menu { .. }) => "%m",
+                SpecItem::Parameter(Argument::String { name, .. }) => {
+                    p_name = name.as_ref(); "%s"
+                },
+                SpecItem::Parameter(Argument::Number { name, .. }) => {
+                    p_name = name.as_ref(); "%d"
+                },
+                SpecItem::Parameter(Argument::Boolean { name, .. }) => {
+                    p_name = name.as_ref(); "%b"
+                },
+                SpecItem::Parameter(Argument::Menu { name, .. }) => {
+                    p_name = Some(name); "%m"
+                },
             });
+
+            if let Some(name) = p_name {
+                output.push('.');
+                output.push_str(name);
+            }
+
             output.push(' ');
         }
         output.pop(); // remove the trailing space
@@ -871,12 +907,59 @@ pub enum SpecItem {
     Parameter(Argument)
 }
 
+/// Represents an argument in a spec, for instance:
+/// ```txt
+/// add source directly %s.inputOnly
+/// ```
+/// `%s.inputOnly` here is an Argument, specifically:
+/// ```txt
+/// Argument::String {
+///     name: Some("inputOnly"),
+///     value: ...,
+/// }
+/// ```
+///
+/// Note: names on arguments are usually used to hint the type of the field / special field if they
+///    are in a block; for instance, `%s` with `.inputOnly` on ASD blocks means that it could only
+///    be an "input only" and variables cannot be "inputted" to them.
+///
+///    Another example is on most view blocks in which they specify exactly what views that can be
+///    inputted as an argument:
+///    ```txt
+///    %m.textview setText %s
+///    ```
+///
+///    But it could also be used as variable names as in moreblock specs. For instance a moreblock
+///    spec:
+///    ```txt
+///    get_data:get data %s.data_name %d.amount
+///    ```
+///    the name of the `%s` argument is used as the name of the argument of the moreblock, and so
+///    does the `%d` argument.
+///
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
-    String { value: ArgValue<String> },
-    Number { value: ArgValue<i32> },
-    Boolean { value: ArgValue<bool> },
-    Menu { type_name: String, value: ArgValue<String> }
+    // %s.name
+    String {
+        name: Option<String>,
+        value: ArgValue<String>
+    },
+    // %d.name
+    Number {
+        name: Option<String>,
+        value: ArgValue<i32>
+    },
+    // %b.name
+    Boolean {
+        name: Option<String>,
+        value: ArgValue<bool>
+    },
+    // %m.name
+    Menu {
+        // names are always present in menus
+        name: String,
+        value: ArgValue<String>
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
