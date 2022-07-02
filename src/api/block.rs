@@ -188,7 +188,7 @@ impl Blocks {
 
                     sub_stack_blocks.append(&mut ss1_blocks.0);
 
-                    *id_counter = ss1_last_id as u32;
+                    if ss1_last_id != -1 { *id_counter = ss1_last_id as u32; }
                     ss1_last_id
                 }).unwrap_or_else(|| -1);
 
@@ -202,7 +202,7 @@ impl Blocks {
 
                     sub_stack_blocks.append(&mut ss2_blocks.0);
 
-                    *id_counter = ss2_last_id as u32;
+                    if ss2_last_id != -1 { *id_counter = ss2_last_id as u32; }
                     ss2_last_id
                 }).unwrap_or_else(|| -1);
 
