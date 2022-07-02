@@ -856,6 +856,10 @@ impl BlockContent {
 
         (reconstructed, arguments)
     }
+
+    pub fn builder() -> BlockContentBuilder {
+        BlockContentBuilder { content: vec![] }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -995,4 +999,28 @@ pub enum ArgValue<T: Debug + Clone + PartialEq> {
 
     // when there is no value passed to this parameter
     Empty
+}
+
+/// A very simple [`BlockContent`] builder
+pub struct BlockContentBuilder {
+    content: Vec<SpecItem>
+}
+
+impl BlockContentBuilder {
+    /// Adds a text
+    pub fn text<S: ToString>(mut self, s: S) -> Self {
+        self.content.push(SpecItem::Text(s.to_string()));
+        self
+    }
+
+    /// Adds an argument
+    pub fn arg(mut self, arg: Argument) -> Self {
+        self.content.push(SpecItem::Parameter(arg));
+        self
+    }
+
+    /// Builds a [`BlockContent`] based off of the text/args given
+    pub fn build(self) -> BlockContent {
+        BlockContent { items: self.content }
+    }
 }
