@@ -974,7 +974,7 @@ pub enum Argument {
     // %d.name
     Number {
         name: Option<String>,
-        value: ArgValue<i32>
+        value: ArgValue<f64>
     },
     // %b.name
     Boolean {
