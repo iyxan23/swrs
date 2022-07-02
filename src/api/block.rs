@@ -139,6 +139,11 @@ pub enum BlockConversionError {
 }
 
 impl Blocks {
+    /// Creates an empty instance of [`Blocks`]
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
     fn to_block_container(self, starts_with: u32) -> BlockContainer {
         let mut result = Vec::new();
         let mut id_counter = starts_with - 1;
@@ -440,6 +445,24 @@ pub enum BlockCategory {
     ViewFunc,
     ComponentFunc,
     MoreBlock,
+}
+
+impl Into<Color> for BlockCategory {
+    fn into(self) -> Color {
+        let (r, g, b) = match self {
+            BlockCategory::Variable         => (0xee, 0x7d, 0x16),
+            BlockCategory::List             => (0xcc, 0x5b, 0x22),
+            BlockCategory::Control          => (0xe1, 0xa9, 0x2a),
+            BlockCategory::Operator         => (0x5c, 0xb7, 0x22),
+            BlockCategory::Math             => (0x23, 0xb9, 0xa9),
+            BlockCategory::File             => (0xa1, 0x88, 0x7f),
+            BlockCategory::ViewFunc         => (0x4a, 0x6c, 0xd4),
+            BlockCategory::ComponentFunc    => (0xfc, 0xa5, 0xe2),
+            BlockCategory::MoreBlock        => (0x8a, 0x55, 0xd7)
+        };
+
+        Color::from_rgb(r, g, b)
+    }
 }
 
 impl TryFrom<Color> for BlockCategory {
