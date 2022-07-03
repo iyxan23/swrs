@@ -351,6 +351,59 @@ pub struct Block {
 }
 
 impl Block {
+    /// Creates a simple block without any substacks
+    pub fn new(
+        category: BlockCategory,
+        op_code: String,
+        content: BlockContent,
+        block_type: BlockType
+    ) -> Block {
+        Block {
+            sub_stack1: None,
+            sub_stack2: None,
+            color: category.into(),
+            op_code,
+            content,
+            block_type
+        }
+    }
+
+    /// Creates a new block that has exactly one substack. The block_type is automatically set to
+    /// be [`BlockType::Control(BlockControl::OneNest)`]
+    pub fn new_1substack(
+        category: BlockCategory,
+        op_code: String,
+        content: BlockContent,
+        sub_stack1: Blocks,
+    ) -> Block {
+        Block {
+            sub_stack1: Some(sub_stack1),
+            sub_stack2: None,
+            color: category.into(),
+            op_code,
+            content,
+            block_type: BlockType::Control(BlockControl::OneNest)
+        }
+    }
+
+    /// Creates a new block that has exactly two substack. The block_type is automatically set to
+    /// be [`BlockType::Control(BlockControl::TwoNest)`]
+    pub fn new_2substack(
+        category: BlockCategory,
+        op_code: String,
+        content: BlockContent,
+        sub_stack1: Blocks,
+        sub_stack2: Blocks,
+    ) -> Block {
+        Block {
+            sub_stack1: Some(sub_stack1),
+            sub_stack2: Some(sub_stack2),
+            color: category.into(),
+            op_code,
+            content,
+            block_type: BlockType::Control(BlockControl::TwoNest)
+        }
+    }
     /// Retrieves what category this block is from. Will return an error if the block color doesn't
     /// match to any block category
     pub fn category(&self) -> Result<BlockCategory, UnknownColor> {
@@ -964,6 +1017,7 @@ pub enum SpecItem {
 ///    the name of the `%s` argument is used as the name of the argument of the moreblock, and so
 ///    does the `%d` argument.
 ///
+// todo: lists and maps lol how did i forgot about them
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     // %s.name
