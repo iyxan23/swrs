@@ -273,7 +273,19 @@ impl Blocks {
                     }
                     Argument::Boolean { value, .. } => {
                         match value {
-                            ArgValue::Value(val) => val.to_string(),
+                            // unlike others, booleans uses blocks as their literal value, kinda
+                            // dumb ngl
+                            ArgValue::Value(val) => {
+                                let block = Block::new(
+                                    BlockCategory::Operator,
+                                    val.to_string(),
+                                    BlockContent::builder().text(val).build(),
+                                    BlockType::Argument(ArgumentBlockReturnType::Boolean)
+                                );
+
+                                convert_block(&mut block_args, block, &mut id_counter, true);
+                                format!("@{}", id_counter)
+                            },
                             ArgValue::Block(block) => {
                                 convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
@@ -850,15 +862,20 @@ impl BlockContent {
                         })
                     }
                     SpecItem::Parameter(Argument::Boolean { name, value }) => {
+                        // unlike others, booleans literal values are blocks.
+                        // we need to check if this boolean-returning block is a true or false, in
+                        // which we will replace it with ArgValue::Value instead
                         SpecItem::Parameter(Argument::Boolean {
                             name,
                             value: if let ArgValue::BlockPlaceholder { block_id } = value {
-                                ArgValue::Block(
-                                    get_block(block_id)
-                                        .ok_or_else(|| BlockContentParseError::BlockNotFound {
-                                            block_id
-                                        })?
-                                )
+                                let val_block = get_block(block_id)
+                                    .ok_or_else(|| BlockContentParseError::BlockNotFound { block_id })?;
+
+                                match val_block.op_code.as_str() {
+                                    "true" => ArgValue::Value(true),
+                                    "false" => ArgValue::Value(false),
+                                    _ => ArgValue::Block(val_block),
+                                }
                             } else { value }
                         })
                     }
