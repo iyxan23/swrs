@@ -425,8 +425,38 @@ pub enum ArgumentBlockReturnType {
     Boolean,
     String,
     Number,
-    View { type_name: String },
-    Component { type_name: String }
+    View { type_name: String }, // todo: types for views and components
+    Component { type_name: String },
+    List { inner_type: ListItem }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ListItem {
+    String, Number //, Map todo
+}
+
+impl Into<ArgumentBlockReturnType> for ListItem {
+    fn into(self) -> ArgumentBlockReturnType {
+        match self {
+            ListItem::String => ArgumentBlockReturnType::String,
+            ListItem::Number => ArgumentBlockReturnType::Number,
+        }
+    }
+}
+
+pub struct InvalidListItem;
+
+impl FromStr for ListItem {
+    type Err = InvalidListItem;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "List String" => ListItem::String,
+            "List Number" => ListItem::Number,
+            // "List Map" => ListItem::Map, todo
+            _ => return Err(InvalidListItem)
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -444,11 +474,15 @@ impl BlockType {
             "b" => BlockType::Argument(ArgumentBlockReturnType::Boolean),
             "s" => BlockType::Argument(ArgumentBlockReturnType::String),
             "d" => BlockType::Argument(ArgumentBlockReturnType::Number),
+            "l" => BlockType::Argument(ArgumentBlockReturnType::List {
+                inner_type: type_name.parse()
+                    .map_err(|_| InvalidBlockType { block_type: s.to_string(), type_name })?
+            }),
             "c" => BlockType::Control(BlockControl::OneNest),
             "e" => BlockType::Control(BlockControl::TwoNest),
             "f" => BlockType::Control(BlockControl::EndingBlock),
             " " => BlockType::Regular,
-            _ => Err(InvalidBlockType { block_type: s.to_string() })?
+            _ => Err(InvalidBlockType { block_type: s.to_string(), type_name })?
         })
     }
 
@@ -465,9 +499,10 @@ impl BlockType {
 }
 
 #[derive(Debug, Error)]
-#[error("invalid block type: {block_type}")]
+#[error("invalid block type / type name. block type: {block_type}, type name: {type_name}")]
 pub struct InvalidBlockType {
-    pub block_type: String
+    pub block_type: String,
+    pub type_name: String,
 }
 
 impl ToString for BlockType {
@@ -479,6 +514,7 @@ impl ToString for BlockType {
             BlockType::Argument(ArgumentBlockReturnType::Number) => "d",
             BlockType::Argument(ArgumentBlockReturnType::View { .. }) => "v",
             BlockType::Argument(ArgumentBlockReturnType::Component { .. }) => "p",
+            BlockType::Argument(ArgumentBlockReturnType::List { .. }) => "l",
             BlockType::Control(BlockControl::OneNest) => "c",
             BlockType::Control(BlockControl::TwoNest) => "e",
             BlockType::Control(BlockControl::EndingBlock) => "f",
