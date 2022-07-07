@@ -26,7 +26,7 @@ pub fn decrypt_sw_file(file: &Path) -> Result<Vec<u8>, CryptoError> {
     decrypt_sw_encrypted(&data)
 }
 
-pub fn decrypt_sw_encrypted(data: &Vec<u8>) -> Result<Vec<u8>, CryptoError> {
+pub fn decrypt_sw_encrypted(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let cipher = Aes128Cbc::new_from_slices(KEY.as_ref(), KEY.as_ref())
         .expect("Failed to create the AES key");
 
@@ -57,7 +57,7 @@ pub fn encrypt_sw_file(file: &Path) -> Result<Vec<u8>, CryptoError> {
     Ok(output_ciphertext)
 }
 
-pub fn encrypt_sw(data: &Vec<u8>) -> Vec<u8> {
+pub fn encrypt_sw(data: &[u8]) -> Vec<u8> {
     let cipher = Aes128Cbc::new_from_slices(KEY.as_ref(), KEY.as_ref())
         .expect("Failed to create the AES key");
 

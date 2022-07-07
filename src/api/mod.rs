@@ -106,6 +106,17 @@ pub struct Resources {
     fonts: LinkedHashMap<ResourceId, ResourceFileWrapper>,
 }
 
+impl Resources {
+    /// Creates an empty instance of [`Resources`]
+    pub fn new_empty() -> Resources {
+        Resources {
+            images: Default::default(),
+            sounds: Default::default(),
+            fonts: Default::default()
+        }
+    }
+}
+
 /// A newtype struct of a resource id, used in [`Resources`]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResourceId(pub String);
@@ -234,6 +245,23 @@ pub struct SketchwareProject {
     pub resources: Resources,
 
     automatic_res_file_ids: bool
+}
+
+impl SketchwareProject {
+    // creates an instance of [`SketchwareProject`]
+    pub fn new(
+        metadata: Metadata,
+        colors: Colors,
+        screens: Vec<Screen>,
+        custom_views: Vec<CustomView>,
+        libraries: Libraries,
+        resources: Resources,
+    ) -> Self {
+        SketchwareProject {
+            custom_icon: None, metadata, colors, screens, custom_views, libraries, resources,
+            automatic_res_file_ids: false
+        }
+    }
 }
 
 // turns a view name to a logic name, something like `main` into `MainActivity`,
