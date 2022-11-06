@@ -1,9 +1,27 @@
 [package]
 name = "swrs"
 description = "A simple rust library that reads and parses a sketchware project"
+homepage = "https://github.com/Iyxan23/swrs"
+repository = "https://github.com/Iyxan23/swrs"
+readme = "README.md"
 authors = ["Iyxan23 <nurihsanalghifari@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+keywords = ["sketchware", "sw", "parse", "reconstruct"]
+categories = ["parsing", "parser-implementations"]
+exclude = [
+    ".idea",
+    ".github"
+]
+
+# https://stackoverflow.com/a/54842093/9613353
+[profile.release]
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
 
 [dependencies]
 aes = "^0.7.5"

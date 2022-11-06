@@ -15,9 +15,11 @@ It's important to take note that this `swrs` library is composed of two parts: [
 Sketchware projects starts from being parsed by the `parser` ([here](https://github.com/Iyxan23/swrs/blob/0f570c0f8907504a36ec3169385dcbe17edec401/src/parser/mod.rs#L153)) into rust structs and then piped onto `api` ([here](https://github.com/Iyxan23/swrs/blob/dev/src/api/mod.rs#L252)) to provide high-level APIs like iterating through blocks, substacks, view tree, etc.
 
 ### Installation
-I don't have the courage to publish this library on crates.io, it's pretty useless lol.
-
-Just clone this repo and include it in your `Cargo.toml` through `path` or using cargo workspaces.
+Add swrs to your dependencies table in `Cargo.toml`:
+```toml
+[dependencies]
+swrs = "0.1.0"
+```
 
 ### Usage
 ```rs
