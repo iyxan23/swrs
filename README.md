@@ -18,7 +18,7 @@ Sketchware projects starts from being parsed by the `parser` ([here](https://git
 Add swrs to your dependencies table in `Cargo.toml`:
 ```toml
 [dependencies]
-swrs = "0.1.0"
+swrs = "0.1.1"
 ```
 
 ### Usage
