@@ -5,7 +5,14 @@ swrs is (my first) rust library that can parse and reconstruct Sketchware projec
 
 This library is in **alpha**, and only supports regular Sketchware projects; this library has not been tested with modded projects (although I do have a plan to support it sometime in the future). This library has been tested with multiple projects off of [Sketchub](https://sketchub.in) and parsing and reconstruction worked flawlessly.
 
-I'm going to state that this library is pretty useless; not a lot of people uses Sketchware anymore and it's getting irrelevant as time goes on. So, don't expect me to do a lot of maintenance on this library. I mainly made this so that I could build my next project.
+### Structure
+
+It's important to take note that this `swrs` library is composed of two parts: [`parser`](src/parser) and [`api`](src/api).
+
+ - **`parser`** is the part where raw sketchware projects are then being parsed into a structure that still retains their raw form but with rust types. It's output is a [`swrs::parser::SketchwareProject`](https://github.com/Iyxan23/swrs/blob/dev/src/parser/mod.rs#L138)
+ - **`api`** is the part where the `parser` models are then read and interpreted in a way in order to provide high level apis of collecting data and modifying the project. It's output is a [`swrs::api::SketchwareProject`](https://github.com/Iyxan23/swrs/blob/dev/src/api/mod.rs#L238)
+
+Sketchware projects starts from being parsed by the `parser` ([here](https://github.com/Iyxan23/swrs/blob/0f570c0f8907504a36ec3169385dcbe17edec401/src/parser/mod.rs#L153)) into rust structs and then piped onto `api` ([here](https://github.com/Iyxan23/swrs/blob/dev/src/api/mod.rs#L252)) to provide high-level APIs like iterating through blocks, substacks, view tree, etc.
 
 ### Installation
 I don't have the courage to publish this library on crates.io, it's pretty useless lol.
