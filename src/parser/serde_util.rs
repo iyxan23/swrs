@@ -1,8 +1,9 @@
 /// de/serialize sketchware's date format into a timestamp using chrono
 pub(crate) mod date_to_timestamp {
-    use chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
+    use chrono::{NaiveDate, NaiveDateTime, Datelike, Timelike};
     use serde::{de, Deserialize, Serializer};
-    use serde::de::Error;
+    use serde::de::Error as DeError;
+    use serde::ser::Error as SerError;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error> where D: de::Deserializer<'de> {
         let v = String::deserialize(deserializer)?;
@@ -15,14 +16,18 @@ pub(crate) mod date_to_timestamp {
         let second = v[12..14].parse::<u32>().map_err(D::Error::custom)?;
 
         Ok(
-            NaiveDate::from_ymd(year, month, day)
-                .and_hms(hour, minute, second)
+            NaiveDate::from_ymd_opt(year, month, day)
+                    .ok_or_else(|| D::Error::custom("invalid year/month/day on the date"))?
+                .and_hms_opt(hour, minute, second)
+                    .ok_or_else(|| D::Error::custom("invalid hour/minute/second on the date"))?
                 .timestamp() as u64
         )
     }
 
     pub fn serialize<S>(timestamp: &u64, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let date = NaiveDateTime::from_timestamp(*timestamp as i64, 0);
+        let date = NaiveDateTime::from_timestamp_opt(*timestamp as i64, 0)
+            .ok_or_else(|| S::Error::custom("invalid timestamp"))?;
+
         let date_str = format!(
             "{}{}{}{}{}{}",
             date.year(),
