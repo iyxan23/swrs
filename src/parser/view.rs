@@ -268,7 +268,7 @@ pub mod models {
         pub custom_view: String, // ""
 
         /// Divider height of a listview (in dp)
-        pub divider_height: u32, // 0
+        pub divider_height: u32, // 1
 
         #[serde(with = "bool_to_one_zero")]
         pub enabled: bool, // (int) 0
@@ -320,7 +320,7 @@ pub mod models {
                 choice_mode: ChoiceMode::None,
                 clickable: true,
                 custom_view: "".to_string(),
-                divider_height: 0,
+                divider_height: 1,
                 enabled: true,
                 first_day_of_week: 1,
                 id: id.to_string(),
@@ -470,16 +470,16 @@ pub mod models {
 
         #[derive(Debug, Clone, Copy, Eq, PartialEq)]
         pub enum Size {
-            MatchParent, // -2
-            WrapContent, // -1
+            MatchParent, // -1
+            WrapContent, // -2
             Fixed(i32)
         }
 
         impl Serialize for Size {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
                 serializer.serialize_i32(match self {
-                    Size::MatchParent => { -2 }
-                    Size::WrapContent => { -1 }
+                    Size::MatchParent => { -1 }
+                    Size::WrapContent => { -2 }
                     Size::Fixed(num) => { *num }
                 })
             }
@@ -490,8 +490,8 @@ pub mod models {
                 let num = i32::deserialize(deserializer)?;
 
                 Ok(match num {
-                    -2 => { Size::MatchParent }
-                    -1 => { Size::WrapContent }
+                    -1 => { Size::MatchParent }
+                    -2 => { Size::WrapContent }
                     _ => { Size::Fixed(num) }
                 })
             }
