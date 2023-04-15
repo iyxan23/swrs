@@ -521,7 +521,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
     let mut result = Vec::<AndroidView>::new();
     let mut children_result = Vec::<AndroidView>::new();
 
-    for view in views {
+    for (idx, view) in views.into_iter().enumerate() {
         // get the raw view old
         let mut result_view = view.raw;
 
@@ -529,6 +529,7 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
         result_view.id = view.id.to_owned();
         result_view.parent = Some(parent_id.clone());
         result_view.parent_type = parent_type as i8;
+        result_view.index = idx as u32; // <- here we need to set the index of the children
 
         // Gets the type id from the view type that is in the `view` field. If it's an Err, will
         // fallback to the type field from the raw view.
