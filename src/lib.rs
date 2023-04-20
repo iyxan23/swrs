@@ -1,7 +1,9 @@
 pub mod parser;
 pub mod color;
 
+#[cfg(feature = "api")]
 pub mod api;
+
 pub(crate) mod util;
 
 use std::io;

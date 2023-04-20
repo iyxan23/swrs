@@ -338,6 +338,8 @@ impl ResourceFileWrapper {
     }
 
     /// Generates a random ResourceFileWrapper::U32Id with the provided resource name and type
+    /// using [`rand::random()`].
+    #[cfg(feature = "resource_id_random")]
     pub fn make_random_id(res_full_name: String, res_type: ResourceType) -> ResourceFileWrapper {
         ResourceFileWrapper::U32Id {
             id: rand::random(),

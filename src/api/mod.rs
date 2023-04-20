@@ -322,6 +322,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 val.resource.$res_type
                     .into_iter()
                     .map(|ResourceItem { full_name, name, .. }|{
+                        #[cfg(feature = "resource_id_random")]
                         let resource = if let Some(rf) = &mut val.resource_files {
                             rf.$res_type.remove(&full_name)
                                 .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
@@ -331,6 +332,23 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                                 })?
                         } else {
                             ResourceFileWrapper::make_random_id(full_name, ResourceType::$res_type_c)
+                        };
+                            
+                        #[cfg(not(feature = "resource_id_random"))]
+                        let resource = {
+                            let Some(rf) = &mut val.resource_files
+                                else { Err(APISketchwareProjectConversionError::MissingResourceFile {
+                                    res_name: name.to_owned(),
+                                    res_full_name: full_name,
+                                    res_type: ResourceType::$res_type_c
+                                })? };
+                            
+                            rf.$res_type.remove(&full_name)
+                                .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
+                                    res_name: name.to_owned(),
+                                    res_full_name: full_name,
+                                    res_type: ResourceType::$res_type_c
+                                })?
                         };
 
                         Ok((ResourceId(name), resource))
