@@ -1,20 +1,20 @@
-use ritelinked::LinkedHashMap;
-use serde::{Serialize, Deserialize};
 use crate::color::Color;
-use crate::parser::Parsable;
-use thiserror::Error;
 use crate::parser::logic::component::{ComponentPoolParseError, ComponentPoolReconstructionError};
 use crate::parser::logic::event::EventPoolParseError;
 use crate::parser::logic::list_variable::ListVariablePoolParseError;
 use crate::parser::logic::more_block::MoreBlockPoolParseError;
 use crate::parser::logic::variable::VariablePoolParseError;
+use crate::parser::Parsable;
+use ritelinked::LinkedHashMap;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Logic {
     /// All the logic of each screens
     ///
     /// The key is the java / logic name
-    pub screens: LinkedHashMap<String, ScreenLogic>
+    pub screens: LinkedHashMap<String, ScreenLogic>,
 }
 
 impl Parsable for Logic {
@@ -28,7 +28,9 @@ impl Parsable for Logic {
 
         loop {
             let line = lines.next();
-            if line.is_none() { break; }
+            if line.is_none() {
+                break;
+            }
             let line = line.unwrap();
 
             if !line.starts_with("@") {
@@ -42,18 +44,19 @@ impl Parsable for Logic {
                 let screen_name = (&line[1..line.len() - 9]).to_string(); // 8 (length of "java_var") + 1 (the dot)
 
                 // parse variables
-                let variable_pool = variable::VariablePool::parse_iter(&mut lines)
-                    .map_err(|err| LogicParseError::VariablePoolParseError {
-                        screen_name: screen_name.to_owned(),
-                        line: line_counter,
-                        source: err
+                let variable_pool =
+                    variable::VariablePool::parse_iter(&mut lines).map_err(|err| {
+                        LogicParseError::VariablePoolParseError {
+                            screen_name: screen_name.to_owned(),
+                            line: line_counter,
+                            source: err,
+                        }
                     })?;
 
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .variables = Some(variable_pool);
-
             } else if line.ends_with("java_list") {
                 // list variable pool
                 // get the screen name
@@ -70,88 +73,93 @@ impl Parsable for Logic {
                 // then put it on the screens list with the screen_name above
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .list_variables = Some(list_variable_pool);
-
             } else if line.ends_with("java_components") {
                 // component pool
                 // get screen name
                 let screen_name = (&line[1..line.len() - 16]).to_string(); // 15 (length of "java_components") + 1 (the dot)
 
                 // then parse it
-                let component_pool = component::ComponentPool::parse_iter(&mut lines)
-                    .map_err(|err| LogicParseError::ComponentPoolParseError {
-                        screen_name: screen_name.to_owned(),
-                        line: line_counter,
-                        source: err
+                let component_pool =
+                    component::ComponentPool::parse_iter(&mut lines).map_err(|err| {
+                        LogicParseError::ComponentPoolParseError {
+                            screen_name: screen_name.to_owned(),
+                            line: line_counter,
+                            source: err,
+                        }
                     })?;
 
                 // then put it on the screens list with the screen_name above
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .components = Some(component_pool);
-
             } else if line.ends_with("java_events") {
                 // event pool
                 // get the screen name from the header
                 let screen_name = (&line[1..line.len() - 12]).to_string(); // 11 (length of "java_events") + 1 (the dot)
 
                 // then parse it
-                let event_pool = event::EventPool::parse_iter(&mut lines)
-                    .map_err(|err| LogicParseError::EventPoolParseError {
+                let event_pool = event::EventPool::parse_iter(&mut lines).map_err(|err| {
+                    LogicParseError::EventPoolParseError {
                         screen_name: screen_name.to_owned(),
                         line: line_counter,
-                        source: err
-                    })?;
+                        source: err,
+                    }
+                })?;
 
                 // then put it on the screen it belongs to
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .events = Some(event_pool);
-
             } else if line.ends_with("java_func") {
                 // moreblocks pool
                 let screen_name = (&line[1..line.len() - 10]).to_string(); // 9 (length of "java_func") + 1 (the dot)
 
                 // then parse it
-                let more_block_pool = more_block::MoreBlockPool::parse_iter(&mut lines)
-                    .map_err(|err| LogicParseError::MoreBlockPoolParseError {
-                        screen_name: screen_name.to_owned(),
-                        line: line_counter,
-                        source: err,
+                let more_block_pool =
+                    more_block::MoreBlockPool::parse_iter(&mut lines).map_err(|err| {
+                        LogicParseError::MoreBlockPoolParseError {
+                            screen_name: screen_name.to_owned(),
+                            line: line_counter,
+                            source: err,
+                        }
                     })?;
 
                 // then put it on the screen i guess
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .more_blocks = Some(more_block_pool);
-
             } else {
                 // some kind of event that will contain blocks
                 // parse the header
-                let BlockContainerHeader { screen_name, container_name } =
-                    BlockContainerHeader::parse(line)
-                        .map_err(|err| LogicParseError::BlockContainerHeaderParseError {
-                            line: line_counter,
-                            source: err
-                        })?;
+                let BlockContainerHeader {
+                    screen_name,
+                    container_name,
+                } = BlockContainerHeader::parse(line).map_err(|err| {
+                    LogicParseError::BlockContainerHeaderParseError {
+                        line: line_counter,
+                        source: err,
+                    }
+                })?;
 
                 // parse the blocks
-                let blocks = BlockContainer::parse_iter(&mut lines)
-                    .map_err(|err| LogicParseError::BlockContainerParseError {
+                let blocks = BlockContainer::parse_iter(&mut lines).map_err(|err| {
+                    LogicParseError::BlockContainerParseError {
                         screen_name: screen_name.to_owned(),
                         container_name: container_name.to_owned(),
                         line: line_counter,
-                        source: err
-                    })?;
+                        source: err,
+                    }
+                })?;
 
                 // then add this to the block container pool
                 screens
                     .entry(screen_name.to_owned())
-                    .or_insert_with(||ScreenLogic::new_empty(screen_name.to_owned()))
+                    .or_insert_with(|| ScreenLogic::new_empty(screen_name.to_owned()))
                     .block_containers
                     .insert(container_name.to_owned(), blocks);
             }
@@ -173,44 +181,48 @@ impl Parsable for Logic {
 
         for screen in self.screens.values() {
             if let Some(variables) = &screen.variables {
-                variable_containers
-                    .push(format!(
-                        "@{}.java_var\n{}", screen.name, variables.reconstruct().unwrap() /* should never fail */
-                    ));
+                variable_containers.push(format!(
+                    "@{}.java_var\n{}",
+                    screen.name,
+                    variables.reconstruct().unwrap() /* should never fail */
+                ));
             }
 
             if let Some(list_variable) = &screen.list_variables {
-                list_variable_containers
-                    .push(format!(
-                        "@{}.java_list\n{}", screen.name, list_variable.reconstruct().unwrap() /* should never fail */
-                    ))
+                list_variable_containers.push(format!(
+                    "@{}.java_list\n{}",
+                    screen.name,
+                    list_variable.reconstruct().unwrap() /* should never fail */
+                ))
             }
 
             if let Some(more_block) = &screen.more_blocks {
-                more_block_containers
-                    .push(format!(
-                        "@{}.java_func\n{}", screen.name, more_block.reconstruct().unwrap() /* should never fail */
-                    ));
+                more_block_containers.push(format!(
+                    "@{}.java_func\n{}",
+                    screen.name,
+                    more_block.reconstruct().unwrap() /* should never fail */
+                ));
             }
 
             if let Some(component) = &screen.components {
-                component_containers
-                    .push(format!(
-                        "@{}.java_components\n{}",
-                        screen.name,
-                        component.reconstruct()
-                            .map_err(|err| LogicReconstructionError::ComponentPoolReconstructionError {
-                                screen_name: screen.name.to_owned(),
-                                source: err
-                            })?
-                    ));
+                component_containers.push(format!(
+                    "@{}.java_components\n{}",
+                    screen.name,
+                    component.reconstruct().map_err(|err| {
+                        LogicReconstructionError::ComponentPoolReconstructionError {
+                            screen_name: screen.name.to_owned(),
+                            source: err,
+                        }
+                    })?
+                ));
             }
 
             if let Some(event) = &screen.events {
-                event_containers
-                    .push(format!(
-                        "@{}.java_events\n{}", screen.name, event.reconstruct().unwrap() /* should never fail */
-                    ));
+                event_containers.push(format!(
+                    "@{}.java_events\n{}",
+                    screen.name,
+                    event.reconstruct().unwrap() /* should never fail */
+                ));
             }
 
             let mut result = String::new();
@@ -222,13 +234,16 @@ impl Parsable for Logic {
                 result.push_str(container_id.as_str());
                 result.push('\n');
                 result.push_str(
-                    blocks.reconstruct()
-                        .map_err(|err| LogicReconstructionError::BlockContainerReconstructionError {
-                            screen_name: screen.name.to_owned(),
-                            container_name: container_id.to_owned(),
-                            source: err
+                    blocks
+                        .reconstruct()
+                        .map_err(|err| {
+                            LogicReconstructionError::BlockContainerReconstructionError {
+                                screen_name: screen.name.to_owned(),
+                                container_name: container_id.to_owned(),
+                                source: err,
+                            }
                         })?
-                        .as_str()
+                        .as_str(),
                 );
                 result.push('\n');
             }
@@ -246,8 +261,7 @@ impl Parsable for Logic {
             .chain(block_containers)
             .fold(String::new(), |acc, i| format!("{}\n\n{}", acc, i.trim()))
             .trim()
-            .to_string()
-        )
+            .to_string())
     }
 }
 
@@ -257,41 +271,41 @@ pub enum LogicParseError {
     VariablePoolParseError {
         screen_name: String,
         line: u32,
-        source: VariablePoolParseError
+        source: VariablePoolParseError,
     },
 
     #[error("error while parsing list variable pool of screen {screen_name} at line {line}")]
     ListVariablePoolParseError {
         screen_name: String,
         line: u32,
-        source: ListVariablePoolParseError
+        source: ListVariablePoolParseError,
     },
 
     #[error("error while parsing component pool of screen {screen_name} at line {line}")]
     ComponentPoolParseError {
         screen_name: String,
         line: u32,
-        source: ComponentPoolParseError
+        source: ComponentPoolParseError,
     },
 
     #[error("error while parsing event pool of screen {screen_name} at line {line}")]
     EventPoolParseError {
         screen_name: String,
         line: u32,
-        source: EventPoolParseError
+        source: EventPoolParseError,
     },
 
     #[error("error while parsing more block pool of screen {screen_name} at line {line}")]
     MoreBlockPoolParseError {
         screen_name: String,
         line: u32,
-        source: MoreBlockPoolParseError
+        source: MoreBlockPoolParseError,
     },
 
     #[error("error while parsing a block container header at line {line}")]
     BlockContainerHeaderParseError {
         line: u32,
-        source: BlockContainerHeaderParseError
+        source: BlockContainerHeaderParseError,
     },
 
     #[error("error while parsing a block container of screen {screen_name} container {container_name} at line {line}")]
@@ -299,8 +313,8 @@ pub enum LogicParseError {
         screen_name: String,
         container_name: String,
         line: u32,
-        source: BlockContainerParseError
-    }
+        source: BlockContainerParseError,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -308,15 +322,15 @@ pub enum LogicReconstructionError {
     #[error("error while reconstructing the component pool of screen {screen_name}")]
     ComponentPoolReconstructionError {
         screen_name: String,
-        source: ComponentPoolReconstructionError
+        source: ComponentPoolReconstructionError,
     },
 
     #[error("error while reconstructing the block container of {container_name} of screen {screen_name}")]
     BlockContainerReconstructionError {
         screen_name: String,
         container_name: String,
-        source: BlockContainerReconstructionError
-    }
+        source: BlockContainerReconstructionError,
+    },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -345,10 +359,10 @@ impl ScreenLogic {
 }
 
 pub mod variable {
+    use crate::parser::Parsable;
+    use ritelinked::LinkedHashMap;
     use std::convert::TryFrom;
     use std::num::ParseIntError;
-    use ritelinked::LinkedHashMap;
-    use crate::parser::Parsable;
     use thiserror::Error;
 
     #[derive(Debug, Clone, Eq, PartialEq)]
@@ -357,18 +371,16 @@ pub mod variable {
     impl VariablePool {
         /// Parses a variable pool from an iterator of newline string
         pub fn parse_iter<'a>(
-            newline_iter: &mut impl Iterator<Item=&'a str>
+            newline_iter: &mut impl Iterator<Item = &'a str>,
         ) -> Result<Self, VariablePoolParseError> {
-
             let mut result_map = LinkedHashMap::new();
 
             for (count, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
-                let variable = Variable::parse(line)
-                    .map_err(|err| VariablePoolParseError {
-                        count: count as u32,
-                        content: line.to_string(),
-                        source: err
-                    })?;
+                let variable = Variable::parse(line).map_err(|err| VariablePoolParseError {
+                    count: count as u32,
+                    content: line.to_string(),
+                    source: err,
+                })?;
 
                 result_map.insert(variable.name.to_owned(), variable);
             }
@@ -387,11 +399,16 @@ pub mod variable {
         }
 
         fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-            Ok(self.0
+            Ok(self
+                .0
                 .values()
-                .fold(String::new(), |acc, i|
-                    format!("{}\n{}", acc, i.reconstruct().unwrap() /* this never fails */ )
-                )
+                .fold(String::new(), |acc, i| {
+                    format!(
+                        "{}\n{}",
+                        acc,
+                        i.reconstruct().unwrap() /* this never fails */
+                    )
+                })
                 .trim()
                 .to_string())
         }
@@ -404,7 +421,7 @@ pub mod variable {
         pub content: String,
 
         #[source]
-        pub source: VariableParseError
+        pub source: VariableParseError,
     }
 
     impl Default for VariablePool {
@@ -426,20 +443,19 @@ pub mod variable {
         fn parse(s: &str) -> Result<Variable, Self::ParseError> {
             let (var_type, var_name) =
                 s.split_once(":")
-                    .ok_or_else(||VariableParseError::MalformedVariable {
-                        content: s.to_string()
+                    .ok_or_else(|| VariableParseError::MalformedVariable {
+                        content: s.to_string(),
                     })?;
 
             Ok(Variable {
                 name: var_name.to_string(),
-                r#type: VariableType::try_from(
-                    var_type
-                        .parse::<u8>()
-                        .map_err(|err| VariableParseError::MalformedVariableType {
-                            content: var_type.to_string(),
-                            source: err
-                        })?
-                ).map_err(VariableParseError::InvalidVariableType)?
+                r#type: VariableType::try_from(var_type.parse::<u8>().map_err(|err| {
+                    VariableParseError::MalformedVariableType {
+                        content: var_type.to_string(),
+                        source: err,
+                    }
+                })?)
+                .map_err(VariableParseError::InvalidVariableType)?,
             })
         }
 
@@ -451,16 +467,14 @@ pub mod variable {
     #[derive(Error, Debug)]
     pub enum VariableParseError {
         #[error("malformed variable, couldn't find `:` to separate")]
-        MalformedVariable {
-            content: String
-        },
+        MalformedVariable { content: String },
         #[error("variable type `{content}` is not an int")]
-        MalformedVariableType{
+        MalformedVariableType {
             content: String,
-            source: ParseIntError
+            source: ParseIntError,
         },
         #[error("variable type {} is not mapped to any value", .0.value)]
-        InvalidVariableType(#[source] InvalidVariableTypeError)
+        InvalidVariableType(#[source] InvalidVariableTypeError),
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -481,7 +495,7 @@ pub mod variable {
                 1 => Ok(VariableType::Integer),
                 2 => Ok(VariableType::String),
                 3 => Ok(VariableType::HashMap),
-                _ => Err(InvalidVariableTypeError { value })
+                _ => Err(InvalidVariableTypeError { value }),
             }
         }
     }
@@ -489,15 +503,15 @@ pub mod variable {
     #[derive(Error, Debug)]
     #[error("the value given ({value}) is not mapped to any variable type")]
     pub struct InvalidVariableTypeError {
-        pub value: u8
+        pub value: u8,
     }
 }
 
 pub mod list_variable {
-    use std::num::ParseIntError;
-    use ritelinked::LinkedHashMap;
-    use crate::parser::Parsable;
     use crate::parser::logic::variable::InvalidVariableTypeError;
+    use crate::parser::Parsable;
+    use ritelinked::LinkedHashMap;
+    use std::num::ParseIntError;
     use thiserror::Error;
 
     /// Represents a list variable pool
@@ -509,24 +523,17 @@ pub mod list_variable {
     impl ListVariablePool {
         /// Parses an iterator of newlines (should be taken from `.split("\n")`) into a [`ListVariablePool`]
         pub fn parse_iter<'a>(
-            newline_iter: &mut impl Iterator<Item=&'a str>
+            newline_iter: &mut impl Iterator<Item = &'a str>,
         ) -> Result<Self, ListVariablePoolParseError> {
-
             let mut result = LinkedHashMap::new();
 
-            for (count, line) in
-                newline_iter
-                    .by_ref()
-                    .take_while(|i| *i != "")
-                    .enumerate() {
-
+            for (count, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
                 let list_variable =
-                    ListVariable::parse(line)
-                        .map_err(|err| ListVariablePoolParseError {
-                            count: count as u32,
-                            content: line.to_string(),
-                            source: err
-                        })?;
+                    ListVariable::parse(line).map_err(|err| ListVariablePoolParseError {
+                        count: count as u32,
+                        content: line.to_string(),
+                        source: err,
+                    })?;
 
                 result.insert(list_variable.name.to_owned(), list_variable);
             }
@@ -544,11 +551,16 @@ pub mod list_variable {
         }
 
         fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-            Ok(self.0
+            Ok(self
+                .0
                 .values()
-                .fold(String::new(), |acc, i|
-                    format!("{}\n{}", acc, i.reconstruct().unwrap() /* this never fails */ )
-                )
+                .fold(String::new(), |acc, i| {
+                    format!(
+                        "{}\n{}",
+                        acc,
+                        i.reconstruct().unwrap() /* this never fails */
+                    )
+                })
                 .trim()
                 .to_string())
         }
@@ -561,7 +573,7 @@ pub mod list_variable {
         pub content: String,
 
         #[source]
-        pub source: ListVariableParseError
+        pub source: ListVariableParseError,
     }
 
     impl Default for ListVariablePool {
@@ -573,7 +585,7 @@ pub mod list_variable {
     #[derive(Debug, Clone, Eq, PartialEq)]
     pub struct ListVariable {
         pub name: String,
-        pub r#type: super::variable::VariableType
+        pub r#type: super::variable::VariableType,
     }
 
     impl Parsable for ListVariable {
@@ -583,18 +595,17 @@ pub mod list_variable {
         fn parse(s: &str) -> Result<Self, Self::ParseError> {
             let (lvar_type, name) = {
                 Ok(s.split_once(":")
-                    .ok_or_else(||ListVariableParseError::MissingColon)?)
+                    .ok_or_else(|| ListVariableParseError::MissingColon)?)
             }?;
 
             Ok(ListVariable {
                 name: name.to_string(),
-                r#type: <super::variable::VariableType as TryFrom<u8>>
-                    ::try_from(
-                        lvar_type
-                            .parse()
-                            .map_err(|err|ListVariableParseError::VariableTypeIsNotInt(err))?
-                    )
-                    .map_err(ListVariableParseError::InvalidVariableType)?,
+                r#type: <super::variable::VariableType as TryFrom<u8>>::try_from(
+                    lvar_type
+                        .parse()
+                        .map_err(|err| ListVariableParseError::VariableTypeIsNotInt(err))?,
+                )
+                .map_err(ListVariableParseError::InvalidVariableType)?,
             })
         }
 
@@ -612,13 +623,13 @@ pub mod list_variable {
         VariableTypeIsNotInt(#[source] ParseIntError),
 
         #[error("variable type {} is not a valid type", .0.value)]
-        InvalidVariableType(#[source] InvalidVariableTypeError)
+        InvalidVariableType(#[source] InvalidVariableTypeError),
     }
 }
 
 pub mod component {
-    use serde::{Serialize, Deserialize};
     use crate::parser::Parsable;
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
 
     #[derive(Debug, Clone, Eq, PartialEq)]
@@ -626,22 +637,17 @@ pub mod component {
 
     impl ComponentPool {
         pub fn parse_iter<'a>(
-            newlines_iter: impl Iterator<Item=&'a str>
+            newlines_iter: impl Iterator<Item = &'a str>,
         ) -> Result<Self, ComponentPoolParseError> {
             let mut result = Vec::new();
 
-            for (count, line) in
-                newlines_iter
-                    .take_while(|i| *i != "")
-                    .enumerate() {
-
+            for (count, line) in newlines_iter.take_while(|i| *i != "").enumerate() {
                 result.push(
-                    Component::parse(line)
-                        .map_err(|err| ComponentPoolParseError {
-                            count: count as u32,
-                            content: line.to_string(),
-                            source: err
-                        })?
+                    Component::parse(line).map_err(|err| ComponentPoolParseError {
+                        count: count as u32,
+                        content: line.to_string(),
+                        source: err,
+                    })?,
                 )
             }
 
@@ -667,9 +673,9 @@ pub mod component {
                         .map_err(|err| ComponentPoolReconstructionError {
                             count: count as u32,
                             component: component.to_owned(),
-                            source: err
+                            source: err,
                         })?
-                        .as_str()
+                        .as_str(),
                 );
                 result.push('\n');
             }
@@ -687,7 +693,7 @@ pub mod component {
         pub content: String,
 
         #[source]
-        pub source: serde_json::Error
+        pub source: serde_json::Error,
     }
 
     #[derive(Error, Debug)]
@@ -697,7 +703,7 @@ pub mod component {
         pub component: Component,
 
         #[source]
-        pub source: serde_json::Error
+        pub source: serde_json::Error,
     }
 
     impl Default for ComponentPool {
@@ -720,23 +726,53 @@ pub mod component {
 
     impl Component {
         /// Creates a [`Component`]
-        pub fn new(id: String, param1: String, param2: String, param3: String, r#type: u8) -> Component {
-            Component { id, param1, param2, param3, r#type }
+        pub fn new(
+            id: String,
+            param1: String,
+            param2: String,
+            param3: String,
+            r#type: u8,
+        ) -> Component {
+            Component {
+                id,
+                param1,
+                param2,
+                param3,
+                r#type,
+            }
         }
 
         /// Creates a [`Component`] without any parameters
         pub fn new_empty(id: String, r#type: u8) -> Component {
-            Component { id, param1: "".to_string(), param2: "".to_string(), param3: "".to_string(), r#type }
+            Component {
+                id,
+                param1: "".to_string(),
+                param2: "".to_string(),
+                param3: "".to_string(),
+                r#type,
+            }
         }
 
         /// Creates a [`Component`] with a single parameter
         pub fn new_1param(id: String, param1: String, r#type: u8) -> Component {
-            Component { id, param1, param2: "".to_string(), param3: "".to_string(), r#type }
+            Component {
+                id,
+                param1,
+                param2: "".to_string(),
+                param3: "".to_string(),
+                r#type,
+            }
         }
 
         /// Creates a [`Component`] with two parameters
         pub fn new_2params(id: String, param1: String, param2: String, r#type: u8) -> Component {
-            Component { id, param1, param2, param3: "".to_string(), r#type }
+            Component {
+                id,
+                param1,
+                param2,
+                param3: "".to_string(),
+                r#type,
+            }
         }
     }
 
@@ -755,8 +791,8 @@ pub mod component {
 }
 
 pub mod more_block {
-    use ritelinked::LinkedHashMap;
     use crate::parser::Parsable;
+    use ritelinked::LinkedHashMap;
     use thiserror::Error;
 
     #[derive(Debug, Clone, Eq, PartialEq)]
@@ -765,34 +801,26 @@ pub mod more_block {
     impl MoreBlockPool {
         /// Parses a moreblock pool using an iterator of newlines
         pub fn parse_iter<'a>(
-            newline_iter: &mut impl Iterator<Item=&'a str>
+            newline_iter: &mut impl Iterator<Item = &'a str>,
         ) -> Result<Self, MoreBlockPoolParseError> {
-
             let mut more_blocks = Vec::new();
 
-            for (line_count, line) in
-                newline_iter
-                    .by_ref()
-                    .take_while(|i| *i != "")
-                    .enumerate() {
-
+            for (line_count, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
                 more_blocks.push(
-                    MoreBlock::parse(line)
-                        .map_err(|err| MoreBlockPoolParseError {
-                            count: line_count as u32,
-                            content: line.to_string(),
-                            source: err
-                        })?)
+                    MoreBlock::parse(line).map_err(|err| MoreBlockPoolParseError {
+                        count: line_count as u32,
+                        content: line.to_string(),
+                        source: err,
+                    })?,
+                )
             }
 
             let mut result = LinkedHashMap::<String, MoreBlock>::new();
 
             // turn the more_blocks vec into a hashmap
-            more_blocks
-                .drain(..)
-                .for_each(|more_block| {
-                    result.insert((&more_block.id).to_owned(), more_block);
-                });
+            more_blocks.drain(..).for_each(|more_block| {
+                result.insert((&more_block.id).to_owned(), more_block);
+            });
 
             Ok(MoreBlockPool(result))
         }
@@ -810,10 +838,15 @@ pub mod more_block {
 
         /// Reconstructs a moreblock pool to its string form
         fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-            Ok(self.0
+            Ok(self
+                .0
                 .values()
                 .try_fold(String::new(), |ac, i| {
-                    Ok(format!("{}\n{}", ac, i.reconstruct().unwrap() /* this will never error */))
+                    Ok(format!(
+                        "{}\n{}",
+                        ac,
+                        i.reconstruct().unwrap() /* this will never error */
+                    ))
                 })?
                 .trim()
                 .to_string())
@@ -852,14 +885,15 @@ pub mod more_block {
         /// execute_shell:execute_shell %s.command
         /// ```
         fn parse(s: &str) -> Result<MoreBlock, Self::ParseError> {
-            let (id, spec) = s.split_once(':')
-                .ok_or_else(||MoreBlockParseError::MalformedMoreBlock {
-                    content: s.to_string()
-                })?;
+            let (id, spec) =
+                s.split_once(':')
+                    .ok_or_else(|| MoreBlockParseError::MalformedMoreBlock {
+                        content: s.to_string(),
+                    })?;
 
             Ok(MoreBlock {
                 id: id.to_string(),
-                spec: spec.to_string()
+                spec: spec.to_string(),
             })
         }
 
@@ -872,15 +906,13 @@ pub mod more_block {
     #[derive(Error, Debug)]
     pub enum MoreBlockParseError {
         #[error("moreblock is malformed, content: {content}")]
-        MalformedMoreBlock {
-            content: String,
-        }
+        MalformedMoreBlock { content: String },
     }
 }
 
 pub mod event {
-    use serde::{Serialize, Deserialize};
     use crate::parser::Parsable;
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
 
     #[derive(Debug, Clone, Eq, PartialEq)]
@@ -889,25 +921,17 @@ pub mod event {
     impl EventPool {
         /// Parses an event pool from a newline iterator
         pub fn parse_iter<'a>(
-            newline_iter: &mut impl Iterator<Item=&'a str>
+            newline_iter: &mut impl Iterator<Item = &'a str>,
         ) -> Result<Self, EventPoolParseError> {
-
             let mut result = Vec::new();
 
             // iter until empty string
-            for (index, line) in newline_iter
-                .by_ref()
-                .take_while(|i| *i != "")
-                .enumerate() {
-
-                result.push(
-                    Event::parse(line)
-                        .map_err(|err| EventPoolParseError {
-                            content: line.to_string(),
-                            count: index as u32,
-                            source: err
-                        })?
-                );
+            for (index, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
+                result.push(Event::parse(line).map_err(|err| EventPoolParseError {
+                    content: line.to_string(),
+                    count: index as u32,
+                    source: err,
+                })?);
             }
 
             Ok(EventPool(result))
@@ -923,11 +947,16 @@ pub mod event {
         }
 
         fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-            Ok(self.0
+            Ok(self
+                .0
                 .iter()
-                .fold(String::new(), |acc, event|
-                    format!("{}\n{}", acc, event.reconstruct().unwrap() /* this never fails */ )
-                )
+                .fold(String::new(), |acc, event| {
+                    format!(
+                        "{}\n{}",
+                        acc,
+                        event.reconstruct().unwrap() /* this never fails */
+                    )
+                })
                 .trim()
                 .to_string())
         }
@@ -987,24 +1016,31 @@ impl Parsable for BlockContainerHeader {
     /// Parses the header of a block container
     fn parse(s: &str) -> Result<BlockContainerHeader, Self::ParseError> {
         if !s.starts_with("@") {
-            return Err(BlockContainerHeaderParseError::DoesntStartWithAtSign)
+            return Err(BlockContainerHeaderParseError::DoesntStartWithAtSign);
         }
 
         let mut parts = s.split(".java_");
-        let screen_name = parts.next()   // [1..] to get rid of the @ at the start
-            .ok_or_else(||BlockContainerHeaderParseError::NoScreenName)?[1..].to_string();
+        let screen_name = parts
+            .next() // [1..] to get rid of the @ at the start
+            .ok_or_else(|| BlockContainerHeaderParseError::NoScreenName)?[1..]
+            .to_string();
 
-        let container_name = parts.next()
-            .ok_or_else(||BlockContainerHeaderParseError::NoContainerName)?.to_string();
+        let container_name = parts
+            .next()
+            .ok_or_else(|| BlockContainerHeaderParseError::NoContainerName)?
+            .to_string();
 
         Ok(BlockContainerHeader {
             screen_name,
-            container_name
+            container_name,
         })
     }
 
     fn reconstruct(&self) -> Result<String, Self::ReconstructionError> {
-        Ok(format!("@{}.java_{}", self.screen_name, self.container_name))
+        Ok(format!(
+            "@{}.java_{}",
+            self.screen_name, self.container_name
+        ))
     }
 }
 
@@ -1027,17 +1063,15 @@ pub struct BlockContainer(pub Vec<Block>);
 impl BlockContainer {
     /// Parses a block container from an iterator of newlines
     fn parse_iter<'a>(
-        newline_iter: &mut impl Iterator<Item=&'a str>
+        newline_iter: &mut impl Iterator<Item = &'a str>,
     ) -> Result<Self, BlockContainerParseError> {
         let mut result = Vec::<Block>::new();
 
         for (index, line) in newline_iter.by_ref().take_while(|i| *i != "").enumerate() {
-            result.push(
-                Block::parse(line)
-                    .map_err(|err| BlockContainerParseError {
-                        block_count: index as u32,
-                        source: err
-                    })?);
+            result.push(Block::parse(line).map_err(|err| BlockContainerParseError {
+                block_count: index as u32,
+                source: err,
+            })?);
         }
 
         Ok(BlockContainer(result))
@@ -1058,13 +1092,14 @@ impl Parsable for BlockContainer {
 
         for (index, block) in self.0.iter().enumerate() {
             result.push_str(
-                block.reconstruct()
+                block
+                    .reconstruct()
                     .map_err(|err| BlockContainerReconstructionError {
                         block_count: index as u32,
                         block: block.clone(),
-                        source: err
+                        source: err,
                     })?
-                    .as_str()
+                    .as_str(),
             );
             result.push('\n');
         }
@@ -1074,7 +1109,9 @@ impl Parsable for BlockContainer {
 }
 
 impl Default for BlockContainer {
-    fn default() -> Self { BlockContainer(vec![]) }
+    fn default() -> Self {
+        BlockContainer(vec![])
+    }
 }
 
 #[derive(Error, Debug)]
@@ -1093,7 +1130,7 @@ pub struct BlockContainerReconstructionError {
     pub block: Block,
 
     #[source]
-    pub source: serde_json::Error
+    pub source: serde_json::Error,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]

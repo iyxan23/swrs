@@ -1,16 +1,15 @@
 extern crate swrs;
 
 use std::fs;
-use swrs::parser::Parsable;
 use swrs::parser::resource::Resource;
+use swrs::parser::Parsable;
 
 fn main() {
     let mut args = std::env::args();
     args.next();
 
     let filename = args.next().expect("File path of a resource to parse");
-    let parsed = Resource::parse(
-        &*fs::read_to_string(filename).expect("Invalid path given"))
+    let parsed = Resource::parse(&*fs::read_to_string(filename).expect("Invalid path given"))
         .expect("Corrupted resource file");
 
     println!("\nFonts:");

@@ -1,8 +1,8 @@
 extern crate swrs;
 
-use std::process::exit;
 use std::env;
 use std::path::Path;
+use std::process::exit;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -11,7 +11,8 @@ fn main() {
         eprintln!(
             r#"Usage: {} (FILE TO ENCRYPT) [OUTPUT]
 
-OUTPUT will be "(FILE TO ENCRYPT)_enc" if not specified"#, args.get(0).unwrap()
+OUTPUT will be "(FILE TO ENCRYPT)_enc" if not specified"#,
+            args.get(0).unwrap()
         );
         exit(1);
     }

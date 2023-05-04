@@ -1,21 +1,21 @@
-pub mod parser;
 pub mod color;
+pub mod parser;
 
 #[cfg(feature = "api")]
 pub mod api;
 
 pub(crate) mod util;
 
-use std::io;
 /// We use [`ritelinked::LinkedHashMap`] to preserve insertion order while having a key-value pair
 /// storage mechanism
 pub use ritelinked::LinkedHashMap;
+use std::io;
 
+use aes::Aes128;
+use block_modes::block_padding::Pkcs7;
+use block_modes::{BlockMode, BlockModeError, Cbc};
 use std::path::Path;
 use std::string::FromUtf8Error;
-use block_modes::{Cbc, BlockMode, BlockModeError};
-use block_modes::block_padding::Pkcs7;
-use aes::Aes128;
 use thiserror::Error;
 
 const KEY: &str = "sketchwaresecure";
@@ -35,8 +35,9 @@ pub fn decrypt_sw_encrypted(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let mut buffer: Vec<u8> = data.clone().to_vec();
 
     Ok(Vec::from(
-        cipher.decrypt(&mut buffer)
-            .map_err(CryptoError::DecryptionError)?
+        cipher
+            .decrypt(&mut buffer)
+            .map_err(CryptoError::DecryptionError)?,
     ))
 }
 
@@ -46,8 +47,7 @@ pub fn encrypt_sw_file_to_file(file: &Path, out: Option<&Path>) -> Result<(), Cr
     let input_plaintext = std::fs::read(file).map_err(CryptoError::IOError)?;
     let output_ciphertext = encrypt_sw(&input_plaintext);
 
-    std::fs::write(output_file, output_ciphertext)
-        .map_err(CryptoError::IOError)?;
+    std::fs::write(output_file, output_ciphertext).map_err(CryptoError::IOError)?;
 
     Ok(())
 }
@@ -75,5 +75,5 @@ pub enum CryptoError {
     DecryptionError(#[from] BlockModeError),
 
     #[error("couldn't convert binaries into utf8")]
-    FromUtf8Error(#[from] FromUtf8Error)
+    FromUtf8Error(#[from] FromUtf8Error),
 }

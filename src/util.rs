@@ -7,20 +7,25 @@ pub struct CountingIterator<I> {
 }
 
 impl<I> CountingIterator<I>
-where I: Iterator {
+where
+    I: Iterator,
+{
     pub fn new(iterator: I) -> CountingIterator<I> {
         CountingIterator {
             iter: iterator,
-            count: 0
+            count: 0,
         }
     }
 
-    pub fn get_count(&self) -> u32 { self.count }
+    pub fn get_count(&self) -> u32 {
+        self.count
+    }
 }
 
 impl<I> Iterator for CountingIterator<I>
 where
-    I: Iterator {
+    I: Iterator,
+{
     type Item = <I as Iterator>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -9,8 +9,7 @@ fn main() {
     args.next();
 
     let filename = args.next().expect("File path of a logic to parse");
-    let parsed = Logic::parse(
-        &*fs::read_to_string(filename).expect("Invalid path given"))
+    let parsed = Logic::parse(&*fs::read_to_string(filename).expect("Invalid path given"))
         .expect("Corrupted project file");
 
     println!("Screens:");

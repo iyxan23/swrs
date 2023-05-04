@@ -1,7 +1,7 @@
 use crate::color::Color;
-use crate::parser::view::models::{AndroidView, image, layout, SpinnerMode, text};
-use crate::parser::view::Layout;
 use crate::parser::view::models::layout::Orientation;
+use crate::parser::view::models::{image, layout, text, AndroidView, SpinnerMode};
+use crate::parser::view::Layout;
 use thiserror::Error;
 
 /// A model that represents a single view
@@ -68,9 +68,7 @@ impl View {
             Some(self)
         } else {
             // recurse on children
-            self.children
-                .iter()
-                .find_map(|i| i.find_id(id))
+            self.children.iter().find_map(|i| i.find_id(id))
         }
     }
 
@@ -79,9 +77,7 @@ impl View {
             Some(self)
         } else {
             // recurse on children
-            self.children
-                .iter_mut()
-                .find_map(|i| i.find_id_mut(id))
+            self.children.iter_mut().find_map(|i| i.find_id_mut(id))
         }
     }
 }
@@ -122,7 +118,7 @@ pub struct SidesValue {
     pub top: u32,
     pub right: u32,
     pub bottom: u32,
-    pub left: u32
+    pub left: u32,
 }
 
 /// An enum that contains every sketchware original view types and its necessary fields, any other
@@ -215,7 +211,7 @@ pub enum ViewType {
     AdView {
         adview_size: String,
     },
-    MapView
+    MapView,
 }
 
 impl ViewType {
@@ -260,10 +256,14 @@ impl ViewType {
                 input_type: android_view.text.input_type,
             },
             6 => ViewType::ImageView {
-                image_res_name: android_view.image.res_name.as_ref()
-                    .ok_or_else(||ViewTypeConversionError::ResNameNotPresent {
-                        view_id: android_view.id.to_owned()
-                    })?.clone(),
+                image_res_name: android_view
+                    .image
+                    .res_name
+                    .as_ref()
+                    .ok_or_else(|| ViewTypeConversionError::ResNameNotPresent {
+                        view_id: android_view.id.to_owned(),
+                    })?
+                    .clone(),
                 image_scale_type: android_view.image.scale_type,
             },
             7 => ViewType::WebView,
@@ -304,59 +304,78 @@ impl ViewType {
                 max_progress: android_view.max,
                 progress: android_view.progress,
             },
-            15 => ViewType::CalendarView { first_day_of_week: android_view.first_day_of_week },
-            16 => ViewType::Fab {
-                image_res_name: android_view.image.res_name.as_ref()
-                    .ok_or_else(||ViewTypeConversionError::ResNameNotPresent {
-                        view_id: android_view.id.to_owned(),
-                    })?.clone(),
+            15 => ViewType::CalendarView {
+                first_day_of_week: android_view.first_day_of_week,
             },
-            17 => ViewType::AdView { adview_size: android_view.ad_size.clone() },
+            16 => ViewType::Fab {
+                image_res_name: android_view
+                    .image
+                    .res_name
+                    .as_ref()
+                    .ok_or_else(|| ViewTypeConversionError::ResNameNotPresent {
+                        view_id: android_view.id.to_owned(),
+                    })?
+                    .clone(),
+            },
+            17 => ViewType::AdView {
+                adview_size: android_view.ad_size.clone(),
+            },
             18 => ViewType::MapView,
             _ => Err(ViewTypeConversionError::UnknownViewType {
                 view_type: android_view.r#type,
-                view_id: android_view.id.to_owned()
-            })?
+                view_id: android_view.id.to_owned(),
+            })?,
         })
     }
 
     /// Gets the type id of this view
     pub fn get_type_id(&self) -> u8 {
         match self {
-            ViewType::LinearLayout { .. }   => 0,
-            ViewType::ScrollView { .. }     => 2,
-            ViewType::Button { .. }         => 3,
-            ViewType::TextView { .. }       => 4,
-            ViewType::EditText { .. }       => 5,
-            ViewType::ImageView { .. }      => 6,
-            ViewType::WebView               => 7,
-            ViewType::ProgressBar { .. }    => 8,
-            ViewType::ListView { .. }       => 9,
-            ViewType::Spinner { .. }        => 10,
-            ViewType::CheckBox { .. }       => 11,
-            ViewType::Switch { .. }         => 12,
-            ViewType::SeekBar { .. }        => 13,
-            ViewType::CalendarView { .. }   => 14,
-            ViewType::Fab { .. }            => 15,
-            ViewType::AdView { .. }         => 16,
-            ViewType::MapView               => 17,
+            ViewType::LinearLayout { .. } => 0,
+            ViewType::ScrollView { .. } => 2,
+            ViewType::Button { .. } => 3,
+            ViewType::TextView { .. } => 4,
+            ViewType::EditText { .. } => 5,
+            ViewType::ImageView { .. } => 6,
+            ViewType::WebView => 7,
+            ViewType::ProgressBar { .. } => 8,
+            ViewType::ListView { .. } => 9,
+            ViewType::Spinner { .. } => 10,
+            ViewType::CheckBox { .. } => 11,
+            ViewType::Switch { .. } => 12,
+            ViewType::SeekBar { .. } => 13,
+            ViewType::CalendarView { .. } => 14,
+            ViewType::Fab { .. } => 15,
+            ViewType::AdView { .. } => 16,
+            ViewType::MapView => 17,
         }
     }
 
     /// Applies the specific values of a ViewType to the given view
     pub fn apply_values_to_view(self, view: &mut AndroidView) {
         match self {
-            ViewType::LinearLayout { orientation, gravity } => {
+            ViewType::LinearLayout {
+                orientation,
+                gravity,
+            } => {
                 view.layout.orientation = orientation;
                 view.layout.gravity = gravity;
             }
 
-            ViewType::ScrollView { orientation, gravity } => {
+            ViewType::ScrollView {
+                orientation,
+                gravity,
+            } => {
                 view.layout.orientation = orientation;
                 view.layout.gravity = gravity;
             }
 
-            ViewType::Button { text, text_color, text_size, text_style } => {
+            ViewType::Button {
+                text,
+                text_color,
+                text_size,
+                text_style,
+            } => {
                 view.text.text = text;
                 view.text.text_color = text_color;
                 view.text.text_size = text_size;
@@ -364,8 +383,13 @@ impl ViewType {
             }
 
             ViewType::TextView {
-                text, text_color, text_size, single_line,
-                text_font, text_style, lines
+                text,
+                text_color,
+                text_size,
+                single_line,
+                text_font,
+                text_style,
+                lines,
             } => {
                 view.text.text = text;
                 view.text.text_color = text_color;
@@ -377,9 +401,17 @@ impl ViewType {
             }
 
             ViewType::EditText {
-                text, text_color, text_size, single_line, text_font,
-                text_style, lines, hint, hint_color, ime_option,
-                input_type
+                text,
+                text_color,
+                text_size,
+                single_line,
+                text_font,
+                text_style,
+                lines,
+                hint,
+                hint_color,
+                ime_option,
+                input_type,
             } => {
                 view.text.text = text;
                 view.text.text_color = text_color;
@@ -394,14 +426,20 @@ impl ViewType {
                 view.text.input_type = input_type;
             }
 
-            ViewType::ImageView { image_res_name, image_scale_type } => {
+            ViewType::ImageView {
+                image_res_name,
+                image_scale_type,
+            } => {
                 view.image.res_name = Some(image_res_name);
                 view.image.scale_type = image_scale_type;
             }
 
             ViewType::WebView => {}
             ViewType::ProgressBar {
-                max_progress, progress, indeterminate, progress_style
+                max_progress,
+                progress,
+                indeterminate,
+                progress_style,
             } => {
                 view.max = max_progress;
                 view.progress = progress;
@@ -409,16 +447,25 @@ impl ViewType {
                 view.progress_style = progress_style;
             }
 
-            ViewType::ListView { divider_height, custom_view } => {
+            ViewType::ListView {
+                divider_height,
+                custom_view,
+            } => {
                 view.divider_height = divider_height;
                 view.custom_view = custom_view;
             }
 
-            ViewType::Spinner { spinner_mode } => { view.spinner_mode = spinner_mode; }
+            ViewType::Spinner { spinner_mode } => {
+                view.spinner_mode = spinner_mode;
+            }
 
             ViewType::CheckBox {
-                checked, text, text_color, text_size, text_font,
-                text_style
+                checked,
+                text,
+                text_color,
+                text_size,
+                text_font,
+                text_style,
             } => {
                 view.checked = checked;
                 view.text.text = text;
@@ -429,8 +476,12 @@ impl ViewType {
             }
 
             ViewType::Switch {
-                checked, text, text_color, text_size, text_font,
-                text_style
+                checked,
+                text,
+                text_color,
+                text_size,
+                text_font,
+                text_style,
             } => {
                 view.checked = checked;
                 view.text.text = text;
@@ -440,7 +491,10 @@ impl ViewType {
                 view.text.text_type = text_style;
             }
 
-            ViewType::SeekBar { max_progress, progress } => {
+            ViewType::SeekBar {
+                max_progress,
+                progress,
+            } => {
                 view.max = max_progress;
                 view.progress = progress;
             }
@@ -449,8 +503,12 @@ impl ViewType {
                 view.first_day_of_week = first_day_of_week;
             }
 
-            ViewType::Fab { image_res_name } => { view.image.res_name = Some(image_res_name); }
-            ViewType::AdView { adview_size } => { view.ad_size = adview_size; }
+            ViewType::Fab { image_res_name } => {
+                view.image.res_name = Some(image_res_name);
+            }
+            ViewType::AdView { adview_size } => {
+                view.ad_size = adview_size;
+            }
             ViewType::MapView => {}
         }
     }
@@ -459,14 +517,9 @@ impl ViewType {
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum ViewTypeConversionError {
     #[error("unknown view type `{view_type}` on view with id `{view_id}`")]
-    UnknownViewType {
-        view_type: u8,
-        view_id: String,
-    },
+    UnknownViewType { view_type: u8, view_id: String },
     #[error("the field res_name on view with id `{view_id}` is not present when needed as this view is either a FAB or an ImageView")]
-    ResNameNotPresent {
-        view_id: String,
-    }
+    ResNameNotPresent { view_id: String },
 }
 
 /// Converts a parser's raw [`Layout`] into a tree of views, the returned vector of views is the
@@ -478,18 +531,22 @@ pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutErr
     let mut result = Vec::<View>::new();
 
     for view in screen_view.0 {
-        let parent_id =
-            view.parent.as_ref().ok_or_else(||ParseLayoutError::NoParentField {
-                view_id: view.id.to_owned()
+        let parent_id = view
+            .parent
+            .as_ref()
+            .ok_or_else(|| ParseLayoutError::NoParentField {
+                view_id: view.id.to_owned(),
             })?;
 
         if parent_id == "root" {
             result.push(view.into());
         } else {
-            let parent = result.iter_mut().find_map(|i|i.find_id_mut(&parent_id))
-                .ok_or_else(||ParseLayoutError::NonexistentParent {
+            let parent = result
+                .iter_mut()
+                .find_map(|i| i.find_id_mut(&parent_id))
+                .ok_or_else(|| ParseLayoutError::NonexistentParent {
                     view_id: view.id.to_owned(),
-                    parent_id: parent_id.to_owned()
+                    parent_id: parent_id.to_owned(),
                 })?;
 
             parent.children.push(view.into());
@@ -502,18 +559,17 @@ pub fn parse_raw_layout(screen_view: Layout) -> Result<Vec<View>, ParseLayoutErr
 #[derive(Error, Debug)]
 pub enum ParseLayoutError {
     #[error("view with id {view_id} doesn't have a parent field")]
-    NoParentField {
-        view_id: String
-    },
+    NoParentField { view_id: String },
     #[error("couldn't find parent of view with id `{view_id}` (parent id: `{parent_id}`)")]
-    NonexistentParent {
-        view_id: String,
-        parent_id: String
-    }
+    NonexistentParent { view_id: String, parent_id: String },
 }
 
 /// Flattens a list of API [`View`] models into a single list of parser models
-pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: Option<u8>) -> Vec<AndroidView> {
+pub fn flatten_views(
+    views: Vec<View>,
+    parent_id: Option<String>,
+    parent_type: Option<u8>,
+) -> Vec<AndroidView> {
     // default parent is the root view
     let parent_id = parent_id.unwrap_or_else(|| "root".to_string());
     let parent_type = parent_type.unwrap_or_else(|| 0);
@@ -571,13 +627,11 @@ pub fn flatten_views(views: Vec<View>, parent_id: Option<String>, parent_type: O
 
         // and also recursively flatten the children if there is any
         if !view.children.is_empty() {
-            children_result.append(
-                &mut flatten_views(
-                    view.children,
-                    Some(view.id),
-                    Some(view_type_id)
-                )
-            )
+            children_result.append(&mut flatten_views(
+                view.children,
+                Some(view.id),
+                Some(view_type_id),
+            ))
         }
     }
 

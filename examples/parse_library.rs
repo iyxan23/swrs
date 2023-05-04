@@ -9,8 +9,7 @@ fn main() {
     args.next();
 
     let filename = args.next().expect("File path of a library to parse");
-    let parsed = Library::parse(
-        &*fs::read_to_string(filename).expect("Invalid path given"))
+    let parsed = Library::parse(&*fs::read_to_string(filename).expect("Invalid path given"))
         .expect("Corrupted library file");
 
     println!("{:?}", parsed);

@@ -1,14 +1,14 @@
-use crate::LinkedHashMap;
 use crate::api::block::{BlockContent, BlockContentParseError, BlockConversionError, Blocks};
 use crate::api::component::{ComponentKind, UnknownComponentType};
 use crate::api::view::{parse_raw_layout, ParseLayoutError, View};
 use crate::parser::file::{FileItem, KeyboardSetting, Orientation, Theme};
-use crate::parser::logic::{BlockContainer, ScreenLogic};
+use crate::parser::logic::event::EventPool;
 use crate::parser::logic::list_variable::ListVariable;
 use crate::parser::logic::variable::Variable;
+use crate::parser::logic::{BlockContainer, ScreenLogic};
 use crate::parser::view::Layout as ViewScreen;
+use crate::LinkedHashMap;
 use thiserror::Error;
-use crate::parser::logic::event::EventPool;
 
 /// A model that represents a screen / activity in a project
 #[derive(Debug, Clone, PartialEq)]
@@ -66,7 +66,13 @@ impl MoreBlock {
     /// Turns this into a [`crate::parser::logic::more_block::MoreBlock`], returns its converted
     /// struct and its blocks ([`Blocks`])
     pub fn into_parser_more_block(self) -> (ParserMoreBlock, Blocks) {
-        (ParserMoreBlock { id: self.name, spec: self.spec.to_string() }, self.code)
+        (
+            ParserMoreBlock {
+                id: self.name,
+                spec: self.spec.to_string(),
+            },
+            self.code,
+        )
     }
 }
 
@@ -86,8 +92,8 @@ impl Event {
             EventType::ComponentEvent { id, .. } => format!("{}_{}", id, self.name),
             EventType::ActivityEvent => match self.name.as_str() {
                 "onCreate" => format!("{}_initializeLogic", self.name),
-                _ => format!("{}_{}", self.name, self.name)
-            }
+                _ => format!("{}_{}", self.name, self.name),
+            },
         }
     }
 
@@ -98,7 +104,7 @@ impl Event {
             event_name: self.name,
             event_type: 0,
             target_id: "".to_string(),
-            target_type: 0
+            target_type: 0,
         };
 
         self.event_type.apply_to_parser_event(&mut event);
@@ -117,39 +123,35 @@ impl TryFrom<ParserEvent> for Event {
         Ok(Event {
             event_type: EventType::from_parser_event(&value)?,
             name: value.event_name,
-            code: Default::default()
+            code: Default::default(),
         })
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventType {
-    ViewEvent {
-        id: String
-    },
-    ComponentEvent {
-        id: String,
-        component_type: u8,
-    },
+    ViewEvent { id: String },
+    ComponentEvent { id: String, component_type: u8 },
     ActivityEvent,
 }
 
 impl EventType {
     pub fn from_parser_event(event: &ParserEvent) -> Result<EventType, UnknownEventType> {
         Ok(match event.event_type {
-            1 => EventType::ViewEvent { id: event.target_id.to_owned() },
+            1 => EventType::ViewEvent {
+                id: event.target_id.to_owned(),
+            },
             2 => EventType::ComponentEvent {
                 id: event.target_id.to_owned(),
                 component_type: event.target_type,
             },
             3 => EventType::ActivityEvent,
-                // if you asked, no ActivityEvent doesn't have its activity event name written
-                // on target_type, its already on the event name
-
+            // if you asked, no ActivityEvent doesn't have its activity event name written
+            // on target_type, its already on the event name
             _ => Err(UnknownEventType {
                 event_name: event.event_name.to_owned(),
-                event_type: event.event_type
-            })?
+                event_type: event.event_type,
+            })?,
         })
     }
 
@@ -166,7 +168,7 @@ impl EventType {
                 event.target_type = component_type;
             }
 
-            EventType::ActivityEvent => event.event_type = 3
+            EventType::ActivityEvent => event.event_type = 3,
         }
     }
 }
@@ -194,16 +196,24 @@ impl Screen {
         // container in this screen so the code after this can recognize it
         //
         // (this event will be removed on reconstruction)
-        if logic_entry.block_containers.contains_key("onCreate_initializeLogic") {
+        if logic_entry
+            .block_containers
+            .contains_key("onCreate_initializeLogic")
+        {
             // make an event pool if there is none
-            if logic_entry.events.is_none() { logic_entry.events = Some(EventPool::default()) }
+            if logic_entry.events.is_none() {
+                logic_entry.events = Some(EventPool::default())
+            }
             if let Some(events) = &mut logic_entry.events {
-                events.0.insert(0, ParserEvent {
-                    event_name: "onCreate".to_string(),
-                    event_type: 3,
-                    target_id: "onCreate".to_string(),
-                    target_type: 0
-                })
+                events.0.insert(
+                    0,
+                    ParserEvent {
+                        event_name: "onCreate".to_string(),
+                        event_type: 3,
+                        target_id: "onCreate".to_string(),
+                        target_type: 0,
+                    },
+                )
             }
         }
 
@@ -218,53 +228,71 @@ impl Screen {
 
             // basically just converts these parser's list of moreblocks/components/events into our
             // type defined in this module
-            more_blocks: logic_entry.more_blocks.unwrap_or_default().0
+            more_blocks: logic_entry
+                .more_blocks
+                .unwrap_or_default()
+                .0
                 .into_iter()
-                .map(|(mb_id, mb)|
-                    Ok::<(String, MoreBlock), ScreenConstructionError>((mb_id.to_owned(), MoreBlock {
-                        name: mb_id.to_owned(),
-                        spec: BlockContent::parse_wo_params(mb.spec.as_str())
-                            .map_err(|err| ScreenConstructionError::MoreBlockSpecParseError {
-                                moreblock_id: mb_id.to_owned(),
-                                source: err
+                .map(|(mb_id, mb)| {
+                    Ok::<(String, MoreBlock), ScreenConstructionError>((
+                        mb_id.to_owned(),
+                        MoreBlock {
+                            name: mb_id.to_owned(),
+                            spec: BlockContent::parse_wo_params(mb.spec.as_str()).map_err(
+                                |err| ScreenConstructionError::MoreBlockSpecParseError {
+                                    moreblock_id: mb_id.to_owned(),
+                                    source: err,
+                                },
+                            )?,
+                            code: Blocks::try_from(
+                                logic_entry
+                                    .block_containers
+                                    .remove(&*format!("{}_moreBlock", mb_id))
+                                    .unwrap_or_else(|| BlockContainer(vec![])),
+                            )
+                            .map_err(|err| {
+                                ScreenConstructionError::BlocksParseError {
+                                    container_name: format!("{}_moreBlock", mb_id),
+                                    source: err,
+                                }
                             })?,
-                        code: Blocks::try_from(
-                            logic_entry.block_containers
-                                .remove(&*format!("{}_moreBlock", mb_id))
-                                .unwrap_or_else(||BlockContainer(vec![])))
-                            .map_err(|err| ScreenConstructionError::BlocksParseError {
-                                container_name: format!("{}_moreBlock", mb_id),
-                                source: err
-                            })?
-                    }))
-                )
+                        },
+                    ))
+                })
                 .collect::<Result<LinkedHashMap<String, MoreBlock>, _>>()?,
 
-            components: logic_entry.components.unwrap_or_default().0
+            components: logic_entry
+                .components
+                .unwrap_or_default()
+                .0
                 .into_iter()
                 .map(|cmp| {
                     let id = cmp.id.clone();
-                    ComponentKind::from_parser_component(&cmp)
-                        .map(|cmp| ((id, cmp)))
+                    ComponentKind::from_parser_component(&cmp).map(|cmp| ((id, cmp)))
                 })
                 .collect::<Result<LinkedHashMap<String, ComponentKind>, UnknownComponentType>>()
                 .map_err(ScreenConstructionError::UnknownComponentType)?,
 
-            events: logic_entry.events.unwrap_or_default().0
+            events: logic_entry
+                .events
+                .unwrap_or_default()
+                .0
                 .into_iter()
                 .map(|event| {
                     let mut event = Event::try_from(event)
                         .map_err(ScreenConstructionError::UnknownEventType)?;
 
-                    let code = logic_entry.block_containers
+                    let code = logic_entry
+                        .block_containers
                         .remove(event.get_block_container_id().as_str())
                         .unwrap_or_default();
 
-                    event.code = Blocks::try_from(code)
-                        .map_err(|err| ScreenConstructionError::BlocksParseError {
+                    event.code = Blocks::try_from(code).map_err(|err| {
+                        ScreenConstructionError::BlocksParseError {
                             container_name: event.get_block_container_id(),
-                            source: err
-                        })?;
+                            source: err,
+                        }
+                    })?;
 
                     Ok(event)
                 })
@@ -277,7 +305,7 @@ impl Screen {
             fab_enabled: file_entry.options.fab_enabled,
             orientation: file_entry.orientation,
             theme: file_entry.theme,
-            keyboard_setting: file_entry.keyboard_setting
+            keyboard_setting: file_entry.keyboard_setting,
         })
     }
 }
@@ -287,13 +315,13 @@ pub enum ScreenConstructionError {
     #[error("error while parsing the spec of the moreblock with id `{moreblock_id}`")]
     MoreBlockSpecParseError {
         moreblock_id: String,
-        source: BlockContentParseError
+        source: BlockContentParseError,
     },
 
     #[error("error while parsing the blocks of container `{container_name}`")]
     BlocksParseError {
         container_name: String,
-        source: BlockConversionError
+        source: BlockConversionError,
     },
 
     #[error("{0}")]
@@ -303,5 +331,5 @@ pub enum ScreenConstructionError {
     UnknownComponentType(#[from] UnknownComponentType),
 
     #[error("error while parsing the layout: `{0:?}`")]
-    LayoutParseError(#[from] ParseLayoutError)
+    LayoutParseError(#[from] ParseLayoutError),
 }

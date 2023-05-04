@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use crate::parser::serde_util::{string_to_u16, date_to_timestamp};
-use crate::color::Color;
 use super::Parsable;
+use crate::color::Color;
+use crate::parser::serde_util::{date_to_timestamp, string_to_u16};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Project {
@@ -53,7 +53,7 @@ impl Default for ProjectColorPalette {
             color_primary_dark: 0xff0084c2.into(),
             color_accent: 0xff008dcd.into(),
             color_control_normal: 0xff57beee.into(),
-            color_control_highlight: 0x20008dcd.into()
+            color_control_highlight: 0x20008dcd.into(),
         }
     }
 }

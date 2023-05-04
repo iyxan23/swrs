@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 use ritelinked::LinkedHashMap;
-use swrs::parser::logic::Logic;
-use swrs::parser::logic::component::{Component};
+use std::collections::HashMap;
+use swrs::parser::logic::component::Component;
 use swrs::parser::logic::event::{Event, EventPool};
 use swrs::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use swrs::parser::logic::more_block::{MoreBlock, MoreBlockPool};
 use swrs::parser::logic::variable::{Variable, VariablePool, VariableType};
+use swrs::parser::logic::Logic;
 use swrs::parser::Parsable;
 
 // Variables =======================================================================================
@@ -16,7 +16,7 @@ fn parse_variable_0() {
 
     let result = match Variable::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variable: {:?}", err)
+        Err(err) => panic!("Failed to parse variable: {:?}", err),
     };
 
     assert_eq!(
@@ -34,7 +34,7 @@ fn parse_variable_1() {
 
     let result = match Variable::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variable: {:?}", err)
+        Err(err) => panic!("Failed to parse variable: {:?}", err),
     };
 
     assert_eq!(
@@ -58,21 +58,61 @@ fn parse_variable_pool_0() {
 
     let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variables: {:?}", err)
+        Err(err) => panic!("Failed to parse variables: {:?}", err),
     };
 
     let mut expected_pool = HashMap::<String, Variable>::new();
-    expected_pool.insert("my_int".to_string(), Variable { name: "my_int".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("my_str".to_string(), Variable { name: "my_str".to_string(), r#type: VariableType::String });
-    expected_pool.insert("my_2nd_int".to_string(), Variable { name: "my_2nd_int".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("my_cool_bool".to_string(), Variable { name: "my_cool_bool".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("my_2nd_str".to_string(), Variable { name: "my_2nd_str".to_string(), r#type: VariableType::String });
-    expected_pool.insert("my_hashmap".to_string(), Variable { name: "my_hashmap".to_string(), r#type: VariableType::HashMap });
+    expected_pool.insert(
+        "my_int".to_string(),
+        Variable {
+            name: "my_int".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "my_str".to_string(),
+        Variable {
+            name: "my_str".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "my_2nd_int".to_string(),
+        Variable {
+            name: "my_2nd_int".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "my_cool_bool".to_string(),
+        Variable {
+            name: "my_cool_bool".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "my_2nd_str".to_string(),
+        Variable {
+            name: "my_2nd_str".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "my_hashmap".to_string(),
+        Variable {
+            name: "my_hashmap".to_string(),
+            r#type: VariableType::HashMap,
+        },
+    );
 
     // we can't do assert_eq since hashmap order items randomly
     for variable in expected_pool {
         if let Some(val) = result.0.get(&*variable.0) {
-            assert_eq!(*val, variable.1, "In-equal value of variable {}. Result dump: {:?}", variable.0, result)
+            assert_eq!(
+                *val, variable.1,
+                "In-equal value of variable {}. Result dump: {:?}",
+                variable.0, result
+            )
         } else {
             panic!("Cannot find field {} in the parsed value", variable.0);
         }
@@ -140,70 +180,404 @@ fn parse_variable_pool_1() {
 
     let result = match <VariablePool as Parsable>::parse(input) {
         Ok(val) => val,
-        Err(err) => panic!("Failed to parse variables: {:?}", err)
+        Err(err) => panic!("Failed to parse variables: {:?}", err),
     };
 
     let mut expected_pool = HashMap::<String, Variable>::new();
-    expected_pool.insert("size".to_string(), Variable { name: "size".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("size2".to_string(), Variable { name: "size2".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("col".to_string(), Variable { name: "col".to_string(), r#type: VariableType::String });
-    expected_pool.insert("blacks".to_string(), Variable { name: "blacks".to_string(), r#type: VariableType::String });
-    expected_pool.insert("reds".to_string(), Variable { name: "reds".to_string(), r#type: VariableType::String });
-    expected_pool.insert("yellows".to_string(), Variable { name: "yellows".to_string(), r#type: VariableType::String });
-    expected_pool.insert("pointer".to_string(), Variable { name: "pointer".to_string(), r#type: VariableType::String });
-    expected_pool.insert("size3".to_string(), Variable { name: "size3".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("v".to_string(), Variable { name: "v".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("i".to_string(), Variable { name: "i".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("pinks".to_string(), Variable { name: "pinks".to_string(), r#type: VariableType::String });
-    expected_pool.insert("purple".to_string(), Variable { name: "purple".to_string(), r#type: VariableType::String });
-    expected_pool.insert("deepPurple".to_string(), Variable { name: "deepPurple".to_string(), r#type: VariableType::String });
-    expected_pool.insert("Indigo".to_string(), Variable { name: "Indigo".to_string(), r#type: VariableType::String });
-    expected_pool.insert("Blue".to_string(), Variable { name: "Blue".to_string(), r#type: VariableType::String });
-    expected_pool.insert("LightBlue".to_string(), Variable { name: "LightBlue".to_string(), r#type: VariableType::String });
-    expected_pool.insert("cyan".to_string(), Variable { name: "cyan".to_string(), r#type: VariableType::String });
-    expected_pool.insert("teal".to_string(), Variable { name: "teal".to_string(), r#type: VariableType::String });
-    expected_pool.insert("green".to_string(), Variable { name: "green".to_string(), r#type: VariableType::String });
-    expected_pool.insert("lightGreen".to_string(), Variable { name: "lightGreen".to_string(), r#type: VariableType::String });
-    expected_pool.insert("lime".to_string(), Variable { name: "lime".to_string(), r#type: VariableType::String });
-    expected_pool.insert("amber".to_string(), Variable { name: "amber".to_string(), r#type: VariableType::String });
-    expected_pool.insert("Orange".to_string(), Variable { name: "Orange".to_string(), r#type: VariableType::String });
-    expected_pool.insert("deeoOrange".to_string(), Variable { name: "deeoOrange".to_string(), r#type: VariableType::String });
-    expected_pool.insert("brown".to_string(), Variable { name: "brown".to_string(), r#type: VariableType::String });
-    expected_pool.insert("gray".to_string(), Variable { name: "gray".to_string(), r#type: VariableType::String });
-    expected_pool.insert("blueGray".to_string(), Variable { name: "blueGray".to_string(), r#type: VariableType::String });
-    expected_pool.insert("transparent".to_string(), Variable { name: "transparent".to_string(), r#type: VariableType::String });
-    expected_pool.insert("canvastitle".to_string(), Variable { name: "canvastitle".to_string(), r#type: VariableType::String });
-    expected_pool.insert("canvasok".to_string(), Variable { name: "canvasok".to_string(), r#type: VariableType::String });
-    expected_pool.insert("cwidth".to_string(), Variable { name: "cwidth".to_string(), r#type: VariableType::String });
-    expected_pool.insert("cheight".to_string(), Variable { name: "cheight".to_string(), r#type: VariableType::String });
-    expected_pool.insert("canvastoast".to_string(), Variable { name: "canvastoast".to_string(), r#type: VariableType::String });
-    expected_pool.insert("canvaswidth".to_string(), Variable { name: "canvaswidth".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("canvasheight".to_string(), Variable { name: "canvasheight".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("widthpx".to_string(), Variable { name: "widthpx".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("heightpx".to_string(), Variable { name: "heightpx".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("canvascancel".to_string(), Variable { name: "canvascancel".to_string(), r#type: VariableType::String });
-    expected_pool.insert("tv".to_string(), Variable { name: "tv".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("bl_on".to_string(), Variable { name: "bl_on".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("bl_off".to_string(), Variable { name: "bl_off".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("h".to_string(), Variable { name: "h".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("w".to_string(), Variable { name: "w".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("canvash".to_string(), Variable { name: "canvash".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("canvasw".to_string(), Variable { name: "canvasw".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("hout".to_string(), Variable { name: "hout".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("wout".to_string(), Variable { name: "wout".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("canvas_path".to_string(), Variable { name: "canvas_path".to_string(), r#type: VariableType::String });
-    expected_pool.insert("lx".to_string(), Variable { name: "lx".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("ly".to_string(), Variable { name: "ly".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("svd".to_string(), Variable { name: "svd".to_string(), r#type: VariableType::Integer });
-    expected_pool.insert("vtmundo".to_string(), Variable { name: "vtmundo".to_string(), r#type: VariableType::Boolean });
-    expected_pool.insert("image_name".to_string(), Variable { name: "image_name".to_string(), r#type: VariableType::String });
-    expected_pool.insert("folder_path".to_string(), Variable { name: "folder_path".to_string(), r#type: VariableType::String });
-    expected_pool.insert("output_path".to_string(), Variable { name: "output_path".to_string(), r#type: VariableType::String });
+    expected_pool.insert(
+        "size".to_string(),
+        Variable {
+            name: "size".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "size2".to_string(),
+        Variable {
+            name: "size2".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "col".to_string(),
+        Variable {
+            name: "col".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "blacks".to_string(),
+        Variable {
+            name: "blacks".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "reds".to_string(),
+        Variable {
+            name: "reds".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "yellows".to_string(),
+        Variable {
+            name: "yellows".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "pointer".to_string(),
+        Variable {
+            name: "pointer".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "size3".to_string(),
+        Variable {
+            name: "size3".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "v".to_string(),
+        Variable {
+            name: "v".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "i".to_string(),
+        Variable {
+            name: "i".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "pinks".to_string(),
+        Variable {
+            name: "pinks".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "purple".to_string(),
+        Variable {
+            name: "purple".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "deepPurple".to_string(),
+        Variable {
+            name: "deepPurple".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "Indigo".to_string(),
+        Variable {
+            name: "Indigo".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "Blue".to_string(),
+        Variable {
+            name: "Blue".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "LightBlue".to_string(),
+        Variable {
+            name: "LightBlue".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "cyan".to_string(),
+        Variable {
+            name: "cyan".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "teal".to_string(),
+        Variable {
+            name: "teal".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "green".to_string(),
+        Variable {
+            name: "green".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "lightGreen".to_string(),
+        Variable {
+            name: "lightGreen".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "lime".to_string(),
+        Variable {
+            name: "lime".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "amber".to_string(),
+        Variable {
+            name: "amber".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "Orange".to_string(),
+        Variable {
+            name: "Orange".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "deeoOrange".to_string(),
+        Variable {
+            name: "deeoOrange".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "brown".to_string(),
+        Variable {
+            name: "brown".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "gray".to_string(),
+        Variable {
+            name: "gray".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "blueGray".to_string(),
+        Variable {
+            name: "blueGray".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "transparent".to_string(),
+        Variable {
+            name: "transparent".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "canvastitle".to_string(),
+        Variable {
+            name: "canvastitle".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "canvasok".to_string(),
+        Variable {
+            name: "canvasok".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "cwidth".to_string(),
+        Variable {
+            name: "cwidth".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "cheight".to_string(),
+        Variable {
+            name: "cheight".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "canvastoast".to_string(),
+        Variable {
+            name: "canvastoast".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "canvaswidth".to_string(),
+        Variable {
+            name: "canvaswidth".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "canvasheight".to_string(),
+        Variable {
+            name: "canvasheight".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "widthpx".to_string(),
+        Variable {
+            name: "widthpx".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "heightpx".to_string(),
+        Variable {
+            name: "heightpx".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "canvascancel".to_string(),
+        Variable {
+            name: "canvascancel".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "tv".to_string(),
+        Variable {
+            name: "tv".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "bl_on".to_string(),
+        Variable {
+            name: "bl_on".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "bl_off".to_string(),
+        Variable {
+            name: "bl_off".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "h".to_string(),
+        Variable {
+            name: "h".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "w".to_string(),
+        Variable {
+            name: "w".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "canvash".to_string(),
+        Variable {
+            name: "canvash".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "canvasw".to_string(),
+        Variable {
+            name: "canvasw".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "hout".to_string(),
+        Variable {
+            name: "hout".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "wout".to_string(),
+        Variable {
+            name: "wout".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "canvas_path".to_string(),
+        Variable {
+            name: "canvas_path".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "lx".to_string(),
+        Variable {
+            name: "lx".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "ly".to_string(),
+        Variable {
+            name: "ly".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "svd".to_string(),
+        Variable {
+            name: "svd".to_string(),
+            r#type: VariableType::Integer,
+        },
+    );
+    expected_pool.insert(
+        "vtmundo".to_string(),
+        Variable {
+            name: "vtmundo".to_string(),
+            r#type: VariableType::Boolean,
+        },
+    );
+    expected_pool.insert(
+        "image_name".to_string(),
+        Variable {
+            name: "image_name".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "folder_path".to_string(),
+        Variable {
+            name: "folder_path".to_string(),
+            r#type: VariableType::String,
+        },
+    );
+    expected_pool.insert(
+        "output_path".to_string(),
+        Variable {
+            name: "output_path".to_string(),
+            r#type: VariableType::String,
+        },
+    );
 
     // we can't do assert_eq since hashmap order items randomly
     for variable in expected_pool {
         if let Some(val) = result.0.get(&*variable.0) {
-            assert_eq!(*val, variable.1, "In-equal value of variable {}. Result dump: {:?}", variable.0, result)
+            assert_eq!(
+                *val, variable.1,
+                "In-equal value of variable {}. Result dump: {:?}",
+                variable.0, result
+            )
         } else {
             panic!("Cannot find field {} in the parsed value", variable.0);
         }
@@ -219,7 +593,7 @@ fn parse_list_variable() {
     let input = "0:my_booleans";
     let result = match ListVariable::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable: {:?}", err)
+        Err(err) => panic!("Failed to parse list variable: {:?}", err),
     };
 
     assert_eq!(
@@ -239,16 +613,40 @@ fn parse_list_variable_pool() {
 3:maps"#;
     let result = match ListVariablePool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse list variable pool: {:?}", err)
+        Err(err) => panic!("Failed to parse list variable pool: {:?}", err),
     };
 
     let expected = {
         let mut map = LinkedHashMap::<String, ListVariable>::new();
 
-        map.insert("booleans".to_string(), ListVariable { name: "booleans".to_string(), r#type: VariableType::Boolean });
-        map.insert("integers".to_string(), ListVariable { name: "integers".to_string(), r#type: VariableType::Integer });
-        map.insert("strings".to_string(), ListVariable { name: "strings".to_string(), r#type: VariableType::String });
-        map.insert("maps".to_string(), ListVariable { name: "maps".to_string(), r#type: VariableType::HashMap });
+        map.insert(
+            "booleans".to_string(),
+            ListVariable {
+                name: "booleans".to_string(),
+                r#type: VariableType::Boolean,
+            },
+        );
+        map.insert(
+            "integers".to_string(),
+            ListVariable {
+                name: "integers".to_string(),
+                r#type: VariableType::Integer,
+            },
+        );
+        map.insert(
+            "strings".to_string(),
+            ListVariable {
+                name: "strings".to_string(),
+                r#type: VariableType::String,
+            },
+        );
+        map.insert(
+            "maps".to_string(),
+            ListVariable {
+                name: "maps".to_string(),
+                r#type: VariableType::HashMap,
+            },
+        );
 
         ListVariablePool(map)
     };
@@ -265,7 +663,7 @@ fn parse_component() {
     let input = r#"{"componentId":"dialog","param1":"","param2":"","param3":"","type":7}"#;
     let result = match Component::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse component: {:?}", err)
+        Err(err) => panic!("Failed to parse component: {:?}", err),
     };
 
     let expected = Component {
@@ -273,7 +671,7 @@ fn parse_component() {
         param1: "".to_string(),
         param2: "".to_string(),
         param3: "".to_string(),
-        r#type: 7
+        r#type: 7,
     };
 
     assert_eq!(result, expected);
@@ -288,14 +686,14 @@ fn parse_event() {
     let input = r#"{"eventName":"onClick","eventType":1,"targetId":"linear10","targetType":0}"#;
     let result = match Event::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse event: {:?}", err)
+        Err(err) => panic!("Failed to parse event: {:?}", err),
     };
 
     let expected = Event {
         event_name: "onClick".to_string(),
         event_type: 1,
         target_id: "linear10".to_string(),
-        target_type: 0
+        target_type: 0,
     };
 
     assert_eq!(result, expected);
@@ -316,20 +714,70 @@ fn parse_event_pool() {
 
     let result = match EventPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse event pool: {:?}", err)
+        Err(err) => panic!("Failed to parse event pool: {:?}", err),
     };
 
     let expected = EventPool(vec![
-        Event { event_name: "onResponse".to_string(), event_type: 2, target_id: "ping_test".to_string(), target_type: 17 },
-        Event { event_name: "onErrorResponse".to_string(), event_type: 2, target_id: "ping_test".to_string(), target_type: 17 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_2".to_string(), target_type: 0 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_3".to_string(), target_type: 0 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_5".to_string(), target_type: 0 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "item_1".to_string(), target_type: 0 },
-        Event { event_name: "onCheckedChange".to_string(), event_type: 1, target_id: "switch_theme".to_string(), target_type: 13 },
-        Event { event_name: "onResponse".to_string(), event_type: 2, target_id: "get_ip".to_string(), target_type: 17 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "aver".to_string(), target_type: 0 },
-        Event { event_name: "onClick".to_string(), event_type: 1, target_id: "dsdk".to_string(), target_type: 0 },
+        Event {
+            event_name: "onResponse".to_string(),
+            event_type: 2,
+            target_id: "ping_test".to_string(),
+            target_type: 17,
+        },
+        Event {
+            event_name: "onErrorResponse".to_string(),
+            event_type: 2,
+            target_id: "ping_test".to_string(),
+            target_type: 17,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "item_2".to_string(),
+            target_type: 0,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "item_3".to_string(),
+            target_type: 0,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "item_5".to_string(),
+            target_type: 0,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "item_1".to_string(),
+            target_type: 0,
+        },
+        Event {
+            event_name: "onCheckedChange".to_string(),
+            event_type: 1,
+            target_id: "switch_theme".to_string(),
+            target_type: 13,
+        },
+        Event {
+            event_name: "onResponse".to_string(),
+            event_type: 2,
+            target_id: "get_ip".to_string(),
+            target_type: 17,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "aver".to_string(),
+            target_type: 0,
+        },
+        Event {
+            event_name: "onClick".to_string(),
+            event_type: 1,
+            target_id: "dsdk".to_string(),
+            target_type: 0,
+        },
     ]);
 
     assert_eq!(result, expected);
@@ -344,12 +792,12 @@ fn parse_more_block() {
     let input = "cool_moreblock:hello world %s";
     let result = match MoreBlock::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock: {:?}", err)
+        Err(err) => panic!("Failed to parse moreblock: {:?}", err),
     };
 
     let expected = MoreBlock {
         id: "cool_moreblock".to_string(),
-        spec: "hello world %s".to_string()
+        spec: "hello world %s".to_string(),
     };
 
     assert_eq!(result, expected);
@@ -360,12 +808,24 @@ fn parse_more_block_pool_0() {
     let input = "cool_moreblock:hello world %s\nhello_world:very poggers %s cool %i";
     let result = match MoreBlockPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err)
+        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err),
     };
 
     let mut expected = LinkedHashMap::<String, MoreBlock>::new();
-    expected.insert("cool_moreblock".to_string(), MoreBlock { id: "cool_moreblock".to_string(), spec: "hello world %s".to_string() });
-    expected.insert("hello_world".to_string(), MoreBlock { id: "hello_world".to_string(), spec: "very poggers %s cool %i".to_string() });
+    expected.insert(
+        "cool_moreblock".to_string(),
+        MoreBlock {
+            id: "cool_moreblock".to_string(),
+            spec: "hello world %s".to_string(),
+        },
+    );
+    expected.insert(
+        "hello_world".to_string(),
+        MoreBlock {
+            id: "hello_world".to_string(),
+            spec: "very poggers %s cool %i".to_string(),
+        },
+    );
 
     assert_eq!(result, MoreBlockPool(expected));
 }
@@ -385,19 +845,64 @@ saveView:saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath
 
     let result = match MoreBlockPool::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err)
+        Err(err) => panic!("Failed to parse moreblock pool: {:?}", err),
     };
 
     let mut expected = LinkedHashMap::<String, MoreBlock>::new();
-    expected.insert("CardView".to_string(), MoreBlock { id: "CardView".to_string(), spec: "CardView %s.color %d.radius %d.shadow %m.view.view".to_string() });
-    expected.insert("setBackgroundLinear".to_string(), MoreBlock { id: "setBackgroundLinear".to_string(), spec: "setBackgroundLinear %m.view.view fromFilePath %s.path".to_string() });
-    expected.insert("SaveLinear".to_string(), MoreBlock { id: "SaveLinear".to_string(), spec: "SaveLinear %m.view.view to path %s.path".to_string() });
+    expected.insert(
+        "CardView".to_string(),
+        MoreBlock {
+            id: "CardView".to_string(),
+            spec: "CardView %s.color %d.radius %d.shadow %m.view.view".to_string(),
+        },
+    );
+    expected.insert(
+        "setBackgroundLinear".to_string(),
+        MoreBlock {
+            id: "setBackgroundLinear".to_string(),
+            spec: "setBackgroundLinear %m.view.view fromFilePath %s.path".to_string(),
+        },
+    );
+    expected.insert(
+        "SaveLinear".to_string(),
+        MoreBlock {
+            id: "SaveLinear".to_string(),
+            spec: "SaveLinear %m.view.view to path %s.path".to_string(),
+        },
+    );
     expected.insert("edtDial".to_string(), MoreBlock { id: "edtDial".to_string(), spec: "edtDial Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess".to_string() });
     expected.insert("save_and_exit".to_string(), MoreBlock { id: "save_and_exit".to_string(), spec: "save_and_exit Nazv %s.str1 Mess %s.str2 Hint %s.hint Dialog %m.dialog.dia Output %m.textview.getMess".to_string() });
-    expected.insert("canvas".to_string(), MoreBlock { id: "canvas".to_string(), spec: "canvas %d.width %d.height".to_string() });
-    expected.insert("setCornerRadius".to_string(), MoreBlock { id: "setCornerRadius".to_string(), spec: "setCornerRadius to %m.view.view percentage %d.percent".to_string() });
-    expected.insert("EditTextLimit".to_string(), MoreBlock { id: "EditTextLimit".to_string(), spec: "EditTextLimit %m.textview.edittext setLimit %d.limit output %m.textview.output_tv".to_string() });
-    expected.insert("saveView".to_string(), MoreBlock { id: "saveView".to_string(), spec: "saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath".to_string() });
+    expected.insert(
+        "canvas".to_string(),
+        MoreBlock {
+            id: "canvas".to_string(),
+            spec: "canvas %d.width %d.height".to_string(),
+        },
+    );
+    expected.insert(
+        "setCornerRadius".to_string(),
+        MoreBlock {
+            id: "setCornerRadius".to_string(),
+            spec: "setCornerRadius to %m.view.view percentage %d.percent".to_string(),
+        },
+    );
+    expected.insert(
+        "EditTextLimit".to_string(),
+        MoreBlock {
+            id: "EditTextLimit".to_string(),
+            spec:
+                "EditTextLimit %m.textview.edittext setLimit %d.limit output %m.textview.output_tv"
+                    .to_string(),
+        },
+    );
+    expected.insert(
+        "saveView".to_string(),
+        MoreBlock {
+            id: "saveView".to_string(),
+            spec: "saveView %m.view.view folderPath %s.folderPath outputPath %s.outputPath"
+                .to_string(),
+        },
+    );
 
     assert_eq!(result, MoreBlockPool(expected));
 }
@@ -429,7 +934,7 @@ execute_shell:execute_shell %s.command
 
     match Logic::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse logic: {:?}", err)
+        Err(err) => panic!("Failed to parse logic: {:?}", err),
     };
 
     // sadly i can't check if it produces a correct output, if someone got time, please do this
@@ -458,12 +963,12 @@ execute_shell:execute_shell %s.command
 
     let result = match Logic::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse logic: {:?}", err)
+        Err(err) => panic!("Failed to parse logic: {:?}", err),
     };
 
     let reconstructed = match result.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct logic: {:?}", err)
+        Err(err) => panic!("Failed to reconstruct logic: {:?}", err),
     };
 
     assert_eq!(input, reconstructed);

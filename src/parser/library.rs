@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use super::Parsable;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -18,32 +18,34 @@ impl Parsable for Library {
         let mut newline_iter = decrypted_content.split("\n");
 
         let mut firebase_db = Option::<LibraryItem>::None;
-        let mut compat      = Option::<LibraryItem>::None;
-        let mut admob       = Option::<LibraryItem>::None;
-        let mut google_map  = Option::<LibraryItem>::None;
+        let mut compat = Option::<LibraryItem>::None;
+        let mut admob = Option::<LibraryItem>::None;
+        let mut google_map = Option::<LibraryItem>::None;
 
         let mut line_count = 0u32;
 
         macro_rules! library_item_set {
-            ($variable:ident, $header:expr) => {
-                {
-                    $variable = Some(LibraryItem::parse(
-                        newline_iter.next()
-                            .ok_or_else(|| LibraryParseError::EOFAfterHeader {
-                                header: $header.to_string()
-                            })?
-                    ).map_err(|err| LibraryParseError::LibraryItemParseError {
+            ($variable:ident, $header:expr) => {{
+                $variable = Some(
+                    LibraryItem::parse(newline_iter.next().ok_or_else(|| {
+                        LibraryParseError::EOFAfterHeader {
+                            header: $header.to_string(),
+                        }
+                    })?)
+                    .map_err(|err| LibraryParseError::LibraryItemParseError {
                         source: err,
                         header: $header.to_string(),
-                        line: line_count
-                    })?)
-                }
-            }
+                        line: line_count,
+                    })?,
+                )
+            }};
         }
 
         loop {
             let cur_line = newline_iter.next();
-            if cur_line.is_none() { break; }
+            if cur_line.is_none() {
+                break;
+            }
             let cur_line = cur_line.unwrap();
 
             match cur_line {
@@ -51,17 +53,25 @@ impl Parsable for Library {
                 "@compat" => library_item_set!(compat, "@compat"),
                 "@admob" => library_item_set!(admob, "@admob"),
                 "@googleMap" => library_item_set!(google_map, "@googleMap"),
-                _ => ()
+                _ => (),
             }
 
             line_count += 1;
         }
 
         Ok(Library {
-            firebase_db: firebase_db.ok_or_else(||LibraryParseError::MissingItem { header: "@firebaseDB".to_string() })?,
-            compat: compat.ok_or_else(||LibraryParseError::MissingItem { header: "@compat".to_string() })?,
-            admob: admob.ok_or_else(||LibraryParseError::MissingItem { header: "@admob".to_string() })?,
-            google_map: google_map.ok_or_else(||LibraryParseError::MissingItem { header: "@googleMap".to_string() })?,
+            firebase_db: firebase_db.ok_or_else(|| LibraryParseError::MissingItem {
+                header: "@firebaseDB".to_string(),
+            })?,
+            compat: compat.ok_or_else(|| LibraryParseError::MissingItem {
+                header: "@compat".to_string(),
+            })?,
+            admob: admob.ok_or_else(|| LibraryParseError::MissingItem {
+                header: "@admob".to_string(),
+            })?,
+            google_map: google_map.ok_or_else(|| LibraryParseError::MissingItem {
+                header: "@googleMap".to_string(),
+            })?,
         })
     }
 
@@ -69,26 +79,30 @@ impl Parsable for Library {
         Ok(format!(
             "@firebaseDB\n{}\n@compat\n{}\n@admob\n{}\n@googleMap\n{}",
             // a bit messy i know, some macros can be handy
-            self.firebase_db.reconstruct()
-                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+            self.firebase_db.reconstruct().map_err(|err| {
+                LibraryReconstructionError::LibraryItemReconstructionError {
                     source: err,
-                    header: "@firebaseDB".to_string()
-                })?,
-            self.compat.reconstruct()
-                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    header: "@firebaseDB".to_string(),
+                }
+            })?,
+            self.compat.reconstruct().map_err(|err| {
+                LibraryReconstructionError::LibraryItemReconstructionError {
                     source: err,
-                    header: "@compat".to_string()
-                })?,
-            self.admob.reconstruct()
-                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    header: "@compat".to_string(),
+                }
+            })?,
+            self.admob.reconstruct().map_err(|err| {
+                LibraryReconstructionError::LibraryItemReconstructionError {
                     source: err,
-                    header: "@admob".to_string()
-                })?,
-            self.google_map.reconstruct()
-                .map_err(|err| LibraryReconstructionError::LibraryItemReconstructionError {
+                    header: "@admob".to_string(),
+                }
+            })?,
+            self.google_map.reconstruct().map_err(|err| {
+                LibraryReconstructionError::LibraryItemReconstructionError {
                     source: err,
-                    header: "@googleMap".to_string()
-                })?,
+                    header: "@googleMap".to_string(),
+                }
+            })?,
         ))
     }
 }
@@ -103,13 +117,11 @@ pub enum LibraryParseError {
         #[source]
         source: serde_json::Error,
         header: String,
-        line: u32
+        line: u32,
     },
 
     #[error("missing a library item of {header}")]
-    MissingItem {
-        header: String
-    }
+    MissingItem { header: String },
 }
 
 #[derive(Error, Debug)]
@@ -118,8 +130,8 @@ pub enum LibraryReconstructionError {
     LibraryItemReconstructionError {
         #[source]
         source: serde_json::Error,
-        header: String
-    }
+        header: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]

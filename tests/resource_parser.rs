@@ -1,18 +1,18 @@
-use swrs::parser::Parsable;
 use swrs::parser::resource::{Resource, ResourceItem};
+use swrs::parser::Parsable;
 
 #[test]
 fn parse_resource_item() {
     let input = r#"{"resFullName":"my_img.png","resName":"my_img","resType":1}"#;
     let result = match ResourceItem::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse resource item: {:?}", err)
+        Err(err) => panic!("Failed to parse resource item: {:?}", err),
     };
 
     let expected = ResourceItem {
         full_name: "my_img.png".to_string(),
         name: "my_img".to_string(),
-        r#type: 1
+        r#type: 1,
     };
 
     assert_eq!(result, expected);
@@ -32,7 +32,7 @@ fn parse_resource() {
 
     let result = match Resource::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse resource: {:?}", err)
+        Err(err) => panic!("Failed to parse resource: {:?}", err),
     };
 
     let expected = Resource {
@@ -40,39 +40,36 @@ fn parse_resource() {
             ResourceItem {
                 full_name: "ic_developer_mode_white.png".to_string(),
                 name: "ic_developer_mode_white".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
                 full_name: "ic_info_outline_white.png".to_string(),
                 name: "ic_info_outline_white".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
-                full_name:
-                "ic_smartphone_white.png".to_string(),
+                full_name: "ic_smartphone_white.png".to_string(),
                 name: "ic_smartphone_white".to_string(),
-                r#type: 1
-            }
+                r#type: 1,
+            },
         ],
-        sounds: vec![
-            ResourceItem {
-                full_name: "speaker_cleaner.mp3".to_string(),
-                name: "speaker_cleaner".to_string(),
-                r#type: 1
-            }
-        ],
+        sounds: vec![ResourceItem {
+            full_name: "speaker_cleaner.mp3".to_string(),
+            name: "speaker_cleaner".to_string(),
+            r#type: 1,
+        }],
         fonts: vec![
             ResourceItem {
                 full_name: "font_regular.ttf".to_string(),
                 name: "font_regular".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
                 full_name: "font_light.ttf".to_string(),
                 name: "font_light".to_string(),
-                r#type: 1
-            }
-        ]
+                r#type: 1,
+            },
+        ],
     };
 
     assert_eq!(result, expected);
@@ -83,12 +80,12 @@ fn reconstruct_resource_item() {
     let input = ResourceItem {
         full_name: "my_img.png".to_string(),
         name: "my_img".to_string(),
-        r#type: 1
+        r#type: 1,
     };
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct resource item: {:?}", err)
+        Err(err) => panic!("Failed to reconstruct resource item: {:?}", err),
     };
 
     let expected = r#"{"resFullName":"my_img.png","resName":"my_img","resType":1}"#;
@@ -103,44 +100,41 @@ fn reconstruct_resource() {
             ResourceItem {
                 full_name: "ic_developer_mode_white.png".to_string(),
                 name: "ic_developer_mode_white".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
                 full_name: "ic_info_outline_white.png".to_string(),
                 name: "ic_info_outline_white".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
-                full_name:
-                "ic_smartphone_white.png".to_string(),
+                full_name: "ic_smartphone_white.png".to_string(),
                 name: "ic_smartphone_white".to_string(),
-                r#type: 1
-            }
+                r#type: 1,
+            },
         ],
-        sounds: vec![
-            ResourceItem {
-                full_name: "speaker_cleaner.mp3".to_string(),
-                name: "speaker_cleaner".to_string(),
-                r#type: 1
-            }
-        ],
+        sounds: vec![ResourceItem {
+            full_name: "speaker_cleaner.mp3".to_string(),
+            name: "speaker_cleaner".to_string(),
+            r#type: 1,
+        }],
         fonts: vec![
             ResourceItem {
                 full_name: "font_regular.ttf".to_string(),
                 name: "font_regular".to_string(),
-                r#type: 1
+                r#type: 1,
             },
             ResourceItem {
                 full_name: "font_light.ttf".to_string(),
                 name: "font_light".to_string(),
-                r#type: 1
-            }
-        ]
+                r#type: 1,
+            },
+        ],
     };
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct resource: {:?}", err)
+        Err(err) => panic!("Failed to reconstruct resource: {:?}", err),
     };
 
     let expected = r#"@images

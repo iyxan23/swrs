@@ -1,5 +1,5 @@
+use crate::parser::logic::component::Component as ParserComponent;
 use thiserror::Error;
-use crate::parser::logic::component::{Component as ParserComponent};
 
 /// An enum that contains all kinds of components with its parameters
 #[derive(Debug, Clone, PartialEq)]
@@ -37,14 +37,20 @@ pub enum ComponentKind {
 
 impl ComponentKind {
     /// Constructs a [`ComponentKind`] using [`ParserComponent`]
-    pub fn from_parser_component(component: &ParserComponent) -> Result<ComponentKind, UnknownComponentType> {
+    pub fn from_parser_component(
+        component: &ParserComponent,
+    ) -> Result<ComponentKind, UnknownComponentType> {
         Ok(match component.r#type {
             1 => ComponentKind::Intent,
-            2 => ComponentKind::SharedPreferences { path: component.param1.to_owned() },
+            2 => ComponentKind::SharedPreferences {
+                path: component.param1.to_owned(),
+            },
             3 => ComponentKind::Calendar,
             4 => ComponentKind::Vibrator,
             5 => ComponentKind::Timer,
-            6 => ComponentKind::FirebaseDatabase { path: component.param1.to_owned() },
+            6 => ComponentKind::FirebaseDatabase {
+                path: component.param1.to_owned(),
+            },
             7 => ComponentKind::Dialog,
             8 => ComponentKind::MediaPlayer,
             9 => ComponentKind::SoundPool,
@@ -52,9 +58,13 @@ impl ComponentKind {
             11 => ComponentKind::Gyroscope,
             12 => ComponentKind::FirebaseAuth,
             13 => ComponentKind::InterstitialAd,
-            14 => ComponentKind::FirebaseStorage { path: component.param1.to_owned() },
+            14 => ComponentKind::FirebaseStorage {
+                path: component.param1.to_owned(),
+            },
             15 => ComponentKind::Camera,
-            16 => ComponentKind::FilePicker { mime_type: component.param1.to_owned() },
+            16 => ComponentKind::FilePicker {
+                mime_type: component.param1.to_owned(),
+            },
             17 => ComponentKind::RequestNetwork,
             18 => ComponentKind::TextToSpeech,
             19 => ComponentKind::SpeechToText,
@@ -62,8 +72,8 @@ impl ComponentKind {
             21 => ComponentKind::LocationManager,
             _ => Err(UnknownComponentType {
                 component_type: component.r#type,
-                component_id: component.id.to_owned()
-            })?
+                component_id: component.id.to_owned(),
+            })?,
         })
     }
 
@@ -85,7 +95,9 @@ impl ComponentKind {
             ComponentKind::InterstitialAd => ParserComponent::new_empty(id, 13),
             ComponentKind::FirebaseStorage { path } => ParserComponent::new_1param(id, path, 14),
             ComponentKind::Camera => ParserComponent::new_empty(id, 15),
-            ComponentKind::FilePicker { mime_type } => ParserComponent::new_1param(id, mime_type, 16),
+            ComponentKind::FilePicker { mime_type } => {
+                ParserComponent::new_1param(id, mime_type, 16)
+            }
             ComponentKind::RequestNetwork => ParserComponent::new_empty(id, 17),
             ComponentKind::TextToSpeech => ParserComponent::new_empty(id, 18),
             ComponentKind::SpeechToText => ParserComponent::new_empty(id, 19),

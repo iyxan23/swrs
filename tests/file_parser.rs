@@ -1,4 +1,6 @@
-use swrs::parser::file::{ActivityOptions, File, FileItem, FileType, KeyboardSetting, Orientation, Theme};
+use swrs::parser::file::{
+    ActivityOptions, File, FileItem, FileType, KeyboardSetting, Orientation, Theme,
+};
 use swrs::parser::Parsable;
 
 #[test]
@@ -6,7 +8,7 @@ fn parse_file_item() {
     let input = r#"{"fileName":"main","fileType":0,"keyboardSetting":0,"options":0,"orientation":2,"theme":-1}"#;
     let result = match FileItem::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse FileItem: {:?}", err)
+        Err(err) => panic!("Failed to parse FileItem: {:?}", err),
     };
 
     let expected = FileItem {
@@ -17,10 +19,10 @@ fn parse_file_item() {
             toolbar_enabled: false,
             fullscreen_enabled: false,
             drawer_enabled: false,
-            fab_enabled: false
+            fab_enabled: false,
         },
         orientation: Orientation::Both,
-        theme: Theme::None
+        theme: Theme::None,
     };
 
     assert_eq!(result, expected);
@@ -41,7 +43,7 @@ fn parse_file() {
 
     let result = match File::parse(input) {
         Ok(r) => r,
-        Err(err) => panic!("Failed to parse file: {:?}", err)
+        Err(err) => panic!("Failed to parse file: {:?}", err),
     };
 
     let expected = File {
@@ -50,69 +52,109 @@ fn parse_file() {
                 filename: "main".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "deviceinfo".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: true, fullscreen_enabled: false, drawer_enabled: true, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: true,
+                    fullscreen_enabled: false,
+                    drawer_enabled: true,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "about".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "speaker_cleaner".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Portrait,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "tools".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "display_test".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Hidden,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: true, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: true,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
-            }
+                theme: Theme::None,
+            },
         ],
         custom_views: vec![
             FileItem {
                 filename: "_drawer_deviceinfo".to_string(),
                 file_type: FileType::Drawer,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "design_3".to_string(),
                 file_type: FileType::CustomView,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
-            }
-        ]
+                theme: Theme::None,
+            },
+        ],
     };
 
     assert_eq!(result, expected);
@@ -128,15 +170,15 @@ fn reconstruct_file_item() {
             toolbar_enabled: false,
             fullscreen_enabled: false,
             drawer_enabled: false,
-            fab_enabled: false
+            fab_enabled: false,
         },
         orientation: Orientation::Both,
-        theme: Theme::None
+        theme: Theme::None,
     };
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed reconstructing fileitem: {:?}", err)
+        Err(err) => panic!("Failed reconstructing fileitem: {:?}", err),
     };
 
     let expected = r#"{"fileName":"main","fileType":0,"keyboardSetting":0,"options":0,"orientation":2,"theme":-1}"#;
@@ -152,74 +194,114 @@ fn reconstruct_file() {
                 filename: "main".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "deviceinfo".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: true, fullscreen_enabled: false, drawer_enabled: true, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: true,
+                    fullscreen_enabled: false,
+                    drawer_enabled: true,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "about".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "speaker_cleaner".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Portrait,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "tools".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "display_test".to_string(),
                 file_type: FileType::Activity,
                 keyboard_setting: KeyboardSetting::Hidden,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: true, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: true,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
-            }
+                theme: Theme::None,
+            },
         ],
         custom_views: vec![
             FileItem {
                 filename: "_drawer_deviceinfo".to_string(),
                 file_type: FileType::Drawer,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
+                theme: Theme::None,
             },
             FileItem {
                 filename: "design_3".to_string(),
                 file_type: FileType::CustomView,
                 keyboard_setting: KeyboardSetting::Unspecified,
-                options: ActivityOptions { toolbar_enabled: false, fullscreen_enabled: false, drawer_enabled: false, fab_enabled: false },
+                options: ActivityOptions {
+                    toolbar_enabled: false,
+                    fullscreen_enabled: false,
+                    drawer_enabled: false,
+                    fab_enabled: false,
+                },
                 orientation: Orientation::Both,
-                theme: Theme::None
-            }
-        ]
+                theme: Theme::None,
+            },
+        ],
     };
 
     let result = match input.reconstruct() {
         Ok(r) => r,
-        Err(err) => panic!("Failed to reconstruct file: {:?}", err)
+        Err(err) => panic!("Failed to reconstruct file: {:?}", err),
     };
 
     let expected = r#"@activity

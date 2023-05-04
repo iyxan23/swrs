@@ -1,29 +1,34 @@
-pub mod screen;
-pub mod view;
 pub mod block;
 pub mod component;
+pub mod screen;
+pub mod view;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-use crate::LinkedHashMap;
+use crate::api::component::ComponentKind;
 use crate::api::library::{AdMob, Firebase, GoogleMap};
 use crate::api::screen::{Event, MoreBlock, Screen, ScreenConstructionError};
 use crate::api::view::{flatten_views, parse_raw_layout, ParseLayoutError, View};
 use crate::color::Color;
 use crate::parser;
-use crate::api::component::ComponentKind;
-use crate::parser::file::{ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme};
+use crate::parser::file::{
+    ActivityOptions, FileItem, FileType, KeyboardSetting, Orientation, Theme,
+};
 use crate::parser::logic::component::ComponentPool;
 use crate::parser::logic::event::EventPool;
 use crate::parser::logic::list_variable::{ListVariable, ListVariablePool};
 use crate::parser::logic::more_block::MoreBlockPool;
-use crate::parser::logic::ScreenLogic;
 use crate::parser::logic::variable::{Variable, VariablePool};
-use crate::parser::{ResourceFileWrapper, RawSketchwareProject, ResourceType, SketchwareProjectReconstructionError, ResourceFiles};
+use crate::parser::logic::ScreenLogic;
 use crate::parser::resource::{Resource, ResourceItem};
-use crate::parser::SketchwareProject as ParsedSketchwareProject;
-use crate::parser::view::Layout;
 use crate::parser::view::models::AndroidView;
+use crate::parser::view::Layout;
+use crate::parser::SketchwareProject as ParsedSketchwareProject;
+use crate::parser::{
+    RawSketchwareProject, ResourceFileWrapper, ResourceFiles, ResourceType,
+    SketchwareProjectReconstructionError,
+};
+use crate::LinkedHashMap;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// A model that holds a metadata of a project. like its name, package name, etc.
@@ -81,13 +86,13 @@ pub mod library {
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct AdMob {
-        pub ad_units: Vec<crate::parser::library::AdUnit>,  // key: adUnits
-        pub test_devices: Vec<String>,      // key: testDevices
+        pub ad_units: Vec<crate::parser::library::AdUnit>, // key: adUnits
+        pub test_devices: Vec<String>,                     // key: testDevices
     }
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct GoogleMap {
-        pub api_key: String,        // key: data
+        pub api_key: String, // key: data
     }
 }
 
@@ -112,7 +117,7 @@ impl Resources {
         Resources {
             images: Default::default(),
             sounds: Default::default(),
-            fonts: Default::default()
+            fonts: Default::default(),
         }
     }
 }
@@ -140,7 +145,10 @@ impl Resources {
     }
 
     /// Removes a resource from the given [`ResourceId`]
-    pub fn remove_resource(&mut self, id: &ResourceId) -> Option<(ResourceFileWrapper, ResourceType)> {
+    pub fn remove_resource(
+        &mut self,
+        id: &ResourceId,
+    ) -> Option<(ResourceFileWrapper, ResourceType)> {
         if let Some(image) = self.images.remove(id) {
             return Some((image, ResourceType::Image));
         }
@@ -171,7 +179,7 @@ impl Resources {
         &mut self,
         id: ResourceId,
         mut file: ResourceFileWrapper,
-        res_type: ResourceType
+        res_type: ResourceType,
     ) -> Result<(), ResourceAdditionError> {
         if let ResourceType::CustomIcon = res_type {
             panic!("yo can't put a custom icon here (╯°□°）╯︵ ┻━┻"); // small easter egg ig ;)
@@ -187,20 +195,30 @@ impl Resources {
         // big warning: don't get confused with resource id and file wrapper id
 
         // re-set the res_type if this file is a StringId
-        if let ResourceFileWrapper::StringId { id: file_id, res_full_name, .. } = &file {
+        if let ResourceFileWrapper::StringId {
+            id: file_id,
+            res_full_name,
+            ..
+        } = &file
+        {
             file = ResourceFileWrapper::StringId {
                 id: file_id.to_owned(),
                 res_full_name: res_full_name.to_owned(),
-                res_type
+                res_type,
             };
         }
 
         // re-set the res_type if this file is a U32Id
-        if let ResourceFileWrapper::U32Id { id: file_id, res_full_name, .. } = &file {
+        if let ResourceFileWrapper::U32Id {
+            id: file_id,
+            res_full_name,
+            ..
+        } = &file
+        {
             file = ResourceFileWrapper::U32Id {
                 id: file_id.to_owned(),
                 res_full_name: res_full_name.to_owned(),
-                res_type
+                res_type,
             };
         }
 
@@ -210,18 +228,30 @@ impl Resources {
         }
 
         match res_type {
-            ResourceType::Image => { self.images.insert(id, file); }
-            ResourceType::Sound => { self.sounds.insert(id, file); }
-            ResourceType::Font  => { self.fonts.insert(id, file); }
+            ResourceType::Image => {
+                self.images.insert(id, file);
+            }
+            ResourceType::Sound => {
+                self.sounds.insert(id, file);
+            }
+            ResourceType::Font => {
+                self.fonts.insert(id, file);
+            }
             _ => {}
         }
 
         Ok(())
     }
 
-    pub fn get_images(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.images }
-    pub fn get_sounds(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.sounds }
-    pub fn get_fonts (&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> { &self.fonts  }
+    pub fn get_images(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> {
+        &self.images
+    }
+    pub fn get_sounds(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> {
+        &self.sounds
+    }
+    pub fn get_fonts(&self) -> &LinkedHashMap<ResourceId, ResourceFileWrapper> {
+        &self.fonts
+    }
 }
 
 #[derive(Error, Debug)]
@@ -244,7 +274,7 @@ pub struct SketchwareProject {
     pub libraries: Libraries,
     pub resources: Resources,
 
-    automatic_res_file_ids: bool
+    automatic_res_file_ids: bool,
 }
 
 impl SketchwareProject {
@@ -258,8 +288,14 @@ impl SketchwareProject {
         resources: Resources,
     ) -> Self {
         SketchwareProject {
-            custom_icon: None, metadata, colors, screens, custom_views, libraries, resources,
-            automatic_res_file_ids: false
+            custom_icon: None,
+            metadata,
+            colors,
+            screens,
+            custom_views,
+            libraries,
+            resources,
+            automatic_res_file_ids: false,
         }
     }
 }
@@ -296,7 +332,10 @@ mod tests {
     fn test_view_name_to_logic() {
         assert_eq!("MainActivity", view_name_to_logic("main"));
         assert_eq!("DebugScreenActivity", view_name_to_logic("debug_screen"));
-        assert_eq!("VeryLongStringIDontKnowWhyActivity", view_name_to_logic("very_long_string_i_dont_know_why"));
+        assert_eq!(
+            "VeryLongStringIDontKnowWhyActivity",
+            view_name_to_logic("very_long_string_i_dont_know_why")
+        );
     }
 }
 
@@ -309,10 +348,12 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 match val.library.$parsed_field_name.use_yn.as_str() {
                     "Y" => Some($result),
                     "N" => None,
-                    _ => return Err(APISketchwareProjectConversionError::InvalidUseYNValue {
-                        library_name: $str_name.to_string(),
-                        value: val.library.$parsed_field_name.use_yn.to_string()
-                    }),
+                    _ => {
+                        return Err(APISketchwareProjectConversionError::InvalidUseYNValue {
+                            library_name: $str_name.to_string(),
+                            value: val.library.$parsed_field_name.use_yn.to_string(),
+                        })
+                    }
                 }
             }};
         }
@@ -333,7 +374,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                         } else {
                             ResourceFileWrapper::make_random_id(full_name, ResourceType::$res_type_c)
                         };
-                            
+
                         #[cfg(not(feature = "resource_id_random"))]
                         let resource = {
                             let Some(rf) = &mut val.resource_files
@@ -342,7 +383,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                                     res_full_name: full_name,
                                     res_type: ResourceType::$res_type_c
                                 })? };
-                            
+
                             rf.$res_type.remove(&full_name)
                                 .ok_or_else(||APISketchwareProjectConversionError::MissingResourceFile {
                                     res_name: name.to_owned(),
@@ -358,70 +399,90 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
         }
 
         // get the activities
-        let activities = val.file.activities.into_iter()
-            .try_fold(Vec::new(), |mut acc, file_entry| {
-                let name = file_entry.filename.to_owned();
+        let activities =
+            val.file
+                .activities
+                .into_iter()
+                .try_fold(Vec::new(), |mut acc, file_entry| {
+                    let name = file_entry.filename.to_owned();
 
-                // get the activity layout and logic
-                let layout = val.view.layouts
-                    .remove(name.as_str())
-                    .unwrap_or_else(||Layout(vec![]));
+                    // get the activity layout and logic
+                    let layout = val
+                        .view
+                        .layouts
+                        .remove(name.as_str())
+                        .unwrap_or_else(|| Layout(vec![]));
                     // return an empty layout if there is no layout definition for it
 
-                // if it can't find any logic then create an empty ScreenLogic
-                let logic = val.logic.screens
-                    .remove(view_name_to_logic(name.as_str()).as_str())
-                    .unwrap_or_else(||ScreenLogic::new_empty(file_entry.filename.clone()));
+                    // if it can't find any logic then create an empty ScreenLogic
+                    let logic = val
+                        .logic
+                        .screens
+                        .remove(view_name_to_logic(name.as_str()).as_str())
+                        .unwrap_or_else(|| ScreenLogic::new_empty(file_entry.filename.clone()));
 
-                // get our fab (if we have one)
-                let fab = val.view.fabs
-                    .remove(name.as_str())
-                    .map(View::from);
+                    // get our fab (if we have one)
+                    let fab = val.view.fabs.remove(name.as_str()).map(View::from);
 
-                acc.push(Screen::from_parsed(
-                    file_entry.filename.to_owned(),
-                    logic.name.to_owned(),
-                    file_entry,
-                    layout,
-                    logic,
-                    fab
-                ).map_err(|err| APISketchwareProjectConversionError::ScreenConstructionError {
-                    java_screen_name: view_name_to_logic(name.as_str()),
-                    layout_screen_name: name,
-                    source: err
-                })?);
+                    acc.push(
+                        Screen::from_parsed(
+                            file_entry.filename.to_owned(),
+                            logic.name.to_owned(),
+                            file_entry,
+                            layout,
+                            logic,
+                            fab,
+                        )
+                        .map_err(|err| {
+                            APISketchwareProjectConversionError::ScreenConstructionError {
+                                java_screen_name: view_name_to_logic(name.as_str()),
+                                layout_screen_name: name,
+                                source: err,
+                            }
+                        })?,
+                    );
 
-                Ok(acc)
-            })?;
+                    Ok(acc)
+                })?;
 
         // and get the custom views
-        let custom_views = val.file.custom_views.into_iter()
-            .try_fold(Vec::new(), |mut acc, file_entry| {
-                // retrieve the layout of this custom view
-                let layout = val.view.layouts
-                    .remove(file_entry.filename.as_str())
-                    .ok_or_else(||APISketchwareProjectConversionError::MissingCustomViewLayout {
-                        custom_view_id: file_entry.filename.to_owned(),
-                    })?;
+        let custom_views =
+            val.file
+                .custom_views
+                .into_iter()
+                .try_fold(Vec::new(), |mut acc, file_entry| {
+                    // retrieve the layout of this custom view
+                    let layout = val
+                        .view
+                        .layouts
+                        .remove(file_entry.filename.as_str())
+                        .ok_or_else(|| {
+                            APISketchwareProjectConversionError::MissingCustomViewLayout {
+                                custom_view_id: file_entry.filename.to_owned(),
+                            }
+                        })?;
 
-                acc.push(CustomView {
-                    res_name: file_entry.filename.to_owned(),
-                    layout: parse_raw_layout(layout)
-                        .map_err(|err| APISketchwareProjectConversionError::CustomViewParseLayoutError {
-                            custom_view_id: file_entry.filename.to_owned(),
-                            source: err
-                        })?
-                });
+                    acc.push(CustomView {
+                        res_name: file_entry.filename.to_owned(),
+                        layout: parse_raw_layout(layout).map_err(|err| {
+                            APISketchwareProjectConversionError::CustomViewParseLayoutError {
+                                custom_view_id: file_entry.filename.to_owned(),
+                                source: err,
+                            }
+                        })?,
+                    });
 
-                Ok(acc)
-            })?;
+                    Ok(acc)
+                })?;
 
         Ok(SketchwareProject {
             // there might be a better way of getting a field of T from an Option<T> without needing
             // to own Option<>
             custom_icon: if let Some(rf) = &val.resource_files {
                 rf.custom_icon.clone()
-            } else { None },
+            } else {
+                None
+            },
             metadata: Metadata {
                 local_id: val.project.id,
                 name: val.project.app_name,
@@ -430,7 +491,7 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
                 time_created: val.project.date_created,
                 sketchware_version: val.project.sketchware_version,
                 version_name: val.project.version_name,
-                version_code: val.project.version_code
+                version_code: val.project.version_code,
             },
             colors: Colors {
                 color_primary: val.project.color_palette.color_primary,
@@ -443,26 +504,38 @@ impl TryFrom<ParsedSketchwareProject> for SketchwareProject {
             custom_views,
             libraries: Libraries {
                 app_compat_enabled: val.library.compat.use_yn == "Y",
-                firebase: library_conv!("firebase", firebase_db, Firebase {
-                    project_id: val.library.firebase_db.data,
-                    app_id: val.library.firebase_db.reserved1,
-                    api_key: val.library.firebase_db.reserved2,
-                    storage_bucket: val.library.firebase_db.reserved3,
-                }),
-                ad_mob: library_conv!("admob", admob, AdMob {
-                    ad_units: val.library.admob.ad_units,
-                    test_devices: val.library.admob.test_devices,
-                }),
-                google_map: library_conv!("google map", google_map, GoogleMap {
-                    api_key: val.library.google_map.data,
-                }),
+                firebase: library_conv!(
+                    "firebase",
+                    firebase_db,
+                    Firebase {
+                        project_id: val.library.firebase_db.data,
+                        app_id: val.library.firebase_db.reserved1,
+                        api_key: val.library.firebase_db.reserved2,
+                        storage_bucket: val.library.firebase_db.reserved3,
+                    }
+                ),
+                ad_mob: library_conv!(
+                    "admob",
+                    admob,
+                    AdMob {
+                        ad_units: val.library.admob.ad_units,
+                        test_devices: val.library.admob.test_devices,
+                    }
+                ),
+                google_map: library_conv!(
+                    "google map",
+                    google_map,
+                    GoogleMap {
+                        api_key: val.library.google_map.data,
+                    }
+                ),
             },
             resources: Resources {
                 images: resources_conv!(images, Image),
                 sounds: resources_conv!(sounds, Sound),
                 fonts: resources_conv!(fonts, Font),
             },
-            automatic_res_file_ids: val.resource_files.is_none()
+            automatic_res_file_ids: val.resource_files.is_none(),
         })
     }
 }
@@ -474,32 +547,29 @@ pub enum APISketchwareProjectConversionError {
         java_screen_name: String,
         layout_screen_name: String,
 
-        source: ScreenConstructionError
+        source: ScreenConstructionError,
     },
 
     #[error("couldn't find the layout of the custom view `{custom_view_id}`")]
-    MissingCustomViewLayout {
-        custom_view_id: String
-    },
+    MissingCustomViewLayout { custom_view_id: String },
 
     #[error("error while parsing the layout of custom view `{custom_view_id}`")]
     CustomViewParseLayoutError {
         custom_view_id: String,
-        source: ParseLayoutError
+        source: ParseLayoutError,
     },
 
-    #[error("use_yn of library `{library_name}` has an invalid value `{value}` (expected `Y` or `N`)")]
-    InvalidUseYNValue {
-        library_name: String,
-        value: String
-    },
+    #[error(
+        "use_yn of library `{library_name}` has an invalid value `{value}` (expected `Y` or `N`)"
+    )]
+    InvalidUseYNValue { library_name: String, value: String },
 
     #[error("couldn't find a resource file matching with id `{res_name}`")]
     MissingResourceFile {
         res_name: String,
         res_full_name: String,
         res_type: ResourceType,
-    }
+    },
 }
 
 impl TryInto<RawSketchwareProject> for SketchwareProject {
@@ -520,7 +590,8 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
 
         macro_rules! resource_conv {
             ($name:ident, $resource_files_hmap:ident) => {{
-                val.resources.$name
+                val.resources
+                    .$name
                     .into_iter()
                     .map(|(id, file)| {
                         let full_name = file.get_full_name();
@@ -530,29 +601,33 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         }
 
                         ResourceItem {
-                            full_name: full_name, name: id.0, r#type: 1
+                            full_name: full_name,
+                            name: id.0,
+                            r#type: 1,
                         }
                     })
                     .collect()
-            }}
+            }};
         }
 
         let (activities, custom_views): (Vec<FileItem>, Vec<FileItem>) = {
-            (val.screens
-                .iter()
-                .map(|screen| FileItem {
-                    filename: screen.layout_name.to_owned(),
-                    file_type: FileType::Activity,
-                    keyboard_setting: screen.keyboard_setting,
-                    options: ActivityOptions {
-                        toolbar_enabled: screen.toolbar_enabled,
-                        fullscreen_enabled: screen.fullscreen_enabled,
-                        drawer_enabled: screen.drawer_enabled,
-                        fab_enabled: screen.fab_enabled
-                    },
-                    orientation: screen.orientation,
-                    theme: screen.theme
-                }).collect(),
+            (
+                val.screens
+                    .iter()
+                    .map(|screen| FileItem {
+                        filename: screen.layout_name.to_owned(),
+                        file_type: FileType::Activity,
+                        keyboard_setting: screen.keyboard_setting,
+                        options: ActivityOptions {
+                            toolbar_enabled: screen.toolbar_enabled,
+                            fullscreen_enabled: screen.fullscreen_enabled,
+                            drawer_enabled: screen.drawer_enabled,
+                            fab_enabled: screen.fab_enabled,
+                        },
+                        orientation: screen.orientation,
+                        theme: screen.theme,
+                    })
+                    .collect(),
                 val.custom_views
                     .iter()
                     .map(|custom_view| FileItem {
@@ -563,11 +638,12 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                             toolbar_enabled: false,
                             fullscreen_enabled: false,
                             drawer_enabled: false,
-                            fab_enabled: false
+                            fab_enabled: false,
                         },
                         orientation: Orientation::Both,
-                        theme: Theme::None
-                    }).collect()
+                        theme: Theme::None,
+                    })
+                    .collect(),
             )
         };
 
@@ -582,63 +658,66 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
             let mut block_containers = LinkedHashMap::new();
 
             // separate events to parser event and its blocks
-            let parser_events =
-                events
-                    .into_iter()
-                    .filter_map(|event| {
-                        let block_container_id = event.get_block_container_id();
-                        let (event, blocks) = event.into_parser_event();
+            let parser_events = events
+                .into_iter()
+                .filter_map(|event| {
+                    let block_container_id = event.get_block_container_id();
+                    let (event, blocks) = event.into_parser_event();
 
-                        let block_container = blocks.into();
-                        block_containers.insert(block_container_id, block_container);
+                    let block_container = blocks.into();
+                    block_containers.insert(block_container_id, block_container);
 
-                        // drop this event if its onCreate, but preserve the block container
-                        // see `api::screen::Screen::from_parsed` comments for more explanation
-                        if event.event_name == "onCreate" { return None; }
+                    // drop this event if its onCreate, but preserve the block container
+                    // see `api::screen::Screen::from_parsed` comments for more explanation
+                    if event.event_name == "onCreate" {
+                        return None;
+                    }
 
-                        Some(event)
-                    })
-                    .collect::<Vec<_>>();
+                    Some(event)
+                })
+                .collect::<Vec<_>>();
 
             // separate moreblocks to parser moreblock and its blocks
-            let parser_more_blocks =
-                more_blocks
-                    .into_iter()
-                    .map(|(id, more_block)| {
-                        let (more_block, blocks) = more_block.into_parser_more_block();
+            let parser_more_blocks = more_blocks
+                .into_iter()
+                .map(|(id, more_block)| {
+                    let (more_block, blocks) = more_block.into_parser_more_block();
 
-                        let block_container = blocks.into();
-                        block_containers.insert(format!("{}_moreBlock", &id), block_container);
+                    let block_container = blocks.into();
+                    block_containers.insert(format!("{}_moreBlock", &id), block_container);
 
-                        (id, more_block)
-                    })
-                    .collect::<LinkedHashMap<String, _>>();
+                    (id, more_block)
+                })
+                .collect::<LinkedHashMap<String, _>>();
 
             ScreenLogic {
                 name: logic_name,
                 block_containers,
                 variables: Some(VariablePool(variables)),
                 list_variables: Some(ListVariablePool(list_variables)),
-                components: Some(ComponentPool(components
-                    .into_iter()
-                    .map(|(id, kind)| kind.into_parser_component(id))
-                    .collect())),
+                components: Some(ComponentPool(
+                    components
+                        .into_iter()
+                        .map(|(id, kind)| kind.into_parser_component(id))
+                        .collect(),
+                )),
                 events: Some(EventPool(parser_events)),
-                more_blocks: Some(MoreBlockPool(parser_more_blocks))
+                more_blocks: Some(MoreBlockPool(parser_more_blocks)),
             }
         }
 
-        let (logic_screens, layouts, fabs):
-            (LinkedHashMap<String, ScreenLogic>, LinkedHashMap<String, Layout>, LinkedHashMap<String, AndroidView>) = {
-
+        let (logic_screens, layouts, fabs): (
+            LinkedHashMap<String, ScreenLogic>,
+            LinkedHashMap<String, Layout>,
+            LinkedHashMap<String, AndroidView>,
+        ) = {
             let mut logic_screens = LinkedHashMap::new();
             let mut layouts = LinkedHashMap::new();
             let mut fabs = LinkedHashMap::new();
 
             for screen in val.screens {
                 if let Some(fab) = screen.fab {
-                    let mut fab_view = flatten_views(vec![fab], None, None)
-                        .remove(0);
+                    let mut fab_view = flatten_views(vec![fab], None, None).remove(0);
 
                     // these values are specifically set for the fab view
                     fab_view.parent = None;
@@ -647,18 +726,21 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                     fabs.insert(screen.layout_name.to_owned(), fab_view);
                 }
 
-                logic_screens.insert(screen.java_name.to_owned(), to_screen_logic(
-                    screen.java_name,
-                    screen.variables,
-                    screen.list_variables,
-                    screen.components,
-                    screen.more_blocks,
-                    screen.events,
-                ));
+                logic_screens.insert(
+                    screen.java_name.to_owned(),
+                    to_screen_logic(
+                        screen.java_name,
+                        screen.variables,
+                        screen.list_variables,
+                        screen.components,
+                        screen.more_blocks,
+                        screen.events,
+                    ),
+                );
 
                 layouts.insert(
                     screen.layout_name,
-                    Layout(view::flatten_views(screen.layout, None, None))
+                    Layout(view::flatten_views(screen.layout, None, None)),
                 );
             }
 
@@ -666,7 +748,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
             for custom_view in val.custom_views {
                 layouts.insert(
                     custom_view.res_name,
-                    Layout(view::flatten_views(custom_view.layout, None, None))
+                    Layout(view::flatten_views(custom_view.layout, None, None)),
                 );
             }
 
@@ -692,7 +774,10 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                 },
                 sketchware_version: val.metadata.sketchware_version,
             },
-            file: parser::file::File { activities, custom_views },
+            file: parser::file::File {
+                activities,
+                custom_views,
+            },
             library: parser::library::Library {
                 firebase_db: match val.libraries.firebase {
                     Some(val) => parser::library::LibraryItem {
@@ -703,7 +788,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: val.api_key,
                         reserved3: val.storage_bucket,
                         test_devices: vec![],
-                        use_yn: "Y".to_string()
+                        use_yn: "Y".to_string(),
                     },
                     None => parser::library::LibraryItem {
                         ad_units: vec![],
@@ -713,8 +798,8 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: "".to_string(),
                         reserved3: "".to_string(),
                         test_devices: vec![],
-                        use_yn: "N".to_string()
-                    }
+                        use_yn: "N".to_string(),
+                    },
                 },
                 compat: parser::library::LibraryItem {
                     ad_units: vec![],
@@ -724,7 +809,12 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                     reserved2: "".to_string(),
                     reserved3: "".to_string(),
                     test_devices: vec![],
-                    use_yn: if val.libraries.app_compat_enabled { "Y" } else { "N" }.to_string()
+                    use_yn: if val.libraries.app_compat_enabled {
+                        "Y"
+                    } else {
+                        "N"
+                    }
+                    .to_string(),
                 },
                 admob: match val.libraries.ad_mob {
                     Some(val) => parser::library::LibraryItem {
@@ -735,7 +825,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: "".to_string(),
                         reserved3: "".to_string(),
                         test_devices: val.test_devices,
-                        use_yn: "Y".to_string()
+                        use_yn: "Y".to_string(),
                     },
                     None => parser::library::LibraryItem {
                         ad_units: vec![],
@@ -745,8 +835,8 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: "".to_string(),
                         reserved3: "".to_string(),
                         test_devices: vec![],
-                        use_yn: "N".to_string()
-                    }
+                        use_yn: "N".to_string(),
+                    },
                 },
                 google_map: match val.libraries.google_map {
                     Some(val) => parser::library::LibraryItem {
@@ -757,7 +847,7 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: "".to_string(),
                         reserved3: "".to_string(),
                         test_devices: vec![],
-                        use_yn: "Y".to_string()
+                        use_yn: "Y".to_string(),
                     },
                     None => parser::library::LibraryItem {
                         ad_units: vec![],
@@ -767,26 +857,25 @@ impl From<SketchwareProject> for ParsedSketchwareProject {
                         reserved2: "".to_string(),
                         reserved3: "".to_string(),
                         test_devices: vec![],
-                        use_yn: "N".to_string()
-                    }
+                        use_yn: "N".to_string(),
+                    },
                 },
             },
             resource: Resource {
                 images: resource_conv!(images, image_resource_files),
                 sounds: resource_conv!(sounds, sound_resource_files),
-                fonts: resource_conv!(fonts, font_resource_files)
+                fonts: resource_conv!(fonts, font_resource_files),
             },
-            view: parser::view::View {
-                layouts,
-                fabs
+            view: parser::view::View { layouts, fabs },
+            logic: parser::logic::Logic {
+                screens: logic_screens,
             },
-            logic: parser::logic::Logic { screens: logic_screens },
             resource_files: val.automatic_res_file_ids.then(|| ResourceFiles {
                 custom_icon: val.custom_icon,
                 images: image_resource_files,
                 sounds: sound_resource_files,
-                fonts: font_resource_files
-            })
+                fonts: font_resource_files,
+            }),
         }
     }
 }

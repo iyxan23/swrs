@@ -10,12 +10,30 @@ fn main() {
     let mut args = std::env::args();
     args.next();
 
-    let project = read(args.next().expect("File path of a project data file to parse")).expect("Invalid project path given");
-    let file = read(args.next().expect("File path of a file data file to parse")).expect("Invalid file path given");
-    let library = read(args.next().expect("File path of a library data file to parse")).expect("Invalid library path given");
-    let resource = read(args.next().expect("File path of a resource data file to parse")).expect("Invalid resource path given");
-    let view = read(args.next().expect("File path of a view data file to parse")).expect("Invalid view path given");
-    let logic = read(args.next().expect("File path of a logic data file to parse")).expect("Invalid logic path given");
+    let project = read(
+        args.next()
+            .expect("File path of a project data file to parse"),
+    )
+    .expect("Invalid project path given");
+    let file = read(args.next().expect("File path of a file data file to parse"))
+        .expect("Invalid file path given");
+    let library = read(
+        args.next()
+            .expect("File path of a library data file to parse"),
+    )
+    .expect("Invalid library path given");
+    let resource = read(
+        args.next()
+            .expect("File path of a resource data file to parse"),
+    )
+    .expect("Invalid resource path given");
+    let view = read(args.next().expect("File path of a view data file to parse"))
+        .expect("Invalid view path given");
+    let logic = read(
+        args.next()
+            .expect("File path of a logic data file to parse"),
+    )
+    .expect("Invalid logic path given");
 
     // decrypt them
 
@@ -38,10 +56,18 @@ fn main() {
     // and parse them
 
     let sketchware_project = SketchwareProject::try_from(
-        ParsedSketchwareProject::parse_from(
-            RawSketchwareProject::new(project, file, library, resource, view, logic, vec![])
-        ).expect("Corrupted sketchware project")
-    ).expect("Corrupted sketchware project");
+        ParsedSketchwareProject::parse_from(RawSketchwareProject::new(
+            project,
+            file,
+            library,
+            resource,
+            view,
+            logic,
+            vec![],
+        ))
+        .expect("Corrupted sketchware project"),
+    )
+    .expect("Corrupted sketchware project");
 
     println!("Screens:");
 
@@ -50,11 +76,19 @@ fn main() {
         println!("    Events:");
 
         for event in screen.events {
-            println!("      - Event {}, type: {:?}, blocks:", event.name, event.event_type);
+            println!(
+                "      - Event {}, type: {:?}, blocks:",
+                event.name, event.event_type
+            );
 
             fn print_blocks(indentation: u32, blocks: Blocks) {
                 for block in blocks {
-                    println!("{}Block #{} opcode {}", " ".repeat(indentation as usize), block.op_code, block.content.to_string());
+                    println!(
+                        "{}Block #{} opcode {}",
+                        " ".repeat(indentation as usize),
+                        block.op_code,
+                        block.content.to_string()
+                    );
 
                     if let Some(blocks_ss1) = block.sub_stack1 {
                         println!("{}substack1: ", " ".repeat(indentation as usize));

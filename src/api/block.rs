@@ -1,10 +1,10 @@
+use crate::color::Color;
+use crate::parser::logic::Block as ParserBlock;
+use crate::parser::logic::BlockContainer;
+use ritelinked::LinkedHashMap;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 use std::str::FromStr;
-use ritelinked::LinkedHashMap;
-use crate::color::Color;
-use crate::parser::logic::BlockContainer;
-use crate::parser::logic::Block as ParserBlock;
 use thiserror::Error;
 
 /// An abstraction over the blockchain model of sketchware, doesn't store the block ids. It
@@ -17,75 +17,89 @@ impl TryFrom<BlockContainer> for Blocks {
     type Error = BlockConversionError;
 
     fn try_from(value: BlockContainer) -> Result<Self, Self::Error> {
-        let mut blocks = value.0
-            .into_iter()
-            .try_fold(LinkedHashMap::<u32, ParserBlock>::new(), |mut acc, block| {
+        let mut blocks = value.0.into_iter().try_fold(
+            LinkedHashMap::<u32, ParserBlock>::new(),
+            |mut acc, block| {
                 acc.insert(
-                    u32::from_str(block.id.as_str())
-                        .map_err(|err| BlockConversionError::MalformedBlockId {
+                    u32::from_str(block.id.as_str()).map_err(|err| {
+                        BlockConversionError::MalformedBlockId {
                             id: block.id.to_owned(),
-                            source: err
-                        })?,
-                    block
+                            source: err,
+                        }
+                    })?,
+                    block,
                 );
 
                 Ok(acc)
-            })?;
+            },
+        )?;
 
         fn parse_block(
-            id: u32, blocks: &mut LinkedHashMap<u32, ParserBlock>
+            id: u32,
+            blocks: &mut LinkedHashMap<u32, ParserBlock>,
         ) -> Result<Block, BlockConversionError> {
-            let parser_block = blocks.remove(&id)
+            let parser_block = blocks
+                .remove(&id)
                 .ok_or_else(|| BlockConversionError::BlockNotFound { id })?;
 
             Ok(Block {
-                sub_stack1: if parser_block.sub_stack1.is_negative() { None } else {
-                    Some(parse_blocks(parser_block.sub_stack1 as u32, blocks)
-                        .map_err(|error| BlockConversionError::Substack1ParseError {
-                            id,
-                            sub_stack1_pointer: parser_block.sub_stack1 as u32,
-                            source: Box::new(error)
-                        })?)
+                sub_stack1: if parser_block.sub_stack1.is_negative() {
+                    None
+                } else {
+                    Some(
+                        parse_blocks(parser_block.sub_stack1 as u32, blocks).map_err(|error| {
+                            BlockConversionError::Substack1ParseError {
+                                id,
+                                sub_stack1_pointer: parser_block.sub_stack1 as u32,
+                                source: Box::new(error),
+                            }
+                        })?,
+                    )
                 },
-                sub_stack2: if parser_block.sub_stack2.is_negative() { None } else {
-                    Some(parse_blocks(parser_block.sub_stack2 as u32, blocks)
-                        .map_err(|error| BlockConversionError::Substack2ParseError {
-                            id,
-                            sub_stack2_pointer: parser_block.sub_stack2 as u32,
-                            source: Box::new(error)
-                        })?)
+                sub_stack2: if parser_block.sub_stack2.is_negative() {
+                    None
+                } else {
+                    Some(
+                        parse_blocks(parser_block.sub_stack2 as u32, blocks).map_err(|error| {
+                            BlockConversionError::Substack2ParseError {
+                                id,
+                                sub_stack2_pointer: parser_block.sub_stack2 as u32,
+                                source: Box::new(error),
+                            }
+                        })?,
+                    )
                 },
                 color: parser_block.color,
                 op_code: parser_block.op_code,
                 content: BlockContent::parse(parser_block.spec, parser_block.parameters)
-                    .map_err(|err| BlockConversionError::BlockContentParseError {
-                        source: err
-                    })?
+                    .map_err(|err| BlockConversionError::BlockContentParseError { source: err })?
                     .apply_blocks(|id| parse_block(id, blocks).ok())
-                    .map_err(|err| BlockConversionError::BlockContentParseError {
-                        source: err
-                    })?,
+                    .map_err(|err| BlockConversionError::BlockContentParseError { source: err })?,
                 block_type: BlockType::from(&parser_block.r#type, parser_block.type_name)
-                    .map_err(|err| BlockConversionError::InvalidType { source: err })?
+                    .map_err(|err| BlockConversionError::InvalidType { source: err })?,
             })
         }
 
         fn parse_blocks(
-            starting_id: u32, blocks: &mut LinkedHashMap<u32, ParserBlock>
+            starting_id: u32,
+            blocks: &mut LinkedHashMap<u32, ParserBlock>,
         ) -> Result<Blocks, BlockConversionError> {
             let mut current_id = starting_id;
             let mut result = Vec::new();
 
             loop {
                 let next_block = {
-                    blocks.get(&current_id)
+                    blocks
+                        .get(&current_id)
                         .ok_or_else(|| BlockConversionError::BlockNotFound { id: current_id })?
                         .next_block
                 };
 
                 result.push(parse_block(current_id, blocks)?);
 
-                if next_block.is_negative() { break }
+                if next_block.is_negative() {
+                    break;
+                }
                 current_id = next_block as u32;
             }
 
@@ -103,15 +117,10 @@ impl TryFrom<BlockContainer> for Blocks {
 #[derive(Error, Debug)]
 pub enum BlockConversionError {
     #[error("malformed block id: {id}: {:?}", .source)]
-    MalformedBlockId {
-        id: String,
-        source: ParseIntError
-    },
+    MalformedBlockId { id: String, source: ParseIntError },
 
     #[error("block with id {id} not found")]
-    BlockNotFound {
-        id: u32
-    },
+    BlockNotFound { id: u32 },
 
     #[error("error while parsing substack1 of block with id `{id}`")]
     Substack1ParseError {
@@ -128,14 +137,10 @@ pub enum BlockConversionError {
     },
 
     #[error("invalid block type: `{}`", .source.block_type)]
-    InvalidType {
-        source: InvalidBlockType
-    },
+    InvalidType { source: InvalidBlockType },
 
     #[error("error while parsing the block content: {source:?}")]
-    BlockContentParseError {
-        source: BlockContentParseError
-    }
+    BlockContentParseError { source: BlockContentParseError },
 }
 
 impl Blocks {
@@ -163,7 +168,7 @@ impl Blocks {
             result: &mut Vec<ParserBlock>,
             block: Block,
             mut id_counter: &mut u32,
-            last_block: bool
+            last_block: bool,
         ) -> u32 {
             //////////
             // First we process all of the data of this block
@@ -173,38 +178,48 @@ impl Blocks {
             let block_id = *id_counter;
 
             // --- then its arguments
-            let (parameters, mut block_args, content)
-                = process_content(block.content, &mut id_counter);
+            let (parameters, mut block_args, content) =
+                process_content(block.content, &mut id_counter);
 
             // --- then sub stacks
             let mut sub_stack_blocks = Vec::new();
-            let sub_stack1_id = block.sub_stack1
+            let sub_stack1_id = block
+                .sub_stack1
                 .map(|ss1| {
                     let mut ss1_blocks = ss1.to_block_container(*id_counter + 1);
-                    let ss1_last_id = ss1_blocks.0
+                    let ss1_last_id = ss1_blocks
+                        .0
                         .last()
                         .map(|b| b.id.parse::<i32>().unwrap())
                         .unwrap_or_else(|| -1);
 
                     sub_stack_blocks.append(&mut ss1_blocks.0);
 
-                    if ss1_last_id != -1 { *id_counter = ss1_last_id as u32; }
+                    if ss1_last_id != -1 {
+                        *id_counter = ss1_last_id as u32;
+                    }
                     ss1_last_id
-                }).unwrap_or_else(|| -1);
+                })
+                .unwrap_or_else(|| -1);
 
-            let sub_stack2_id = block.sub_stack2
+            let sub_stack2_id = block
+                .sub_stack2
                 .map(|ss2| {
                     let mut ss2_blocks = ss2.to_block_container(*id_counter + 1);
-                    let ss2_last_id = ss2_blocks.0
+                    let ss2_last_id = ss2_blocks
+                        .0
                         .last()
                         .map(|b| b.id.parse::<i32>().unwrap())
                         .unwrap_or_else(|| -1);
 
                     sub_stack_blocks.append(&mut ss2_blocks.0);
 
-                    if ss2_last_id != -1 { *id_counter = ss2_last_id as u32; }
+                    if ss2_last_id != -1 {
+                        *id_counter = ss2_last_id as u32;
+                    }
                     ss2_last_id
-                }).unwrap_or_else(|| -1);
+                })
+                .unwrap_or_else(|| -1);
 
             /////////
             // Actually append stuff
@@ -213,14 +228,21 @@ impl Blocks {
             result.push(ParserBlock {
                 color: block.color,
                 id: block_id.to_string(),
-                next_block: if last_block { -1 } else { (*id_counter + 1) as i32 },
+                next_block: if last_block {
+                    -1
+                } else {
+                    (*id_counter + 1) as i32
+                },
                 op_code: block.op_code,
                 parameters,
                 spec: content.to_string(),
                 r#type: block.block_type.to_string(),
 
                 // fixme: which do i choose lol
-                type_name: block.block_type.get_typename().unwrap_or_else(|| "".to_string()),
+                type_name: block
+                    .block_type
+                    .get_typename()
+                    .unwrap_or_else(|| "".to_string()),
 
                 sub_stack1: sub_stack1_id,
                 sub_stack2: sub_stack2_id,
@@ -236,41 +258,42 @@ impl Blocks {
         }
 
         /// takes off arguments and block arguments from the provided block content and return them
-        fn process_content(block_content: BlockContent, mut id_counter: &mut u32)
-            -> (Vec<String>, Vec<ParserBlock>, BlockContent) {
-
+        fn process_content(
+            block_content: BlockContent,
+            mut id_counter: &mut u32,
+        ) -> (Vec<String>, Vec<ParserBlock>, BlockContent) {
             let (content, args) = block_content.take_args();
 
             let mut block_args: Vec<ParserBlock> = Vec::new();
             let parameters = args
                 .into_iter()
                 .map(|arg| match arg {
-                    Argument::String { value, .. } => {
-                        match value {
-                            ArgValue::Value(val) => val,
-                            ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, true);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
+                    Argument::String { value, .. } => match value {
+                        ArgValue::Value(val) => val,
+                        ArgValue::Block(block) => {
+                            convert_block(&mut block_args, block, &mut id_counter, true);
+                            format!("@{}", id_counter)
                         }
-                    }
-                    Argument::Number { value, .. } => {
-                        match value {
-                            ArgValue::Value(val) => val.to_string(),
-                            ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, true);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
+                        ArgValue::BlockPlaceholder { block_id } => panic!(
+                            "tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}",
+                            block_id
+                        ),
+                        ArgValue::Empty => "".to_string(),
+                    },
+                    Argument::Number { value, .. } => match value {
+                        ArgValue::Value(val) => val.to_string(),
+                        ArgValue::Block(block) => {
+                            convert_block(&mut block_args, block, &mut id_counter, true);
+                            format!("@{}", id_counter)
                         }
-                    }
+                        ArgValue::BlockPlaceholder { block_id } => panic!(
+                            "tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}",
+                            block_id
+                        ),
+                        ArgValue::Empty => "".to_string(),
+                    },
                     Argument::Boolean { value, .. } => {
                         match value {
                             // unlike others, booleans uses blocks as their literal value, kinda
@@ -280,35 +303,37 @@ impl Blocks {
                                     BlockCategory::Operator,
                                     val.to_string(),
                                     BlockContent::builder().text(val).build(),
-                                    BlockType::Argument(ArgumentBlockReturnType::Boolean)
+                                    BlockType::Argument(ArgumentBlockReturnType::Boolean),
                                 );
 
                                 convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
-                            },
+                            }
                             ArgValue::Block(block) => {
                                 convert_block(&mut block_args, block, &mut id_counter, true);
                                 format!("@{}", id_counter)
                             }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
+                            ArgValue::BlockPlaceholder { block_id } => panic!(
+                                "tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}",
+                                block_id
+                            ),
+                            ArgValue::Empty => "".to_string(),
                         }
                     }
-                    Argument::Menu { value, ..} => {
-                        match value {
-                            ArgValue::Value(val) => val.to_string(),
-                            ArgValue::Block(block) => {
-                                convert_block(&mut block_args, block, &mut id_counter, true);
-                                format!("@{}", id_counter)
-                            }
-                            ArgValue::BlockPlaceholder { block_id } =>
-                                panic!("tries to convert argument to params but encountered an \
-                                        untouched block placeholder with id {}", block_id),
-                            ArgValue::Empty => "".to_string()
+                    Argument::Menu { value, .. } => match value {
+                        ArgValue::Value(val) => val.to_string(),
+                        ArgValue::Block(block) => {
+                            convert_block(&mut block_args, block, &mut id_counter, true);
+                            format!("@{}", id_counter)
                         }
-                    }
+                        ArgValue::BlockPlaceholder { block_id } => panic!(
+                            "tries to convert argument to params but encountered an \
+                                        untouched block placeholder with id {}",
+                            block_id
+                        ),
+                        ArgValue::Empty => "".to_string(),
+                    },
                 })
                 .collect();
 
@@ -368,7 +393,7 @@ impl Block {
         category: BlockCategory,
         op_code: String,
         content: BlockContent,
-        block_type: BlockType
+        block_type: BlockType,
     ) -> Block {
         Block {
             sub_stack1: None,
@@ -376,7 +401,7 @@ impl Block {
             color: category.into(),
             op_code,
             content,
-            block_type
+            block_type,
         }
     }
 
@@ -394,7 +419,7 @@ impl Block {
             color: category.into(),
             op_code,
             content,
-            block_type: BlockType::Control(BlockControl::OneNest)
+            block_type: BlockType::Control(BlockControl::OneNest),
         }
     }
 
@@ -413,7 +438,7 @@ impl Block {
             color: category.into(),
             op_code,
             content,
-            block_type: BlockType::Control(BlockControl::TwoNest)
+            block_type: BlockType::Control(BlockControl::TwoNest),
         }
     }
     /// Retrieves what category this block is from. Will return an error if the block color doesn't
@@ -439,12 +464,13 @@ pub enum ArgumentBlockReturnType {
     Number,
     View { type_name: String }, // todo: types for views and components
     Component { type_name: String },
-    List { inner_type: ListItem }
+    List { inner_type: ListItem },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ListItem {
-    String, Number //, Map todo
+    String,
+    Number, //, Map todo
 }
 
 impl Into<ArgumentBlockReturnType> for ListItem {
@@ -466,16 +492,16 @@ impl FromStr for ListItem {
             "List String" => ListItem::String,
             "List Number" => ListItem::Number,
             // "List Map" => ListItem::Map, todo
-            _ => return Err(InvalidListItem)
+            _ => return Err(InvalidListItem),
         })
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockControl {
-    OneNest, // if block
-    TwoNest, // ifElse block
-    EndingBlock // finish/break block
+    OneNest,     // if block
+    TwoNest,     // ifElse block
+    EndingBlock, // finish/break block
 }
 
 impl BlockType {
@@ -487,25 +513,32 @@ impl BlockType {
             "s" => BlockType::Argument(ArgumentBlockReturnType::String),
             "d" => BlockType::Argument(ArgumentBlockReturnType::Number),
             "l" => BlockType::Argument(ArgumentBlockReturnType::List {
-                inner_type: type_name.parse()
-                    .map_err(|_| InvalidBlockType { block_type: s.to_string(), type_name })?
+                inner_type: type_name.parse().map_err(|_| InvalidBlockType {
+                    block_type: s.to_string(),
+                    type_name,
+                })?,
             }),
             "c" => BlockType::Control(BlockControl::OneNest),
             "e" => BlockType::Control(BlockControl::TwoNest),
             "f" => BlockType::Control(BlockControl::EndingBlock),
             " " => BlockType::Regular,
-            _ => Err(InvalidBlockType { block_type: s.to_string(), type_name })?
+            _ => Err(InvalidBlockType {
+                block_type: s.to_string(),
+                type_name,
+            })?,
         })
     }
 
     /// Retrieves the typename of this block (if any)
     pub fn get_typename(&self) -> Option<String> {
         match self {
-            BlockType::Argument(ArgumentBlockReturnType::View { type_name }) =>
-                Some(type_name.to_string()),
-            BlockType::Argument(ArgumentBlockReturnType::Component { type_name }) =>
-                Some(type_name.to_string()),
-            _ => None
+            BlockType::Argument(ArgumentBlockReturnType::View { type_name }) => {
+                Some(type_name.to_string())
+            }
+            BlockType::Argument(ArgumentBlockReturnType::Component { type_name }) => {
+                Some(type_name.to_string())
+            }
+            _ => None,
         }
     }
 }
@@ -530,7 +563,8 @@ impl ToString for BlockType {
             BlockType::Control(BlockControl::OneNest) => "c",
             BlockType::Control(BlockControl::TwoNest) => "e",
             BlockType::Control(BlockControl::EndingBlock) => "f",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
@@ -551,15 +585,15 @@ pub enum BlockCategory {
 impl Into<Color> for BlockCategory {
     fn into(self) -> Color {
         let (r, g, b) = match self {
-            BlockCategory::Variable         => (0xee, 0x7d, 0x16),
-            BlockCategory::List             => (0xcc, 0x5b, 0x22),
-            BlockCategory::Control          => (0xe1, 0xa9, 0x2a),
-            BlockCategory::Operator         => (0x5c, 0xb7, 0x22),
-            BlockCategory::Math             => (0x23, 0xb9, 0xa9),
-            BlockCategory::File             => (0xa1, 0x88, 0x7f),
-            BlockCategory::ViewFunc         => (0x4a, 0x6c, 0xd4),
-            BlockCategory::ComponentFunc    => (0xfc, 0xa5, 0xe2),
-            BlockCategory::MoreBlock        => (0x8a, 0x55, 0xd7)
+            BlockCategory::Variable => (0xee, 0x7d, 0x16),
+            BlockCategory::List => (0xcc, 0x5b, 0x22),
+            BlockCategory::Control => (0xe1, 0xa9, 0x2a),
+            BlockCategory::Operator => (0x5c, 0xb7, 0x22),
+            BlockCategory::Math => (0x23, 0xb9, 0xa9),
+            BlockCategory::File => (0xa1, 0x88, 0x7f),
+            BlockCategory::ViewFunc => (0x4a, 0x6c, 0xd4),
+            BlockCategory::ComponentFunc => (0xfc, 0xa5, 0xe2),
+            BlockCategory::MoreBlock => (0x8a, 0x55, 0xd7),
         };
 
         Color::from_rgb(r, g, b)
@@ -580,7 +614,7 @@ impl TryFrom<Color> for BlockCategory {
             (0x4a, 0x6c, 0xd4) => BlockCategory::ViewFunc,
             (0xfc, 0xa5, 0xe2) => BlockCategory::ComponentFunc,
             (0x8a, 0x55, 0xd7) => BlockCategory::MoreBlock,
-            (    _,    _,   _) => Err(UnknownColor { color: value })?
+            (_, _, _) => Err(UnknownColor { color: value })?,
         })
     }
 }
@@ -588,13 +622,13 @@ impl TryFrom<Color> for BlockCategory {
 #[derive(Error, Debug)]
 #[error("color {color} does not correlate to any block category")]
 pub struct UnknownColor {
-    pub color: Color
+    pub color: Color,
 }
 
 /// A model that stores the appearance of a block and its arguments
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockContent {
-    pub items: Vec<SpecItem>
+    pub items: Vec<SpecItem>,
 }
 
 impl BlockContent {
@@ -604,25 +638,39 @@ impl BlockContent {
         for s in spec.split(" ") {
             if !s.starts_with("%") {
                 items.push(SpecItem::Text(s.to_string()));
-                continue
+                continue;
             }
 
             // check if this thing has a name
             // example: %s.name
-            let has_name = s.chars().nth(2)
+            let has_name = s
+                .chars()
+                .nth(2)
                 .map(|c| c == '.' && s.len() > 3)
                 .unwrap_or(false);
             let name = has_name.then(|| (&s[3..]).to_string());
 
             let arg = match &s.chars().nth(1).unwrap() {
-                's' => Argument::String { name, value: ArgValue::Empty },
-                'b' => Argument::Boolean { name, value: ArgValue::Empty },
-                'd' => Argument::Number { name, value: ArgValue::Empty },
-                'm' => Argument::Menu { name: name.unwrap(), value: ArgValue::Empty },
+                's' => Argument::String {
+                    name,
+                    value: ArgValue::Empty,
+                },
+                'b' => Argument::Boolean {
+                    name,
+                    value: ArgValue::Empty,
+                },
+                'd' => Argument::Number {
+                    name,
+                    value: ArgValue::Empty,
+                },
+                'm' => Argument::Menu {
+                    name: name.unwrap(),
+                    value: ArgValue::Empty,
+                },
                 _ => Err(BlockContentParseError::UnknownSpecParam {
                     name: s.chars().nth(1).unwrap().to_string(),
-                    full: s.to_string()
-                })?
+                    full: s.to_string(),
+                })?,
             };
 
             items.push(SpecItem::Parameter(arg));
@@ -637,12 +685,14 @@ impl BlockContent {
         for s in spec.split(" ") {
             if !s.starts_with("%") {
                 items.push(SpecItem::Text(s.to_string()));
-                continue
+                continue;
             }
 
             // check if this thing has a name
             // example: %s.name
-            let has_name = s.chars().nth(2)
+            let has_name = s
+                .chars()
+                .nth(2)
                 .map(|c| c == '.' && s.len() > 3)
                 .unwrap_or(false);
             let name = has_name.then(|| (&s[3..]).to_string());
@@ -651,78 +701,81 @@ impl BlockContent {
                 's' => Argument::String {
                     name,
                     value: {
-                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        if args.is_empty() {
+                            Err(BlockContentParseError::RanOutOfArgs)?
+                        }
                         let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
-                                block_id: (&value[1..]).parse()
-                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                        value
-                                    })?
+                                block_id: (&value[1..]).parse().map_err(|_| {
+                                    BlockContentParseError::InvalidBlockId { value }
+                                })?,
                             }
-                        } else { ArgValue::Value(value) }
-                    }
+                        } else {
+                            ArgValue::Value(value)
+                        }
+                    },
                 },
                 'b' => Argument::Boolean {
                     name,
                     value: {
-                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        if args.is_empty() {
+                            Err(BlockContentParseError::RanOutOfArgs)?
+                        }
                         let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
-                                block_id: (&value[1..]).parse()
-                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                        value
-                                    })?
+                                block_id: (&value[1..]).parse().map_err(|_| {
+                                    BlockContentParseError::InvalidBlockId { value }
+                                })?,
                             }
                         } else {
-                            let value = value.parse()
-                                .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
-                                    value
-                                })?;
+                            let value = value.parse().map_err(|_| {
+                                BlockContentParseError::InvalidBooleanArgument { value }
+                            })?;
 
                             ArgValue::Value(value)
                         }
-                    }
+                    },
                 },
                 'd' => Argument::Number {
                     name,
                     value: {
-                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
+                        if args.is_empty() {
+                            Err(BlockContentParseError::RanOutOfArgs)?
+                        }
                         let value = args.remove(0);
 
                         if value.starts_with("@") {
                             ArgValue::BlockPlaceholder {
-                                block_id: (&value[1..]).parse()
-                                    .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                        value
-                                    })?
+                                block_id: (&value[1..]).parse().map_err(|_| {
+                                    BlockContentParseError::InvalidBlockId { value }
+                                })?,
                             }
                         } else {
-                            let value = value.parse()
-                                .map_err(|_| BlockContentParseError::InvalidNumberArgument {
-                                    value
-                                })?;
+                            let value = value.parse().map_err(|_| {
+                                BlockContentParseError::InvalidNumberArgument { value }
+                            })?;
 
                             ArgValue::Value(value)
                         }
-                    }
+                    },
                 },
                 'm' => Argument::Menu {
                     name: name.unwrap(),
                     value: {
-                        if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
-                        ArgValue::Value(
-                            args.remove(0)
-                        )
-                    }
+                        if args.is_empty() {
+                            Err(BlockContentParseError::RanOutOfArgs)?
+                        }
+                        ArgValue::Value(args.remove(0))
+                    },
                 },
                 _ => Err(BlockContentParseError::UnknownSpecParam {
                     name: s.chars().nth(1).unwrap().to_string(),
-                    full: s.to_string()
-                })?
+                    full: s.to_string(),
+                })?,
             };
 
             items.push(SpecItem::Parameter(arg));
@@ -734,165 +787,192 @@ impl BlockContent {
     /// Applies the args to the arguments with the value [`ArgValue::Empty`]
     pub fn apply_args(self, mut args: Vec<String>) -> Result<Self, BlockContentParseError> {
         Ok(Self {
-            items: self.items.into_iter()
-                .map(|item| Ok(match item {
-                    SpecItem::Text(val) => SpecItem::Text(val),
-                    SpecItem::Parameter(Argument::String { name, value }) => {
-                        SpecItem::Parameter(Argument::String {
-                            name,
-                            value: if let ArgValue::Empty = value {
-                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
-                                let val = args.remove(0);
-
-                                if val.starts_with("@") {
-                                    ArgValue::BlockPlaceholder {
-                                        block_id: (&val[1..]).parse()
-                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                                value: val
-                                            })?
+            items: self
+                .items
+                .into_iter()
+                .map(|item| {
+                    Ok(match item {
+                        SpecItem::Text(val) => SpecItem::Text(val),
+                        SpecItem::Parameter(Argument::String { name, value }) => {
+                            SpecItem::Parameter(Argument::String {
+                                name,
+                                value: if let ArgValue::Empty = value {
+                                    if args.is_empty() {
+                                        Err(BlockContentParseError::RanOutOfArgs)?
                                     }
-                                } else { ArgValue::Value(val) }
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Number { name, value }) => {
-                        SpecItem::Parameter(Argument::Number {
-                            name,
-                            value: if let ArgValue::Empty = value {
-                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
-                                let value = args.remove(0);
+                                    let val = args.remove(0);
 
-                                if value.starts_with("@") {
-                                    ArgValue::BlockPlaceholder {
-                                        block_id: (&value[1..]).parse()
-                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                                value
-                                            })?
+                                    if val.starts_with("@") {
+                                        ArgValue::BlockPlaceholder {
+                                            block_id: (&val[1..]).parse().map_err(|_| {
+                                                BlockContentParseError::InvalidBlockId {
+                                                    value: val,
+                                                }
+                                            })?,
+                                        }
+                                    } else {
+                                        ArgValue::Value(val)
                                     }
                                 } else {
-                                    let value = value.parse()
-                                        .map_err(|_| BlockContentParseError::InvalidNumberArgument {
-                                            value
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Number { name, value }) => {
+                            SpecItem::Parameter(Argument::Number {
+                                name,
+                                value: if let ArgValue::Empty = value {
+                                    if args.is_empty() {
+                                        Err(BlockContentParseError::RanOutOfArgs)?
+                                    }
+                                    let value = args.remove(0);
+
+                                    if value.starts_with("@") {
+                                        ArgValue::BlockPlaceholder {
+                                            block_id: (&value[1..]).parse().map_err(|_| {
+                                                BlockContentParseError::InvalidBlockId { value }
+                                            })?,
+                                        }
+                                    } else {
+                                        let value = value.parse().map_err(|_| {
+                                            BlockContentParseError::InvalidNumberArgument { value }
                                         })?;
 
-                                    ArgValue::Value(value)
-                                }
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Boolean { name, value }) => {
-                        SpecItem::Parameter(Argument::Boolean {
-                            name,
-                            value: if let ArgValue::Empty = value {
-                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
-                                let value = args.remove(0);
-
-                                if value.starts_with("@") {
-                                    ArgValue::BlockPlaceholder {
-                                        block_id: (&value[1..]).parse()
-                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                                value
-                                            })?
+                                        ArgValue::Value(value)
                                     }
                                 } else {
-                                    let value = value.parse()
-                                        .map_err(|_| BlockContentParseError::InvalidBooleanArgument {
-                                            value
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Boolean { name, value }) => {
+                            SpecItem::Parameter(Argument::Boolean {
+                                name,
+                                value: if let ArgValue::Empty = value {
+                                    if args.is_empty() {
+                                        Err(BlockContentParseError::RanOutOfArgs)?
+                                    }
+                                    let value = args.remove(0);
+
+                                    if value.starts_with("@") {
+                                        ArgValue::BlockPlaceholder {
+                                            block_id: (&value[1..]).parse().map_err(|_| {
+                                                BlockContentParseError::InvalidBlockId { value }
+                                            })?,
+                                        }
+                                    } else {
+                                        let value = value.parse().map_err(|_| {
+                                            BlockContentParseError::InvalidBooleanArgument { value }
                                         })?;
 
-                                    ArgValue::Value(value)
-                                }
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Menu { name, value }) => {
-                        SpecItem::Parameter(Argument::Menu {
-                            name,
-                            value: if let ArgValue::Empty = value {
-                                if args.is_empty() { Err(BlockContentParseError::RanOutOfArgs)? }
-                                let value = args.remove(0);
-
-                                if value.starts_with("@") {
-                                    ArgValue::BlockPlaceholder {
-                                        block_id: (&value[1..]).parse()
-                                            .map_err(|_| BlockContentParseError::InvalidBlockId {
-                                                value
-                                            })?
+                                        ArgValue::Value(value)
                                     }
-                                } else { ArgValue::Value(value) }
-                            } else { value }
-                        })
-                    }
-                }))
-                .collect::<Result<_, _>>()?
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Menu { name, value }) => {
+                            SpecItem::Parameter(Argument::Menu {
+                                name,
+                                value: if let ArgValue::Empty = value {
+                                    if args.is_empty() {
+                                        Err(BlockContentParseError::RanOutOfArgs)?
+                                    }
+                                    let value = args.remove(0);
+
+                                    if value.starts_with("@") {
+                                        ArgValue::BlockPlaceholder {
+                                            block_id: (&value[1..]).parse().map_err(|_| {
+                                                BlockContentParseError::InvalidBlockId { value }
+                                            })?,
+                                        }
+                                    } else {
+                                        ArgValue::Value(value)
+                                    }
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                    })
+                })
+                .collect::<Result<_, _>>()?,
         })
     }
 
     /// Applies blocks of block placeholders arguments of this block
     pub fn apply_blocks<F>(self, mut get_block: F) -> Result<Self, BlockContentParseError>
-    where F: FnMut(u32) -> Option<Block> {
+    where
+        F: FnMut(u32) -> Option<Block>,
+    {
         Ok(Self {
-            items: self.items.into_iter()
-                .map(|item| Ok(match item {
-                    SpecItem::Text(val) => SpecItem::Text(val),
-                    SpecItem::Parameter(Argument::String { name, value }) => {
-                        SpecItem::Parameter(Argument::String {
-                            name,
-                            value: if let ArgValue::BlockPlaceholder { block_id } = value {
-                                ArgValue::Block(
-                                    get_block(block_id)
-                                        .ok_or_else(|| BlockContentParseError::BlockNotFound {
-                                            block_id
-                                        })?
-                                )
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Number { name, value }) => {
-                        SpecItem::Parameter(Argument::Number {
-                            name,
-                            value: if let ArgValue::BlockPlaceholder { block_id } = value {
-                                ArgValue::Block(
-                                    get_block(block_id)
-                                        .ok_or_else(|| BlockContentParseError::BlockNotFound {
-                                            block_id
-                                        })?
-                                )
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Boolean { name, value }) => {
-                        // unlike others, booleans literal values are blocks.
-                        // we need to check if this boolean-returning block is a true or false, in
-                        // which we will replace it with ArgValue::Value instead
-                        SpecItem::Parameter(Argument::Boolean {
-                            name,
-                            value: if let ArgValue::BlockPlaceholder { block_id } = value {
-                                let val_block = get_block(block_id)
-                                    .ok_or_else(|| BlockContentParseError::BlockNotFound { block_id })?;
+            items: self
+                .items
+                .into_iter()
+                .map(|item| {
+                    Ok(match item {
+                        SpecItem::Text(val) => SpecItem::Text(val),
+                        SpecItem::Parameter(Argument::String { name, value }) => {
+                            SpecItem::Parameter(Argument::String {
+                                name,
+                                value: if let ArgValue::BlockPlaceholder { block_id } = value {
+                                    ArgValue::Block(get_block(block_id).ok_or_else(|| {
+                                        BlockContentParseError::BlockNotFound { block_id }
+                                    })?)
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Number { name, value }) => {
+                            SpecItem::Parameter(Argument::Number {
+                                name,
+                                value: if let ArgValue::BlockPlaceholder { block_id } = value {
+                                    ArgValue::Block(get_block(block_id).ok_or_else(|| {
+                                        BlockContentParseError::BlockNotFound { block_id }
+                                    })?)
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Boolean { name, value }) => {
+                            // unlike others, booleans literal values are blocks.
+                            // we need to check if this boolean-returning block is a true or false, in
+                            // which we will replace it with ArgValue::Value instead
+                            SpecItem::Parameter(Argument::Boolean {
+                                name,
+                                value: if let ArgValue::BlockPlaceholder { block_id } = value {
+                                    let val_block = get_block(block_id).ok_or_else(|| {
+                                        BlockContentParseError::BlockNotFound { block_id }
+                                    })?;
 
-                                match val_block.op_code.as_str() {
-                                    "true" => ArgValue::Value(true),
-                                    "false" => ArgValue::Value(false),
-                                    _ => ArgValue::Block(val_block),
-                                }
-                            } else { value }
-                        })
-                    }
-                    SpecItem::Parameter(Argument::Menu { name, value }) => {
-                        SpecItem::Parameter(Argument::Menu {
-                            name,
-                            value: if let ArgValue::BlockPlaceholder { block_id } = value {
-                                ArgValue::Block(
-                                    get_block(block_id)
-                                        .ok_or_else(|| BlockContentParseError::BlockNotFound {
-                                            block_id
-                                        })?
-                                )
-                            } else { value }
-                        })
-                    }
-                })).collect::<Result<_, _>>()?
+                                    match val_block.op_code.as_str() {
+                                        "true" => ArgValue::Value(true),
+                                        "false" => ArgValue::Value(false),
+                                        _ => ArgValue::Block(val_block),
+                                    }
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                        SpecItem::Parameter(Argument::Menu { name, value }) => {
+                            SpecItem::Parameter(Argument::Menu {
+                                name,
+                                value: if let ArgValue::BlockPlaceholder { block_id } = value {
+                                    ArgValue::Block(get_block(block_id).ok_or_else(|| {
+                                        BlockContentParseError::BlockNotFound { block_id }
+                                    })?)
+                                } else {
+                                    value
+                                },
+                            })
+                        }
+                    })
+                })
+                .collect::<Result<_, _>>()?,
         })
     }
 
@@ -900,11 +980,9 @@ impl BlockContent {
     pub fn get_args(&self) -> Vec<&Argument> {
         self.items
             .iter()
-            .filter_map(|item| {
-                match item {
-                    SpecItem::Text(_) => None,
-                    SpecItem::Parameter(arg) => Some(arg)
-                }
+            .filter_map(|item| match item {
+                SpecItem::Text(_) => None,
+                SpecItem::Parameter(arg) => Some(arg),
             })
             .collect()
     }
@@ -913,11 +991,9 @@ impl BlockContent {
     pub fn get_args_mut(&mut self) -> Vec<&mut Argument> {
         self.items
             .iter_mut()
-            .filter_map(|item| {
-                match item {
-                    SpecItem::Text(_) => None,
-                    SpecItem::Parameter(arg) => Some(arg)
-                }
+            .filter_map(|item| match item {
+                SpecItem::Text(_) => None,
+                SpecItem::Parameter(arg) => Some(arg),
             })
             .collect()
     }
@@ -927,7 +1003,8 @@ impl BlockContent {
     pub fn take_args(self) -> (Self, Vec<Argument>) {
         let mut arguments = Vec::new();
         let reconstructed = Self {
-            items: self.items
+            items: self
+                .items
                 .into_iter()
                 .map(|item| {
                     if let SpecItem::Parameter(arg) = item {
@@ -937,17 +1014,22 @@ impl BlockContent {
                             //
                             // oh yeah the name should be cloned because it is essential
                             let ret = match &arg {
-                                Argument::String { name, .. } =>
-                                    Argument::String { name: name.as_ref().cloned(), value: ArgValue::Empty },
-                                Argument::Number { name, .. } =>
-                                    Argument::Number { name: name.as_ref().cloned(), value: ArgValue::Empty },
-                                Argument::Boolean { name, .. } =>
-                                    Argument::Boolean { name: name.as_ref().cloned(), value: ArgValue::Empty },
-                                Argument::Menu { name, .. } =>
-                                    Argument::Menu {
-                                        name: name.to_owned(),
-                                        value: ArgValue::Empty,
-                                    },
+                                Argument::String { name, .. } => Argument::String {
+                                    name: name.as_ref().cloned(),
+                                    value: ArgValue::Empty,
+                                },
+                                Argument::Number { name, .. } => Argument::Number {
+                                    name: name.as_ref().cloned(),
+                                    value: ArgValue::Empty,
+                                },
+                                Argument::Boolean { name, .. } => Argument::Boolean {
+                                    name: name.as_ref().cloned(),
+                                    value: ArgValue::Empty,
+                                },
+                                Argument::Menu { name, .. } => Argument::Menu {
+                                    name: name.to_owned(),
+                                    value: ArgValue::Empty,
+                                },
                             };
 
                             // push the owned argument
@@ -955,9 +1037,11 @@ impl BlockContent {
 
                             ret
                         })
-                    } else { item }
+                    } else {
+                        item
+                    }
                 })
-                .collect()
+                .collect(),
         };
 
         (reconstructed, arguments)
@@ -971,33 +1055,22 @@ impl BlockContent {
 #[derive(Error, Debug)]
 pub enum BlockContentParseError {
     #[error("block with id {block_id} not found")]
-    BlockNotFound {
-        block_id: u32
-    },
+    BlockNotFound { block_id: u32 },
 
     #[error("invalid block id given on params while referencing a block argument: `{value}`")]
-    InvalidBlockId {
-        value: String
-    },
+    InvalidBlockId { value: String },
 
     #[error("unknown spec parameter: {name}")]
-    UnknownSpecParam {
-        name: String,
-        full: String
-    },
+    UnknownSpecParam { name: String, full: String },
 
     #[error("not enough arguments is given")]
     RanOutOfArgs,
 
     #[error("invalid argument given on a number-typed parameter: {value}")]
-    InvalidNumberArgument {
-        value: String,
-    },
+    InvalidNumberArgument { value: String },
 
     #[error("invalid argument given on a boolean-typed parameter: {value}")]
-    InvalidBooleanArgument {
-        value: String
-    },
+    InvalidBooleanArgument { value: String },
 }
 
 impl ToString for BlockContent {
@@ -1009,17 +1082,21 @@ impl ToString for BlockContent {
             output.push_str(match item {
                 SpecItem::Text(text) => text.as_str(),
                 SpecItem::Parameter(Argument::String { name, .. }) => {
-                    p_name = name.as_ref(); "%s"
-                },
+                    p_name = name.as_ref();
+                    "%s"
+                }
                 SpecItem::Parameter(Argument::Number { name, .. }) => {
-                    p_name = name.as_ref(); "%d"
-                },
+                    p_name = name.as_ref();
+                    "%d"
+                }
                 SpecItem::Parameter(Argument::Boolean { name, .. }) => {
-                    p_name = name.as_ref(); "%b"
-                },
+                    p_name = name.as_ref();
+                    "%b"
+                }
                 SpecItem::Parameter(Argument::Menu { name, .. }) => {
-                    p_name = Some(name); "%m"
-                },
+                    p_name = Some(name);
+                    "%m"
+                }
             });
 
             if let Some(name) = p_name {
@@ -1037,7 +1114,7 @@ impl ToString for BlockContent {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpecItem {
     Text(String),
-    Parameter(Argument)
+    Parameter(Argument),
 }
 
 /// Represents an argument in a spec, for instance:
@@ -1076,24 +1153,24 @@ pub enum Argument {
     // %s.name
     String {
         name: Option<String>,
-        value: ArgValue<String>
+        value: ArgValue<String>,
     },
     // %d.name
     Number {
         name: Option<String>,
-        value: ArgValue<f64>
+        value: ArgValue<f64>,
     },
     // %b.name
     Boolean {
         name: Option<String>,
-        value: ArgValue<bool>
+        value: ArgValue<bool>,
     },
     // %m.name
     Menu {
         // names are always present in menus
         name: String,
-        value: ArgValue<String>
-    }
+        value: ArgValue<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1105,12 +1182,12 @@ pub enum ArgValue<T: Debug + Clone + PartialEq> {
     BlockPlaceholder { block_id: u32 },
 
     // when there is no value passed to this parameter
-    Empty
+    Empty,
 }
 
 /// A very simple [`BlockContent`] builder
 pub struct BlockContentBuilder {
-    content: Vec<SpecItem>
+    content: Vec<SpecItem>,
 }
 
 impl BlockContentBuilder {
@@ -1128,6 +1205,8 @@ impl BlockContentBuilder {
 
     /// Builds a [`BlockContent`] based off of the text/args given
     pub fn build(self) -> BlockContent {
-        BlockContent { items: self.content }
+        BlockContent {
+            items: self.content,
+        }
     }
 }

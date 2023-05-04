@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use serde_repr::{Serialize_repr, Deserialize_repr};
-use thiserror::Error;
 use super::Parsable;
+use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct File {
@@ -24,28 +24,34 @@ impl Parsable for File {
         }
 
         let mut cur_section = FileSection::None;
-        let mut result = File { activities: vec![], custom_views: vec![] };
+        let mut result = File {
+            activities: vec![],
+            custom_views: vec![],
+        };
         let mut line_count: u32 = 0;
 
         loop {
             let line = iterator.next();
-            if line.is_none() { break; }
+            if line.is_none() {
+                break;
+            }
             let line = line.unwrap();
 
             if line == "@activity" {
                 cur_section = FileSection::Activity;
             } else if line == "@customview" {
                 cur_section = FileSection::CustomView;
-
             } else if cur_section != FileSection::None {
                 // parse the file item if the line isn't empty
-                if line.is_empty() { break; }
+                if line.is_empty() {
+                    break;
+                }
 
-                let file_item = FileItem::parse(line)
-                    .map_err(|err| FileParseError::FileItemParseError {
+                let file_item =
+                    FileItem::parse(line).map_err(|err| FileParseError::FileItemParseError {
                         source: err,
                         line: line_count,
-                        content: line.to_string()
+                        content: line.to_string(),
                     })?;
 
                 // push the file item to the appropriate section
@@ -53,8 +59,10 @@ impl Parsable for File {
                     &mut result.activities
                 } else if cur_section == FileSection::CustomView {
                     &mut result.custom_views
-                } else { break }
-                    .push(file_item)
+                } else {
+                    break;
+                }
+                .push(file_item)
             }
 
             line_count += 1;
@@ -69,22 +77,31 @@ impl Parsable for File {
             self.activities
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()
-                        .map_err(|err| FileReconstructionError::FileItemReconstructionError {
-                            source: err,
-                            item: i.to_owned()
-                        })?))
+                    Ok(format!(
+                        "{}\n{}",
+                        acc,
+                        i.reconstruct().map_err(|err| {
+                            FileReconstructionError::FileItemReconstructionError {
+                                source: err,
+                                item: i.to_owned(),
+                            }
+                        })?
+                    ))
                 })?
                 .trim(),
-
             self.custom_views
                 .iter()
                 .try_fold(String::new(), |acc, i| {
-                    Ok(format!("{}\n{}", acc, i.reconstruct()
-                        .map_err(|err| FileReconstructionError::FileItemReconstructionError {
-                            source: err,
-                            item: i.to_owned()
-                        })?))
+                    Ok(format!(
+                        "{}\n{}",
+                        acc,
+                        i.reconstruct().map_err(|err| {
+                            FileReconstructionError::FileItemReconstructionError {
+                                source: err,
+                                item: i.to_owned(),
+                            }
+                        })?
+                    ))
                 })?
                 .trim(),
         ))
@@ -98,7 +115,7 @@ pub enum FileParseError {
         source: serde_json::Error,
         line: u32,
         content: String,
-    }
+    },
 }
 
 #[derive(Error, Debug)]
@@ -107,7 +124,7 @@ pub enum FileReconstructionError {
     FileItemReconstructionError {
         source: serde_json::Error,
         item: FileItem,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -184,9 +201,12 @@ pub struct ActivityOptions {
 impl ActivityOptions {
     pub fn from_num(num: u8) -> ActivityOptions {
         ActivityOptions {
-            toolbar_enabled: num & ActivityOptionMask::Toolbar as u8 == ActivityOptionMask::Toolbar as u8,
-            fullscreen_enabled: num & ActivityOptionMask::Fullscreen as u8 == ActivityOptionMask::Fullscreen as u8,
-            drawer_enabled: num & ActivityOptionMask::Drawer as u8 == ActivityOptionMask::Drawer as u8,
+            toolbar_enabled: num & ActivityOptionMask::Toolbar as u8
+                == ActivityOptionMask::Toolbar as u8,
+            fullscreen_enabled: num & ActivityOptionMask::Fullscreen as u8
+                == ActivityOptionMask::Fullscreen as u8,
+            drawer_enabled: num & ActivityOptionMask::Drawer as u8
+                == ActivityOptionMask::Drawer as u8,
             fab_enabled: num & ActivityOptionMask::Fab as u8 == ActivityOptionMask::Fab as u8,
         }
     }
@@ -194,10 +214,18 @@ impl ActivityOptions {
     pub fn as_num(&self) -> u8 {
         let mut result = 0u8;
 
-        if self.toolbar_enabled { result |= ActivityOptionMask::Toolbar as u8; }
-        if self.fullscreen_enabled { result |= ActivityOptionMask::Fullscreen as u8; }
-        if self.drawer_enabled { result |= ActivityOptionMask::Drawer as u8; }
-        if self.fab_enabled { result |= ActivityOptionMask::Fab as u8; }
+        if self.toolbar_enabled {
+            result |= ActivityOptionMask::Toolbar as u8;
+        }
+        if self.fullscreen_enabled {
+            result |= ActivityOptionMask::Fullscreen as u8;
+        }
+        if self.drawer_enabled {
+            result |= ActivityOptionMask::Drawer as u8;
+        }
+        if self.fab_enabled {
+            result |= ActivityOptionMask::Fab as u8;
+        }
 
         result
     }
@@ -205,21 +233,27 @@ impl ActivityOptions {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ActivityOptionMask {
-    Toolbar     = 1 << 0,
-    Fullscreen  = 1 << 1,
-    Drawer      = 1 << 2,
-    Fab         = 1 << 3,
+    Toolbar = 1 << 0,
+    Fullscreen = 1 << 1,
+    Drawer = 1 << 2,
+    Fab = 1 << 3,
 }
 
 mod activity_options_parser {
-    use serde::{Deserialize, Deserializer, Serializer};
     use super::ActivityOptions;
+    use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(options: &ActivityOptions, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    pub fn serialize<S>(options: &ActivityOptions, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         serializer.serialize_u8(options.as_num())
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<ActivityOptions, D::Error> where D: Deserializer<'de> {
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<ActivityOptions, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         Ok(ActivityOptions::from_num(u8::deserialize(deserializer)?))
     }
 }

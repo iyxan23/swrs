@@ -1,24 +1,26 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use thiserror::Error;
-use crate::CryptoError;
 use crate::parser::file::{FileParseError, FileReconstructionError};
 use crate::parser::library::{LibraryParseError, LibraryReconstructionError};
 use crate::parser::logic::{LogicParseError, LogicReconstructionError};
 use crate::parser::resource::{ResourceParseError, ResourceReconstructionError};
 use crate::parser::view::{ViewParseError, ViewReconstructionError};
+use crate::CryptoError;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use thiserror::Error;
 
-pub mod project;
 pub mod file;
 pub mod library;
-pub mod resource;
-pub mod view;
 pub mod logic;
+pub mod project;
+pub mod resource;
 pub(crate) mod serde_util;
+pub mod view;
 
 /// Represents a parsable (and possibly re-construct-able) object
 pub trait Parsable
-where Self: Sized {
+where
+    Self: Sized,
+{
     type ParseError;
     type ReconstructionError;
 
@@ -45,7 +47,7 @@ pub struct RawSketchwareProject {
     /// A list of resource files that belongs to this project
     ///
     /// `None` means to automatically assign missing resources with a random id
-    pub resource_files: Option<Vec<ResourceFileWrapper>>
+    pub resource_files: Option<Vec<ResourceFileWrapper>>,
 }
 
 impl RawSketchwareProject {
@@ -57,9 +59,17 @@ impl RawSketchwareProject {
         resource: String,
         view: String,
         logic: String,
-        resource_files: Vec<ResourceFileWrapper>
+        resource_files: Vec<ResourceFileWrapper>,
     ) -> Self {
-        RawSketchwareProject { project, file, library, resource, view, logic, resource_files: Some(resource_files) }
+        RawSketchwareProject {
+            project,
+            file,
+            library,
+            resource,
+            view,
+            logic,
+            resource_files: Some(resource_files),
+        }
     }
 
     /// Creates a RawSketchwareProject with the specified fields without the resource files, they
@@ -72,7 +82,15 @@ impl RawSketchwareProject {
         view: String,
         logic: String,
     ) -> Self {
-        RawSketchwareProject { project, file, library, resource, view, logic, resource_files: None }
+        RawSketchwareProject {
+            project,
+            file,
+            library,
+            resource,
+            view,
+            logic,
+            resource_files: None,
+        }
     }
 
     pub fn from_encrypted(
@@ -82,13 +100,13 @@ impl RawSketchwareProject {
         resource: Vec<u8>,
         view: Vec<u8>,
         logic: Vec<u8>,
-        resource_files: Vec<ResourceFileWrapper>
+        resource_files: Vec<ResourceFileWrapper>,
     ) -> Result<Self, CryptoError> {
         macro_rules! decrypt {
             ($name_ident:ident, $name:expr) => {
                 String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)
                     .map_err(CryptoError::FromUtf8Error)?
-            }
+            };
         }
 
         Ok(RawSketchwareProject {
@@ -98,7 +116,7 @@ impl RawSketchwareProject {
             resource: decrypt!(resource, "resource"),
             view: decrypt!(view, "view"),
             logic: decrypt!(logic, "logic"),
-            resource_files: Some(resource_files)
+            resource_files: Some(resource_files),
         })
     }
 
@@ -116,7 +134,7 @@ impl RawSketchwareProject {
             ($name_ident:ident, $name:expr) => {
                 String::from_utf8(super::decrypt_sw_encrypted(&$name_ident)?)
                     .map_err(CryptoError::FromUtf8Error)?
-            }
+            };
         }
 
         Ok(RawSketchwareProject {
@@ -126,7 +144,7 @@ impl RawSketchwareProject {
             resource: decrypt!(resource, "resource"),
             view: decrypt!(view, "view"),
             logic: decrypt!(logic, "logic"),
-            resource_files: None
+            resource_files: None,
         })
     }
 }
@@ -150,7 +168,9 @@ pub struct SketchwareProject {
 
 impl SketchwareProject {
     /// Parses a [`RawSketchwareProject`] into [`SketchwareProject`]
-    pub fn parse_from(raw_swproj: RawSketchwareProject) -> Result<Self, SketchwareProjectParseError> {
+    pub fn parse_from(
+        raw_swproj: RawSketchwareProject,
+    ) -> Result<Self, SketchwareProjectParseError> {
         Ok(SketchwareProject {
             project: project::Project::parse(raw_swproj.project.as_str())
                 .map_err(SketchwareProjectParseError::ProjectParseError)?,
@@ -170,7 +190,8 @@ impl SketchwareProject {
             logic: logic::Logic::parse(raw_swproj.logic.as_str())
                 .map_err(SketchwareProjectParseError::LogicParseError)?,
 
-            resource_files: raw_swproj.resource_files
+            resource_files: raw_swproj
+                .resource_files
                 .map(|r| r.try_into())
                 .transpose()
                 .map_err(SketchwareProjectParseError::ResourceFilesParseError)?,
@@ -178,10 +199,15 @@ impl SketchwareProject {
     }
 
     /// Parses a list of project data into [`SketchwareProject`]
-    pub fn parse(project: String, file: String, library: String, resource: String, view: String,
-                 logic: String, resource_files: Vec<ResourceFileWrapper>)
-        -> Result<Self, SketchwareProjectParseError> {
-
+    pub fn parse(
+        project: String,
+        file: String,
+        library: String,
+        resource: String,
+        view: String,
+        logic: String,
+        resource_files: Vec<ResourceFileWrapper>,
+    ) -> Result<Self, SketchwareProjectParseError> {
         SketchwareProject::parse_from(RawSketchwareProject {
             project,
             file,
@@ -189,16 +215,20 @@ impl SketchwareProject {
             resource,
             view,
             logic,
-            resource_files: Some(resource_files)
+            resource_files: Some(resource_files),
         })
     }
 
     /// Parses a list of project data into [`SketchwareProject`] without resource files (they'll be
     /// ignored on API)
-    pub fn parse_wo_res(project: String, file: String, library: String, resource: String,
-                        view: String, logic: String)
-                 -> Result<Self, SketchwareProjectParseError> {
-
+    pub fn parse_wo_res(
+        project: String,
+        file: String,
+        library: String,
+        resource: String,
+        view: String,
+        logic: String,
+    ) -> Result<Self, SketchwareProjectParseError> {
         SketchwareProject::parse_from(RawSketchwareProject {
             project,
             file,
@@ -206,7 +236,7 @@ impl SketchwareProject {
             resource,
             view,
             logic,
-            resource_files: None
+            resource_files: None,
         })
     }
 }
@@ -216,25 +246,37 @@ impl TryInto<RawSketchwareProject> for SketchwareProject {
 
     fn try_into(self) -> Result<RawSketchwareProject, Self::Error> {
         Ok(RawSketchwareProject {
-            project: self.project.reconstruct()
+            project: self
+                .project
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::ProjectReconstructionError)?,
 
-            file: self.file.reconstruct()
+            file: self
+                .file
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::FileReconstructionError)?,
 
-            library: self.library.reconstruct()
+            library: self
+                .library
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::LibraryReconstructionError)?,
 
-            resource: self.resource.reconstruct()
+            resource: self
+                .resource
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::ResourceReconstructionError)?,
 
-            view: self.view.reconstruct()
+            view: self
+                .view
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::ViewReconstructionError)?,
 
-            logic: self.logic.reconstruct()
+            logic: self
+                .logic
+                .reconstruct()
                 .map_err(SketchwareProjectReconstructionError::LogicReconstructionError)?,
 
-            resource_files: self.resource_files.map(|r| r.into())
+            resource_files: self.resource_files.map(|r| r.into()),
         })
     }
 }
@@ -260,7 +302,7 @@ pub enum SketchwareProjectParseError {
     LogicParseError(#[from] LogicParseError),
 
     #[error("failed retrieve resource files")]
-    ResourceFilesParseError(#[from] ResourceFilesParseError)
+    ResourceFilesParseError(#[from] ResourceFilesParseError),
 }
 
 // these names might be too long lol, should i shorten them to something like SwProjectReconError?
@@ -309,7 +351,7 @@ pub enum ResourceFileWrapper {
         ///
         /// please make sure the filename of the file that corresponds to this matches with this
         res_full_name: String,
-        res_type: ResourceType
+        res_type: ResourceType,
     },
 
     /// An imaginary file that is identified with an unsigned 32-bit integer
@@ -321,7 +363,7 @@ pub enum ResourceFileWrapper {
         ///
         /// please make sure the filename of the file that corresponds to this matches with this
         res_full_name: String,
-        res_type: ResourceType
+        res_type: ResourceType,
     },
 }
 
@@ -332,8 +374,8 @@ impl ResourceFileWrapper {
                 path.file_name().unwrap().to_str().unwrap().to_string() /* should never fail */
             }
 
-            ResourceFileWrapper::StringId { res_full_name, .. } => { res_full_name.to_owned() }
-            ResourceFileWrapper::U32Id { res_full_name, .. } => { res_full_name.to_owned() }
+            ResourceFileWrapper::StringId { res_full_name, .. } => res_full_name.to_owned(),
+            ResourceFileWrapper::U32Id { res_full_name, .. } => res_full_name.to_owned(),
         }
     }
 
@@ -344,13 +386,18 @@ impl ResourceFileWrapper {
         ResourceFileWrapper::U32Id {
             id: rand::random(),
             res_full_name,
-            res_type
+            res_type,
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ResourceType { Image, Sound, Font, CustomIcon }
+pub enum ResourceType {
+    Image,
+    Sound,
+    Font,
+    CustomIcon,
+}
 
 /// A struct that stores all the resources of a sketchware project its attached to
 ///
@@ -376,7 +423,9 @@ impl TryFrom<Vec<ResourceFileWrapper>> for ResourceFiles {
             match &path {
                 ResourceFileWrapper::Path(file) => {
                     if !file.exists() {
-                        return Err(ResourceFilesParseError::FileDoesntExist { path: file.clone() });
+                        return Err(ResourceFilesParseError::FileDoesntExist {
+                            path: file.clone(),
+                        });
                     }
 
                     // its path should be
@@ -385,60 +434,97 @@ impl TryFrom<Vec<ResourceFileWrapper>> for ResourceFiles {
                     //
                     // the subfolder after /resources/ determines what type of resource it is
                     let res_type = file
-                        .parent().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
-                        .parent().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
-                        .file_name().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
-                        .to_str().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?;
-
-                    let res_full_name = file.file_name()
+                        .parent()
                         .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
-                        .to_str().ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        .parent()
+                        .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        .file_name()
+                        .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        .to_str()
+                        .ok_or_else(|| ResourceFilesParseError::InvalidPath {
+                            path: file.clone(),
+                        })?;
+
+                    let res_full_name = file
+                        .file_name()
+                        .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        .to_str()
+                        .ok_or_else(|| ResourceFilesParseError::InvalidPath { path: file.clone() })?
                         .to_string();
 
                     match res_type {
-                        "images" => { images.insert(res_full_name, path); },
-                        "sounds" => { sounds.insert(res_full_name, path); },
-                        "fonts" => { fonts.insert(res_full_name, path); },
-                        "icons" => { custom_icon = Some(path); },
+                        "images" => {
+                            images.insert(res_full_name, path);
+                        }
+                        "sounds" => {
+                            sounds.insert(res_full_name, path);
+                        }
+                        "fonts" => {
+                            fonts.insert(res_full_name, path);
+                        }
+                        "icons" => {
+                            custom_icon = Some(path);
+                        }
 
-                        _ => Err(ResourceFilesParseError::InvalidPath { path: file.clone() })?
+                        _ => Err(ResourceFilesParseError::InvalidPath { path: file.clone() })?,
                     }
                 }
 
-                ResourceFileWrapper::StringId { res_type, res_full_name, .. } => {
-                    match res_type {
-                        ResourceType::Image => { images.insert(res_full_name.to_owned(), path); },
-                        ResourceType::Sound => { sounds.insert(res_full_name.to_owned(), path); },
-                        ResourceType::Font => { fonts.insert(res_full_name.to_owned(), path); },
-                        ResourceType::CustomIcon => { custom_icon = Some(path); }
+                ResourceFileWrapper::StringId {
+                    res_type,
+                    res_full_name,
+                    ..
+                } => match res_type {
+                    ResourceType::Image => {
+                        images.insert(res_full_name.to_owned(), path);
                     }
-                }
+                    ResourceType::Sound => {
+                        sounds.insert(res_full_name.to_owned(), path);
+                    }
+                    ResourceType::Font => {
+                        fonts.insert(res_full_name.to_owned(), path);
+                    }
+                    ResourceType::CustomIcon => {
+                        custom_icon = Some(path);
+                    }
+                },
 
-                ResourceFileWrapper::U32Id { res_type, res_full_name, .. } => {
-                    match res_type {
-                        ResourceType::Image => { images.insert(res_full_name.to_owned(), path); },
-                        ResourceType::Sound => { sounds.insert(res_full_name.to_owned(), path); },
-                        ResourceType::Font => { fonts.insert(res_full_name.to_owned(), path); },
-                        ResourceType::CustomIcon => { custom_icon = Some(path); }
+                ResourceFileWrapper::U32Id {
+                    res_type,
+                    res_full_name,
+                    ..
+                } => match res_type {
+                    ResourceType::Image => {
+                        images.insert(res_full_name.to_owned(), path);
                     }
-                }
+                    ResourceType::Sound => {
+                        sounds.insert(res_full_name.to_owned(), path);
+                    }
+                    ResourceType::Font => {
+                        fonts.insert(res_full_name.to_owned(), path);
+                    }
+                    ResourceType::CustomIcon => {
+                        custom_icon = Some(path);
+                    }
+                },
             }
         }
 
-        Ok(ResourceFiles { custom_icon, images, sounds, fonts })
+        Ok(ResourceFiles {
+            custom_icon,
+            images,
+            sounds,
+            fonts,
+        })
     }
 }
 
 #[derive(Error, Debug)]
 pub enum ResourceFilesParseError {
     #[error("file `{path:?}` does not exist")]
-    FileDoesntExist {
-        path: PathBuf
-    },
+    FileDoesntExist { path: PathBuf },
     #[error("path given `{path:?}` is invalid (are you sure its pointing to a sketchware's resources folder?)")]
-    InvalidPath {
-        path: PathBuf
-    }
+    InvalidPath { path: PathBuf },
 }
 
 impl Into<Vec<ResourceFileWrapper>> for ResourceFiles {
@@ -463,7 +549,7 @@ impl Default for ResourceFiles {
             custom_icon: None,
             images: HashMap::new(),
             sounds: HashMap::new(),
-            fonts: HashMap::new()
+            fonts: HashMap::new(),
         }
     }
 }
